@@ -1,5 +1,7 @@
 # Atlasaur
 
+Live demo: <https://markus-ipse.github.io/Atlasaur/>
+
 A small browser game for learning to identify countries on a world map. Two
 modes:
 
@@ -84,6 +86,18 @@ After editing, run `npm run build:countries` to regenerate
 ├── tsconfig.json + tsconfig.app.json + tsconfig.node.json
 └── package.json
 ```
+
+## Deployment
+
+Pushes to `main` are built and published to GitHub Pages by
+`.github/workflows/deploy.yml`. The workflow runs `npm ci && npm run build`
+and uploads `dist/` via `actions/deploy-pages`.
+
+One-time setup: in repo **Settings → Pages**, set **Source** to
+**"GitHub Actions"**. The first run won't deploy until that's flipped.
+
+`vite.config.ts` sets `base: "./"` so the built assets work under any
+subpath (here, `/Atlasaur/`) without hardcoding the repo name.
 
 ## Stack
 
