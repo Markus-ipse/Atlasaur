@@ -1,7 +1,7 @@
 import { useEffect, useReducer } from "react";
 import countriesData from "../data/countries.json";
 import { normalize } from "../data/normalize";
-import { pickCountry, pickNext } from "./pickCountry";
+import { pickRandom, pickNext } from "./pickCountry";
 import type {
   Country,
   Feedback,
@@ -37,7 +37,7 @@ function matchTypedAnswer(input: string): string {
   return "";
 }
 
-type State = {
+export type State = {
   mode: Mode;
   current: Country;
   score: number;
@@ -52,20 +52,19 @@ type State = {
   sessionDone: boolean;
 };
 
-type Action =
+export type Action =
   | { type: "answer"; iso3: string }
   | { type: "skip" }
-  | { type: "continue" }
-  | { type: "advance" }
+  | { type: "dismiss" }
   | { type: "setMode"; mode: Mode }
   | { type: "endSession" }
   | { type: "startReview" }
   | { type: "reset" };
 
-function initialState(mode: Mode = "name-to-click"): State {
+export function initialState(mode: Mode = "name-to-click"): State {
   return {
     mode,
-    current: pickCountry(COUNTRIES, null),
+    current: pickRandom(COUNTRIES, null),
     score: 0,
     streak: 0,
     bestStreak: 0,
@@ -170,7 +169,7 @@ function dismissFeedback(state: State): State {
   return { ...state, current: nextCurrent(state), feedback: null };
 }
 
-function reducer(state: State, action: Action): State {
+export function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "answer": {
       if (state.feedback || state.sessionDone) return state;
@@ -183,12 +182,8 @@ function reducer(state: State, action: Action): State {
       if (state.feedback || state.sessionDone) return state;
       return applyMiss(state, state.current, "skipped", "");
     }
-    case "advance": {
+    case "dismiss": {
       if (!state.feedback) return state;
-      return dismissFeedback(state);
-    }
-    case "continue": {
-      if (!state.feedback || state.feedback.kind === "correct") return state;
       return dismissFeedback(state);
     }
     case "setMode": {
@@ -218,12 +213,13 @@ function reducer(state: State, action: Action): State {
 
 export type GameApi = {
   state: State;
+  unlearnedCount: number;
   isoFromNumeric: (numeric: string) => string | undefined;
   numericFromIso3: (iso3: string) => string | undefined;
   matchTypedAnswer: (input: string) => string;
   answer: (iso3: string) => void;
   skip: () => void;
-  continue: () => void;
+  dismiss: () => void;
   setMode: (mode: Mode) => void;
   endSession: () => void;
   startReview: () => void;
@@ -236,7 +232,7 @@ export function useGame(): GameApi {
   useEffect(() => {
     if (!state.feedback || state.feedback.kind !== "correct") return;
     const id = window.setTimeout(
-      () => dispatch({ type: "advance" }),
+      () => dispatch({ type: "dismiss" }),
       FEEDBACK_DURATION.correct,
     );
     return () => window.clearTimeout(id);
@@ -244,12 +240,13 @@ export function useGame(): GameApi {
 
   return {
     state,
+    unlearnedCount: state.retryQueue.length,
     isoFromNumeric,
     numericFromIso3,
     matchTypedAnswer,
     answer: (iso3) => dispatch({ type: "answer", iso3 }),
     skip: () => dispatch({ type: "skip" }),
-    continue: () => dispatch({ type: "continue" }),
+    dismiss: () => dispatch({ type: "dismiss" }),
     setMode: (mode) => dispatch({ type: "setMode", mode }),
     endSession: () => dispatch({ type: "endSession" }),
     startReview: () => dispatch({ type: "startReview" }),

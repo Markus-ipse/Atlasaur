@@ -96,6 +96,8 @@ export function WorldMap({
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const transformRef = useRef<ZoomTransform>(zoomIdentity);
+  const pendingRestoreRef = useRef<ZoomTransform | null>(null);
   const [transform, setTransform] = useState<ZoomTransform>(zoomIdentity);
 
   useEffect(() => {
@@ -108,6 +110,7 @@ export function WorldMap({
         [W, H],
       ])
       .on("zoom", (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
+        transformRef.current = event.transform;
         setTransform(event.transform);
       });
     zoomRef.current = z;
@@ -117,13 +120,13 @@ export function WorldMap({
     };
   }, []);
 
-  const correctIso3 = feedback?.correctIso3 ?? null;
-  const hadFeedback = useRef(false);
+  const revealIso3 =
+    feedback && feedback.kind !== "correct" ? feedback.correctIso3 : null;
 
   useEffect(() => {
-    if (!correctIso3) return;
+    if (!revealIso3) return;
     if (!svgRef.current || !zoomRef.current) return;
-    const numeric = numericFromIso3(correctIso3);
+    const numeric = numericFromIso3(revealIso3);
     if (!numeric) return;
     const feat = FEATURE_BY_NUMERIC.get(numeric);
     if (!feat) return;
@@ -139,21 +142,24 @@ export function WorldMap({
       .translate(W / 2 - cx * k, H / 2 - cy * k)
       .scale(k);
 
-    hadFeedback.current = true;
+    pendingRestoreRef.current = transformRef.current;
     select(svgRef.current)
       .transition()
       .duration(700)
       .call(zoomRef.current.transform, target);
-  }, [correctIso3, numericFromIso3]);
+  }, [revealIso3, numericFromIso3]);
 
   const hasFeedback = feedback !== null;
   useEffect(() => {
-    if (hasFeedback || !hadFeedback.current) return;
+    if (hasFeedback) return;
+    const restore = pendingRestoreRef.current;
+    if (!restore) return;
+    pendingRestoreRef.current = null;
     if (!svgRef.current || !zoomRef.current) return;
     select(svgRef.current)
       .transition()
       .duration(450)
-      .call(zoomRef.current.transform, zoomIdentity);
+      .call(zoomRef.current.transform, restore);
   }, [hasFeedback]);
 
   const resetView = () => {

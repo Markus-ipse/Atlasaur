@@ -1,19 +1,17 @@
 import type { Country, Phase, RetryEntry } from "../types";
 
-export function pickCountry(
+export function pickRandom(
   pool: readonly Country[],
   exclude: string | null,
 ): Country {
   if (pool.length === 0) {
     throw new Error("Cannot pick from an empty country pool");
   }
-  if (pool.length === 1) return pool[0];
-
-  let pick = pool[Math.floor(Math.random() * pool.length)];
-  if (exclude && pick.iso3 === exclude) {
-    pick = pool[Math.floor(Math.random() * pool.length)];
-  }
-  return pick;
+  const candidates = exclude
+    ? pool.filter((c) => c.iso3 !== exclude)
+    : pool;
+  const source = candidates.length > 0 ? candidates : pool;
+  return source[Math.floor(Math.random() * source.length)];
 }
 
 export function pickNext(args: {
@@ -31,7 +29,7 @@ export function pickNext(args: {
       retryQueue.find((e) => e.iso3 !== excludeIso3) ?? retryQueue[0];
     const country = head ? byIso3.get(head.iso3) : undefined;
     if (country) return country;
-    return pickCountry(pool, excludeIso3);
+    return pickRandom(pool, excludeIso3);
   }
 
   const due = retryQueue.find(
@@ -41,5 +39,5 @@ export function pickNext(args: {
     const country = byIso3.get(due.iso3);
     if (country) return country;
   }
-  return pickCountry(pool, excludeIso3);
+  return pickRandom(pool, excludeIso3);
 }

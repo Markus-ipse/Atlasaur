@@ -28,7 +28,7 @@ export default function App() {
           phase={state.phase}
           onSetMode={game.setMode}
           onSkip={game.skip}
-          onContinue={game.continue}
+          onDismiss={game.dismiss}
           onEndSession={game.endSession}
         />
         <WorldMap
@@ -54,7 +54,7 @@ export default function App() {
           total={state.total}
           bestStreak={state.bestStreak}
           missed={state.missed}
-          unlearnedCount={state.retryQueue.length}
+          unlearnedCount={game.unlearnedCount}
           onReview={game.startReview}
           onPlayAgain={game.reset}
         />

@@ -8,7 +8,7 @@ type Props = {
   phase: Phase;
   onSetMode: (mode: Mode) => void;
   onSkip: () => void;
-  onContinue: () => void;
+  onDismiss: () => void;
   onEndSession: () => void;
 };
 
@@ -19,7 +19,7 @@ export function PromptBar({
   phase,
   onSetMode,
   onSkip,
-  onContinue,
+  onDismiss,
   onEndSession,
 }: Props) {
   const continueRef = useRef<HTMLButtonElement>(null);
@@ -69,7 +69,7 @@ export function PromptBar({
           <button
             ref={continueRef}
             type="button"
-            onClick={onContinue}
+            onClick={onDismiss}
             className="min-h-11 min-w-11 px-4 rounded bg-slate-900 text-white font-medium hover:bg-slate-800"
           >
             Continue
