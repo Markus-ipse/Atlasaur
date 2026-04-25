@@ -6,7 +6,6 @@ import type { Country, Feedback, Mode } from "../types";
 
 const COUNTRIES = countriesData as Country[];
 const ISO3_BY_NUMERIC = new Map(COUNTRIES.map((c) => [c.numeric, c.iso3]));
-const COUNTRY_BY_ISO3 = new Map(COUNTRIES.map((c) => [c.iso3, c]));
 
 const FEEDBACK_DURATION = {
   correct: 600,
@@ -106,9 +105,7 @@ function reducer(state: State, action: Action): State {
 
 export type GameApi = {
   state: State;
-  countries: readonly Country[];
   isoFromNumeric: (numeric: string) => string | undefined;
-  countryFromIso3: (iso3: string) => Country | undefined;
   matchTypedAnswer: (input: string) => string;
   answer: (iso3: string) => void;
   skip: () => void;
@@ -139,9 +136,7 @@ export function useGame(): GameApi {
 
   return {
     state,
-    countries: COUNTRIES,
     isoFromNumeric: (numeric) => ISO3_BY_NUMERIC.get(numeric),
-    countryFromIso3: (iso3) => COUNTRY_BY_ISO3.get(iso3),
     matchTypedAnswer,
     answer: (iso3) => dispatch({ type: "answer", iso3 }),
     skip: () => dispatch({ type: "skip" }),

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { Country } from "../types";
 
 type Props = {
@@ -16,11 +17,23 @@ export function SessionSummary({
   onPlayAgain,
 }: Props) {
   const accuracy = total === 0 ? 0 : Math.round((score / total) * 100);
+  const playAgainRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    playAgainRef.current?.focus();
+  }, []);
 
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-slate-900/50 p-4">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-6 flex flex-col gap-4">
-        <h2 className="text-2xl font-bold">Session complete</h2>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="session-summary-title"
+        className="w-full max-w-md bg-white rounded-lg shadow-lg p-6 flex flex-col gap-4"
+      >
+        <h2 id="session-summary-title" className="text-2xl font-bold">
+          Session complete
+        </h2>
         <div className="grid grid-cols-3 gap-4 text-center">
           <Summary label="Score" value={`${score}/${total}`} />
           <Summary label="Accuracy" value={`${accuracy}%`} />
@@ -41,6 +54,7 @@ export function SessionSummary({
           <p className="text-sm text-slate-600">No misses — clean run!</p>
         )}
         <button
+          ref={playAgainRef}
           type="button"
           onClick={onPlayAgain}
           className="min-h-11 px-5 rounded bg-slate-900 text-white font-medium"
