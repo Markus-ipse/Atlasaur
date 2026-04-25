@@ -8,8 +8,9 @@ import {
   type ZoomBehavior,
   type ZoomTransform,
 } from "d3-zoom";
+import "d3-transition";
 import { feature } from "topojson-client";
-import type { FeatureCollection, Geometry } from "geojson";
+import type { Feature, FeatureCollection, Geometry } from "geojson";
 import topology from "world-atlas/countries-110m.json";
 import type { Feedback, Mode } from "../types";
 
@@ -44,11 +45,20 @@ const PATHS: PathItem[] = collection.features.map((f, i) => ({
   d: pathGen(f) ?? "",
 }));
 
+const FEATURE_BY_NUMERIC = new Map<
+  string,
+  Feature<Geometry, { name?: string }>
+>();
+for (const f of collection.features) {
+  if (typeof f.id === "string") FEATURE_BY_NUMERIC.set(f.id, f);
+}
+
 type Props = {
   mode: Mode;
   highlightedIso3: string | null;
   feedback: Feedback | null;
   isoFromNumeric: (numeric: string) => string | undefined;
+  numericFromIso3: (iso3: string) => string | undefined;
   onCountryClick: (iso3: string) => void;
 };
 
@@ -81,10 +91,13 @@ export function WorldMap({
   highlightedIso3,
   feedback,
   isoFromNumeric,
+  numericFromIso3,
   onCountryClick,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const transformRef = useRef<ZoomTransform>(zoomIdentity);
+  const pendingRestoreRef = useRef<ZoomTransform | null>(null);
   const [transform, setTransform] = useState<ZoomTransform>(zoomIdentity);
 
   useEffect(() => {
@@ -97,6 +110,7 @@ export function WorldMap({
         [W, H],
       ])
       .on("zoom", (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
+        transformRef.current = event.transform;
         setTransform(event.transform);
       });
     zoomRef.current = z;
@@ -105,6 +119,48 @@ export function WorldMap({
       svg.on(".zoom", null);
     };
   }, []);
+
+  const revealIso3 =
+    feedback && feedback.kind !== "correct" ? feedback.correctIso3 : null;
+
+  useEffect(() => {
+    if (!revealIso3) return;
+    if (!svgRef.current || !zoomRef.current) return;
+    const numeric = numericFromIso3(revealIso3);
+    if (!numeric) return;
+    const feat = FEATURE_BY_NUMERIC.get(numeric);
+    if (!feat) return;
+
+    const [[x0, y0], [x1, y1]] = pathGen.bounds(feat);
+    const w = Math.max(1, x1 - x0);
+    const h = Math.max(1, y1 - y0);
+    const cx = (x0 + x1) / 2;
+    const cy = (y0 + y1) / 2;
+
+    const k = Math.min(12, 0.55 * Math.min(W / w, H / h));
+    const target = zoomIdentity
+      .translate(W / 2 - cx * k, H / 2 - cy * k)
+      .scale(k);
+
+    pendingRestoreRef.current = transformRef.current;
+    select(svgRef.current)
+      .transition()
+      .duration(700)
+      .call(zoomRef.current.transform, target);
+  }, [revealIso3, numericFromIso3]);
+
+  const hasFeedback = feedback !== null;
+  useEffect(() => {
+    if (hasFeedback) return;
+    const restore = pendingRestoreRef.current;
+    if (!restore) return;
+    pendingRestoreRef.current = null;
+    if (!svgRef.current || !zoomRef.current) return;
+    select(svgRef.current)
+      .transition()
+      .duration(450)
+      .call(zoomRef.current.transform, restore);
+  }, [hasFeedback]);
 
   const resetView = () => {
     if (!svgRef.current || !zoomRef.current) return;

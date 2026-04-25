@@ -6,6 +6,8 @@ type Props = {
   total: number;
   bestStreak: number;
   missed: Country[];
+  unlearnedCount: number;
+  onReview: () => void;
   onPlayAgain: () => void;
 };
 
@@ -14,14 +16,22 @@ export function SessionSummary({
   total,
   bestStreak,
   missed,
+  unlearnedCount,
+  onReview,
   onPlayAgain,
 }: Props) {
   const accuracy = total === 0 ? 0 : Math.round((score / total) * 100);
+  const reviewRef = useRef<HTMLButtonElement>(null);
   const playAgainRef = useRef<HTMLButtonElement>(null);
+  const showReview = unlearnedCount > 0;
 
   useEffect(() => {
-    playAgainRef.current?.focus();
-  }, []);
+    (showReview ? reviewRef : playAgainRef).current?.focus();
+  }, [showReview]);
+
+  const primaryClass = "min-h-11 px-5 rounded bg-slate-900 text-white font-medium";
+  const secondaryClass =
+    "min-h-11 px-5 rounded border border-slate-300 text-slate-700 font-medium hover:bg-slate-100";
 
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-slate-900/50 p-4">
@@ -53,14 +63,26 @@ export function SessionSummary({
         ) : (
           <p className="text-sm text-slate-600">No misses — clean run!</p>
         )}
-        <button
-          ref={playAgainRef}
-          type="button"
-          onClick={onPlayAgain}
-          className="min-h-11 px-5 rounded bg-slate-900 text-white font-medium"
-        >
-          Play again
-        </button>
+        <div className="flex flex-col gap-2">
+          {showReview && (
+            <button
+              ref={reviewRef}
+              type="button"
+              onClick={onReview}
+              className={primaryClass}
+            >
+              Review {unlearnedCount} missed
+            </button>
+          )}
+          <button
+            ref={playAgainRef}
+            type="button"
+            onClick={onPlayAgain}
+            className={showReview ? secondaryClass : primaryClass}
+          >
+            Play again
+          </button>
+        </div>
       </div>
     </div>
   );

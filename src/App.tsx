@@ -24,9 +24,11 @@ export default function App() {
         <PromptBar
           mode={state.mode}
           current={state.current}
-          feedback={Boolean(state.feedback)}
+          feedbackKind={state.feedback?.kind ?? null}
+          phase={state.phase}
           onSetMode={game.setMode}
           onSkip={game.skip}
+          onDismiss={game.dismiss}
           onEndSession={game.endSession}
         />
         <WorldMap
@@ -34,6 +36,7 @@ export default function App() {
           highlightedIso3={highlightedIso3}
           feedback={state.feedback}
           isoFromNumeric={game.isoFromNumeric}
+          numericFromIso3={game.numericFromIso3}
           onCountryClick={game.answer}
         />
         {state.mode === "shape-to-name" && (
@@ -51,6 +54,8 @@ export default function App() {
           total={state.total}
           bestStreak={state.bestStreak}
           missed={state.missed}
+          unlearnedCount={game.unlearnedCount}
+          onReview={game.startReview}
           onPlayAgain={game.reset}
         />
       )}
