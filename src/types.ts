@@ -14,3 +14,7 @@ export type Feedback = {
   answerIso3: string;
   correctIso3: string;
 };
+
+export type Phase = "normal" | "review";
+
+export type RetryEntry = { iso3: string; dueAt: number };

@@ -1,22 +1,34 @@
-import type { Country, Mode } from "../types";
+import { useEffect, useRef } from "react";
+import type { Country, FeedbackKind, Mode, Phase } from "../types";
 
 type Props = {
   mode: Mode;
   current: Country;
-  feedback: boolean;
+  feedbackKind: FeedbackKind | null;
+  phase: Phase;
   onSetMode: (mode: Mode) => void;
   onSkip: () => void;
+  onContinue: () => void;
   onEndSession: () => void;
 };
 
 export function PromptBar({
   mode,
   current,
-  feedback,
+  feedbackKind,
+  phase,
   onSetMode,
   onSkip,
+  onContinue,
   onEndSession,
 }: Props) {
+  const continueRef = useRef<HTMLButtonElement>(null);
+  const showContinue = feedbackKind !== null && feedbackKind !== "correct";
+
+  useEffect(() => {
+    if (showContinue) continueRef.current?.focus();
+  }, [showContinue]);
+
   return (
     <div className="w-full max-w-5xl mx-auto flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex gap-1 p-1 rounded-full border border-slate-200 bg-white self-start">
@@ -35,6 +47,11 @@ export function PromptBar({
       </div>
 
       <div className="flex-1 sm:text-center">
+        {phase === "review" && (
+          <span className="inline-block mb-1 px-2 py-0.5 text-xs font-medium uppercase tracking-wide rounded-full bg-amber-100 text-amber-800">
+            Review
+          </span>
+        )}
         {mode === "name-to-click" ? (
           <p className="text-xl sm:text-2xl">
             Find:{" "}
@@ -48,14 +65,25 @@ export function PromptBar({
       </div>
 
       <div className="flex gap-2 self-end sm:self-auto">
-        <button
-          type="button"
-          onClick={onSkip}
-          disabled={feedback}
-          className="min-h-11 min-w-11 px-4 rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Skip
-        </button>
+        {showContinue ? (
+          <button
+            ref={continueRef}
+            type="button"
+            onClick={onContinue}
+            className="min-h-11 min-w-11 px-4 rounded bg-slate-900 text-white font-medium hover:bg-slate-800"
+          >
+            Continue
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onSkip}
+            disabled={feedbackKind !== null}
+            className="min-h-11 min-w-11 px-4 rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Skip
+          </button>
+        )}
         <button
           type="button"
           onClick={onEndSession}
