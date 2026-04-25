@@ -21,11 +21,17 @@ export function SessionSummary({
   onPlayAgain,
 }: Props) {
   const accuracy = total === 0 ? 0 : Math.round((score / total) * 100);
-  const primaryRef = useRef<HTMLButtonElement>(null);
+  const reviewRef = useRef<HTMLButtonElement>(null);
+  const playAgainRef = useRef<HTMLButtonElement>(null);
+  const showReview = unlearnedCount > 0;
 
   useEffect(() => {
-    primaryRef.current?.focus();
-  }, []);
+    (showReview ? reviewRef : playAgainRef).current?.focus();
+  }, [showReview]);
+
+  const primaryClass = "min-h-11 px-5 rounded bg-slate-900 text-white font-medium";
+  const secondaryClass =
+    "min-h-11 px-5 rounded border border-slate-300 text-slate-700 font-medium hover:bg-slate-100";
 
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-slate-900/50 p-4">
@@ -58,25 +64,21 @@ export function SessionSummary({
           <p className="text-sm text-slate-600">No misses — clean run!</p>
         )}
         <div className="flex flex-col gap-2">
-          {unlearnedCount > 0 && (
+          {showReview && (
             <button
-              ref={primaryRef}
+              ref={reviewRef}
               type="button"
               onClick={onReview}
-              className="min-h-11 px-5 rounded bg-slate-900 text-white font-medium"
+              className={primaryClass}
             >
               Review {unlearnedCount} missed
             </button>
           )}
           <button
-            ref={unlearnedCount > 0 ? undefined : primaryRef}
+            ref={playAgainRef}
             type="button"
             onClick={onPlayAgain}
-            className={
-              unlearnedCount > 0
-                ? "min-h-11 px-5 rounded border border-slate-300 text-slate-700 font-medium hover:bg-slate-100"
-                : "min-h-11 px-5 rounded bg-slate-900 text-white font-medium"
-            }
+            className={showReview ? secondaryClass : primaryClass}
           >
             Play again
           </button>

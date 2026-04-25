@@ -118,9 +118,8 @@ export function WorldMap({
   }, []);
 
   const correctIso3 = feedback?.correctIso3 ?? null;
+  const hadFeedback = useRef(false);
 
-  // Smoothly pan-zoom to the correct country when feedback appears so the
-  // user actually sees where it is.
   useEffect(() => {
     if (!correctIso3) return;
     if (!svgRef.current || !zoomRef.current) return;
@@ -140,16 +139,16 @@ export function WorldMap({
       .translate(W / 2 - cx * k, H / 2 - cy * k)
       .scale(k);
 
+    hadFeedback.current = true;
     select(svgRef.current)
       .transition()
       .duration(700)
       .call(zoomRef.current.transform, target);
   }, [correctIso3, numericFromIso3]);
 
-  // Spring back to the world view when feedback clears.
   const hasFeedback = feedback !== null;
   useEffect(() => {
-    if (hasFeedback) return;
+    if (hasFeedback || !hadFeedback.current) return;
     if (!svgRef.current || !zoomRef.current) return;
     select(svgRef.current)
       .transition()
