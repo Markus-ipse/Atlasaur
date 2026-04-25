@@ -1,0 +1,167 @@
+import { useEffect, useRef, useState } from "react";
+import { geoEqualEarth, geoPath } from "d3-geo";
+import { select } from "d3-selection";
+import {
+  zoom as d3zoom,
+  zoomIdentity,
+  type D3ZoomEvent,
+  type ZoomBehavior,
+  type ZoomTransform,
+} from "d3-zoom";
+import { feature } from "topojson-client";
+import type { FeatureCollection, Geometry } from "geojson";
+import topology from "world-atlas/countries-110m.json";
+import type { Feedback, Mode } from "../types";
+
+const W = 800;
+const H = 400;
+
+const COLOR_DEFAULT = "#e5e7eb";
+const COLOR_INERT = "#f3f4f6";
+const COLOR_HIGHLIGHT = "#3b82f6";
+const COLOR_CORRECT = "#22c55e";
+const COLOR_WRONG = "#ef4444";
+const COLOR_SKIPPED = "#eab308";
+
+const collection = feature(
+  topology,
+  topology.objects.countries,
+) as unknown as FeatureCollection<Geometry, { name?: string }>;
+const projection = geoEqualEarth().fitSize([W, H], collection);
+const pathGen = geoPath(projection);
+
+type PathItem = {
+  key: string;
+  numericId: string | null;
+  d: string;
+};
+
+// Path strings depend only on the (module-level) projection, so they're
+// computed once. During pan/zoom we re-render but the d strings stay equal.
+const PATHS: PathItem[] = collection.features.map((f, i) => ({
+  key: typeof f.id === "string" ? f.id : `idx-${i}`,
+  numericId: typeof f.id === "string" ? f.id : null,
+  d: pathGen(f) ?? "",
+}));
+
+type Props = {
+  mode: Mode;
+  highlightedIso3: string | null;
+  feedback: Feedback | null;
+  isoFromNumeric: (numeric: string) => string | undefined;
+  onCountryClick: (iso3: string) => void;
+};
+
+function fillFor(
+  iso3: string | undefined,
+  highlightedIso3: string | null,
+  feedback: Feedback | null,
+): string {
+  if (!iso3) return COLOR_INERT;
+  if (feedback) {
+    // The correct country always lights up — green when answered (right or
+    // wrong, since "wrong" reveals the answer too) and yellow when skipped.
+    if (feedback.correctIso3 === iso3) {
+      return feedback.kind === "skipped" ? COLOR_SKIPPED : COLOR_CORRECT;
+    }
+    if (
+      feedback.kind === "wrong" &&
+      feedback.answerIso3 === iso3 &&
+      feedback.answerIso3 !== feedback.correctIso3
+    ) {
+      return COLOR_WRONG;
+    }
+  }
+  if (highlightedIso3 === iso3) return COLOR_HIGHLIGHT;
+  return COLOR_DEFAULT;
+}
+
+export function WorldMap({
+  mode,
+  highlightedIso3,
+  feedback,
+  isoFromNumeric,
+  onCountryClick,
+}: Props) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const [transform, setTransform] = useState<ZoomTransform>(zoomIdentity);
+
+  useEffect(() => {
+    if (!svgRef.current) return;
+    const svg = select(svgRef.current);
+    const z = d3zoom<SVGSVGElement, unknown>()
+      .scaleExtent([1, 12])
+      .translateExtent([
+        [0, 0],
+        [W, H],
+      ])
+      .on("zoom", (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
+        setTransform(event.transform);
+      });
+    zoomRef.current = z;
+    svg.call(z);
+    return () => {
+      svg.on(".zoom", null);
+    };
+  }, []);
+
+  const resetView = () => {
+    if (!svgRef.current || !zoomRef.current) return;
+    select(svgRef.current).call(zoomRef.current.transform, zoomIdentity);
+  };
+
+  const isClickMode = mode === "name-to-click" && !feedback;
+
+  return (
+    <div className="relative w-full">
+      <div className="w-full max-w-5xl mx-auto aspect-[2/1] border border-slate-200 rounded-lg overflow-hidden bg-sky-50">
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${W} ${H}`}
+          className="w-full h-full touch-none"
+          preserveAspectRatio="xMidYMid meet"
+        >
+          <g transform={transform.toString()}>
+            {PATHS.map((p) => {
+              const iso3 = p.numericId ? isoFromNumeric(p.numericId) : undefined;
+              const fill = fillFor(iso3, highlightedIso3, feedback);
+              const clickable = isClickMode && Boolean(iso3);
+              return (
+                <path
+                  key={p.key}
+                  d={p.d}
+                  fill={fill}
+                  stroke="#fff"
+                  strokeWidth={0.5}
+                  vectorEffect="non-scaling-stroke"
+                  className={
+                    clickable
+                      ? "cursor-pointer hover:brightness-95"
+                      : ""
+                  }
+                  onClick={
+                    clickable && iso3 ? () => onCountryClick(iso3) : undefined
+                  }
+                  style={{ transition: "fill 200ms ease, filter 100ms ease" }}
+                />
+              );
+            })}
+          </g>
+        </svg>
+      </div>
+      <div className="mt-2 flex justify-center gap-2 text-sm text-slate-600">
+        <button
+          type="button"
+          onClick={resetView}
+          className="min-h-9 px-3 rounded border border-slate-300 hover:bg-slate-100"
+        >
+          Reset view
+        </button>
+        <span className="self-center text-slate-500">
+          Drag to pan · scroll or pinch to zoom
+        </span>
+      </div>
+    </div>
+  );
+}
