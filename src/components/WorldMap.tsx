@@ -35,6 +35,7 @@ const COLOR_HIGHLIGHT = "#3b82f6";
 const COLOR_CORRECT = "#22c55e";
 const COLOR_WRONG = "#ef4444";
 const COLOR_SKIPPED = "#eab308";
+const COLOR_BORDER = "#64748b";
 
 const collection = feature(
   topology,
@@ -198,7 +199,7 @@ export function WorldMap({
                 key={p.key}
                 d={p.d}
                 fill={fill}
-                stroke="#64748b"
+                stroke={COLOR_BORDER}
                 strokeWidth={0.5}
                 vectorEffect="non-scaling-stroke"
                 className={clickable ? "country-clickable cursor-pointer" : ""}
