@@ -11,18 +11,7 @@ export default function App() {
     state.mode === "shape-to-name" ? state.current.iso3 : null;
 
   return (
-    <div
-      className="
-        h-dvh w-full flex overflow-hidden bg-slate-50 text-slate-900
-        portrait:flex-col landscape:flex-row
-      "
-      style={{
-        paddingTop: "env(safe-area-inset-top)",
-        paddingBottom: "env(safe-area-inset-bottom)",
-        paddingLeft: "env(safe-area-inset-left)",
-        paddingRight: "env(safe-area-inset-right)",
-      }}
-    >
+    <div className="h-dvh w-full flex overflow-hidden bg-slate-50 text-slate-900 portrait:flex-col landscape:flex-row pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       <div className="relative flex-1 min-h-0 min-w-0">
         <WorldMap
           mode={state.mode}
@@ -33,22 +22,7 @@ export default function App() {
           onCountryClick={game.answer}
         />
       </div>
-      <ControlZone
-        mode={state.mode}
-        current={state.current}
-        feedback={state.feedback}
-        phase={state.phase}
-        score={state.score}
-        streak={state.streak}
-        bestStreak={state.bestStreak}
-        total={state.total}
-        matchTypedAnswer={game.matchTypedAnswer}
-        onAnswer={game.answer}
-        onSetMode={game.setMode}
-        onSkip={game.skip}
-        onDismiss={game.dismiss}
-        onEndSession={game.endSession}
-      />
+      <ControlZone game={game} />
       {state.sessionDone && (
         <SessionSummary
           score={state.score}

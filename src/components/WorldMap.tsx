@@ -14,6 +14,13 @@ import type { Feature, FeatureCollection, Geometry } from "geojson";
 import topology from "world-atlas/countries-110m.json";
 import type { Feedback, Mode } from "../types";
 
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
+  );
+}
+
 const W = 800;
 const H = 400;
 
@@ -143,9 +150,10 @@ export function WorldMap({
       .scale(k);
 
     pendingRestoreRef.current = transformRef.current;
+    const duration = prefersReducedMotion() ? 0 : 700;
     select(svgRef.current)
       .transition()
-      .duration(700)
+      .duration(duration)
       .call(zoomRef.current.transform, target);
   }, [revealIso3, numericFromIso3]);
 
@@ -156,9 +164,10 @@ export function WorldMap({
     if (!restore) return;
     pendingRestoreRef.current = null;
     if (!svgRef.current || !zoomRef.current) return;
+    const duration = prefersReducedMotion() ? 0 : 450;
     select(svgRef.current)
       .transition()
-      .duration(450)
+      .duration(duration)
       .call(zoomRef.current.transform, restore);
   }, [hasFeedback]);
 
@@ -168,9 +177,10 @@ export function WorldMap({
   };
 
   const isClickMode = mode === "name-to-click" && !feedback;
+  const isPanned = transform !== zoomIdentity;
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-sky-50">
+    <div className="relative h-full w-full overflow-hidden bg-sky-50 [overscroll-behavior:none]">
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
@@ -191,27 +201,23 @@ export function WorldMap({
                 strokeWidth={0.5}
                 vectorEffect="non-scaling-stroke"
                 className={clickable ? "country-clickable cursor-pointer" : ""}
-                onClick={
-                  clickable && iso3 ? () => onCountryClick(iso3) : undefined
-                }
+                onClick={clickable && iso3 ? () => onCountryClick(iso3) : undefined}
                 style={{ transition: "fill 200ms ease, filter 100ms ease" }}
               />
             );
           })}
         </g>
       </svg>
-      <button
-        type="button"
-        onClick={resetView}
-        aria-label="Reset map view"
-        className="absolute top-2 right-2 min-h-9 min-w-9 px-3 rounded-full border border-slate-300 bg-white/90 backdrop-blur text-sm text-slate-700 shadow-sm hover:bg-white"
-        style={{
-          top: "calc(0.5rem + env(safe-area-inset-top))",
-          right: "calc(0.5rem + env(safe-area-inset-right))",
-        }}
-      >
-        Reset
-      </button>
+      {isPanned && (
+        <button
+          type="button"
+          onClick={resetView}
+          aria-label="Reset map view"
+          className="absolute top-2 right-2 min-h-11 min-w-11 px-3 rounded-full border border-slate-300 bg-white/90 backdrop-blur text-sm text-slate-700 shadow-sm hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+        >
+          Reset
+        </button>
+      )}
     </div>
   );
 }

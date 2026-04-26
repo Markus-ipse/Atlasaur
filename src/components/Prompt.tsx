@@ -19,7 +19,7 @@ export function Prompt({ mode, current, phase }: Props) {
           <span className="block text-xs uppercase tracking-wide text-slate-500">
             Find
           </span>
-          <span className="block text-2xl sm:text-3xl landscape:text-3xl font-semibold text-slate-900 break-words">
+          <span className="block text-2xl sm:text-3xl landscape:text-4xl font-semibold text-slate-900 break-words">
             {current.name}
           </span>
         </p>

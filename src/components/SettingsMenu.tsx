@@ -10,6 +10,12 @@ type Props = {
 export function SettingsMenu({ mode, onSetMode, onEndSession }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  const close = () => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -19,7 +25,7 @@ export function SettingsMenu({ mode, onSetMode, onEndSession }: Props) {
       setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") close();
     };
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -29,37 +35,47 @@ export function SettingsMenu({ mode, onSetMode, onEndSession }: Props) {
     };
   }, [open]);
 
+  const handleSetMode = (next: Mode) => {
+    onSetMode(next);
+    close();
+  };
+
+  const handleEndSession = () => {
+    onEndSession();
+    setOpen(false);
+  };
+
   return (
     <div ref={rootRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         aria-label="Settings"
-        aria-haspopup="menu"
+        aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full border border-slate-300 text-slate-700 hover:bg-slate-100"
+        className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full border border-slate-300 text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
       >
         <GearIcon />
       </button>
       {open && (
-        <div
-          role="menu"
-          className="absolute right-0 top-full mt-2 z-20 w-60 rounded-lg border border-slate-200 bg-white shadow-lg p-3 flex flex-col gap-3"
-        >
+        <div className="absolute right-0 z-20 w-60 rounded-lg border border-slate-200 bg-white shadow-lg p-3 flex flex-col gap-3 portrait:bottom-full portrait:mb-2 landscape:top-full landscape:mt-2">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-              Mode
-            </p>
-            <div className="flex gap-1 p-1 rounded-full border border-slate-200 bg-slate-50">
+            <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Mode</p>
+            <div
+              role="radiogroup"
+              aria-label="Game mode"
+              className="flex gap-1 p-1 rounded-full border border-slate-200 bg-slate-50"
+            >
               <ModeButton
                 active={mode === "name-to-click"}
-                onClick={() => onSetMode("name-to-click")}
+                onClick={() => handleSetMode("name-to-click")}
               >
                 Name → Click
               </ModeButton>
               <ModeButton
                 active={mode === "shape-to-name"}
-                onClick={() => onSetMode("shape-to-name")}
+                onClick={() => handleSetMode("shape-to-name")}
               >
                 Shape → Name
               </ModeButton>
@@ -67,11 +83,8 @@ export function SettingsMenu({ mode, onSetMode, onEndSession }: Props) {
           </div>
           <button
             type="button"
-            onClick={() => {
-              setOpen(false);
-              onEndSession();
-            }}
-            className="min-h-11 px-3 rounded border border-slate-300 text-slate-700 text-sm hover:bg-slate-100"
+            onClick={handleEndSession}
+            className="min-h-11 px-3 rounded border border-slate-300 text-slate-700 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
             End session
           </button>
@@ -93,12 +106,12 @@ function ModeButton({
   return (
     <button
       type="button"
+      role="radio"
+      aria-checked={active}
       onClick={onClick}
       className={
-        "flex-1 min-h-9 px-3 rounded-full text-xs font-medium transition-colors " +
-        (active
-          ? "bg-slate-900 text-white"
-          : "text-slate-600 hover:bg-slate-100")
+        "flex-1 min-h-9 px-3 rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 " +
+        (active ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100")
       }
     >
       {children}
