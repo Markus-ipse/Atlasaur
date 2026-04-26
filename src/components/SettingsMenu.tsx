@@ -100,7 +100,7 @@ export function SettingsMenu({
   };
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef}>
       <button
         ref={triggerRef}
         type="button"
