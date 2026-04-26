@@ -55,12 +55,12 @@ export function SettingsMenu({
 
   const selectedSet = new Set(selectedContinents);
   const handleToggleContinent = (continent: Continent) => {
-    if (selectedSet.has(continent)) {
-      if (selectedSet.size === 1) return;
-      onSetContinents(selectedContinents.filter((c) => c !== continent));
-    } else {
-      onSetContinents([...selectedContinents, continent]);
-    }
+    const isSelected = selectedSet.has(continent);
+    if (isSelected && selectedSet.size === 1) return;
+    const next = new Set(selectedSet);
+    if (isSelected) next.delete(continent);
+    else next.add(continent);
+    onSetContinents(ALL_CONTINENTS.filter((c) => next.has(c)));
   };
 
   return (
@@ -110,6 +110,9 @@ export function SettingsMenu({
                     key={continent}
                     active={active}
                     disabled={lockedLast}
+                    title={
+                      lockedLast ? "At least one continent must be selected" : undefined
+                    }
                     onClick={() => handleToggleContinent(continent)}
                   >
                     {continent}
@@ -159,11 +162,13 @@ function ModeButton({
 function ContinentChip({
   active,
   disabled,
+  title,
   onClick,
   children,
 }: {
   active: boolean;
   disabled: boolean;
+  title?: string;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -173,6 +178,7 @@ function ContinentChip({
       role="checkbox"
       aria-checked={active}
       aria-disabled={disabled || undefined}
+      title={title}
       onClick={disabled ? undefined : onClick}
       className={
         "min-h-9 px-3 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 " +

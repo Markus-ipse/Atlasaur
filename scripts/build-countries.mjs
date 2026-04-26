@@ -218,6 +218,27 @@ for (const [numeric, info] of Object.entries(COUNTRIES)) {
 }
 matched.sort((a, b) => a.name.localeCompare(b.name));
 
+// Must match the Continent union in src/types.ts.
+const VALID_CONTINENTS = new Set([
+  "Africa",
+  "Antarctica",
+  "Asia",
+  "Europe",
+  "North America",
+  "Oceania",
+  "South America",
+]);
+const invalidContinents = matched.filter(
+  (c) => !VALID_CONTINENTS.has(c.continent),
+);
+if (invalidContinents.length > 0) {
+  console.error("Countries with missing or invalid continent:");
+  for (const c of invalidContinents) {
+    console.error(`  ${c.iso3} ${c.name}: ${JSON.stringify(c.continent)}`);
+  }
+  process.exit(1);
+}
+
 const orphans = [];
 for (const g of topology.objects.countries.geometries) {
   if (typeof g.id === "string" && !COUNTRIES[g.id]) {

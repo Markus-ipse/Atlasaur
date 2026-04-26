@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { reducer, initialState, type State } from "./useGame";
-import type { Country } from "../types";
+import { ALL_CONTINENTS, type Country } from "../types";
 
 function withCurrent(state: State, iso3: string): State {
   // Force a known current country by pulling it from any state's seed pool
@@ -224,5 +224,141 @@ describe("reducer — lifecycle", () => {
     expect(s.score).toBe(0);
     expect(s.total).toBe(0);
     expect(s.retryQueue).toEqual([]);
+  });
+
+  it("setMode preserves selectedContinents", () => {
+    let s = initialState("name-to-click", ["Europe"]);
+    s = reducer(s, { type: "setMode", mode: "shape-to-name" });
+    expect(s.selectedContinents).toEqual(["Europe"]);
+  });
+
+  it("reset preserves selectedContinents", () => {
+    let s = initialState("name-to-click", ["Europe"]);
+    s = reducer(s, { type: "reset" });
+    expect(s.selectedContinents).toEqual(["Europe"]);
+  });
+});
+
+describe("reducer — setContinents", () => {
+  it("empty array is a no-op", () => {
+    const s0 = initialState("name-to-click", ["Europe"]);
+    const s1 = reducer(s0, { type: "setContinents", continents: [] });
+    expect(s1).toBe(s0);
+  });
+
+  it("preserves score, streak, total, missed when narrowing scope", () => {
+    const egypt: Country = {
+      numeric: "818",
+      iso3: "EGY",
+      name: "Egypt",
+      aliases: [],
+      continent: "Africa",
+    };
+    const s: State = {
+      ...initialState("name-to-click", ALL_CONTINENTS),
+      score: 5,
+      streak: 3,
+      bestStreak: 5,
+      total: 7,
+      missed: [egypt],
+      missedSet: new Set(["EGY"]),
+    };
+    const result = reducer(s, {
+      type: "setContinents",
+      continents: ["Europe"],
+    });
+    expect(result.score).toBe(5);
+    expect(result.streak).toBe(3);
+    expect(result.bestStreak).toBe(5);
+    expect(result.total).toBe(7);
+    expect(result.missed.map((c) => c.iso3)).toEqual(["EGY"]);
+    expect(result.missedSet.has("EGY")).toBe(true);
+  });
+
+  it("prunes retryQueue to in-scope iso3s", () => {
+    const s: State = {
+      ...initialState("name-to-click", ALL_CONTINENTS),
+      retryQueue: [
+        { iso3: "FRA", dueAt: 5 },
+        { iso3: "EGY", dueAt: 6 },
+        { iso3: "DEU", dueAt: 7 },
+      ],
+    };
+    const result = reducer(s, {
+      type: "setContinents",
+      continents: ["Europe"],
+    });
+    expect(result.retryQueue.map((e) => e.iso3)).toEqual(["FRA", "DEU"]);
+  });
+
+  it("re-picks current when current is now out of scope", () => {
+    const s = withCurrent(
+      initialState("name-to-click", ALL_CONTINENTS),
+      "EGY",
+    );
+    const result = reducer(s, {
+      type: "setContinents",
+      continents: ["Europe"],
+    });
+    expect(result.current.iso3).not.toBe("EGY");
+    expect(result.current.continent).toBe("Europe");
+  });
+
+  it("keeps current when it is still in scope", () => {
+    const s = withCurrent(
+      initialState("name-to-click", ALL_CONTINENTS),
+      "FRA",
+    );
+    const before = s.current;
+    const result = reducer(s, {
+      type: "setContinents",
+      continents: ["Europe", "Asia"],
+    });
+    expect(result.current).toBe(before);
+  });
+
+  it("clears feedback", () => {
+    const s: State = {
+      ...withCurrent(initialState("name-to-click", ALL_CONTINENTS), "FRA"),
+      feedback: { kind: "wrong", answerIso3: "DEU", correctIso3: "FRA" },
+    };
+    const result = reducer(s, {
+      type: "setContinents",
+      continents: ["Europe"],
+    });
+    expect(result.feedback).toBeNull();
+  });
+
+  it("ends review session when retry queue becomes empty after pruning", () => {
+    const s: State = {
+      ...withCurrent(initialState("name-to-click", ALL_CONTINENTS), "EGY"),
+      phase: "review",
+      retryQueue: [{ iso3: "EGY", dueAt: 0 }],
+    };
+    const result = reducer(s, {
+      type: "setContinents",
+      continents: ["Europe"],
+    });
+    expect(result.phase).toBe("normal");
+    expect(result.sessionDone).toBe(true);
+    expect(result.retryQueue).toEqual([]);
+  });
+
+  it("stays in review phase when queue still has in-scope entries", () => {
+    const s: State = {
+      ...withCurrent(initialState("name-to-click", ALL_CONTINENTS), "FRA"),
+      phase: "review",
+      retryQueue: [
+        { iso3: "FRA", dueAt: 0 },
+        { iso3: "EGY", dueAt: 0 },
+      ],
+    };
+    const result = reducer(s, {
+      type: "setContinents",
+      continents: ["Europe"],
+    });
+    expect(result.phase).toBe("review");
+    expect(result.sessionDone).toBe(false);
+    expect(result.retryQueue.map((e) => e.iso3)).toEqual(["FRA"]);
   });
 });

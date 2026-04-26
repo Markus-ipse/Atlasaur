@@ -1,13 +1,4 @@
-export type Continent =
-  | "Africa"
-  | "Antarctica"
-  | "Asia"
-  | "Europe"
-  | "North America"
-  | "Oceania"
-  | "South America";
-
-export const ALL_CONTINENTS: readonly Continent[] = [
+export const ALL_CONTINENTS = [
   "Africa",
   "Antarctica",
   "Asia",
@@ -15,7 +6,9 @@ export const ALL_CONTINENTS: readonly Continent[] = [
   "North America",
   "Oceania",
   "South America",
-];
+] as const;
+
+export type Continent = (typeof ALL_CONTINENTS)[number];
 
 export type Country = {
   numeric: string;

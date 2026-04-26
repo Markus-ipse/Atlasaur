@@ -237,7 +237,22 @@ export function reducer(state: State, action: Action): State {
     }
     case "setContinents": {
       if (action.continents.length === 0) return state;
-      return initialState(state.mode, action.continents);
+      const pool = filterPool(action.continents);
+      const inScope = new Set(pool.map((c) => c.iso3));
+      const retryQueue = state.retryQueue.filter((e) => inScope.has(e.iso3));
+      const current = inScope.has(state.current.iso3)
+        ? state.current
+        : pickRandom(pool, null);
+      const reviewEmpty = state.phase === "review" && retryQueue.length === 0;
+      return {
+        ...state,
+        selectedContinents: action.continents,
+        current,
+        retryQueue,
+        feedback: null,
+        phase: reviewEmpty ? "normal" : state.phase,
+        sessionDone: reviewEmpty ? true : state.sessionDone,
+      };
     }
     case "endSession": {
       return { ...state, sessionDone: true, feedback: null };
