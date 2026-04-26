@@ -41,10 +41,10 @@ export function ControlZone({ game }: Props) {
       </div>
 
       {state.feedback && state.feedback.kind !== "correct" && (
-        <p className="text-sm text-red-600">
+        <p role="status" className="text-sm text-red-600">
           {state.mode === "name-to-click" && state.feedback.kind === "wrong" && (
             <>
-              You selected: {game.countryNameByIso3(state.feedback.answerIso3)}
+              You selected: {game.nameFromIso3(state.feedback.answerIso3)}
               <br />
             </>
           )}

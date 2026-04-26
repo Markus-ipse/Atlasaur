@@ -24,6 +24,11 @@ function prefersReducedMotion(): boolean {
 const W = 800;
 const H = 400;
 
+const MIN_ZOOM = 1;
+// MAX_ZOOM picked to make the smallest countries comfortably clickable on
+// mobile. Revisit if it's still hard to hit micro-states (e.g. Singapore).
+const MAX_ZOOM = 24;
+
 const COLOR_DEFAULT = "#e5e7eb";
 const COLOR_INERT = "#f3f4f6";
 const COLOR_HIGHLIGHT = "#3b82f6";
@@ -109,7 +114,7 @@ export function WorldMap({
     if (!svgRef.current) return;
     const svg = select(svgRef.current);
     const z = d3zoom<SVGSVGElement, unknown>()
-      .scaleExtent([1, 24])
+      .scaleExtent([MIN_ZOOM, MAX_ZOOM])
       .translateExtent([
         [0, 0],
         [W, H],
@@ -141,7 +146,7 @@ export function WorldMap({
     const cx = (x0 + x1) / 2;
     const cy = (y0 + y1) / 2;
 
-    const k = Math.min(12, 0.55 * Math.min(W / w, H / h));
+    const k = Math.min(MAX_ZOOM, 0.55 * Math.min(W / w, H / h));
     const target = zoomIdentity
       .translate(W / 2 - cx * k, H / 2 - cy * k)
       .scale(k);

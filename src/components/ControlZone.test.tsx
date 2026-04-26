@@ -12,6 +12,11 @@ const SAMPLE: Country = {
   aliases: [],
 };
 
+const NAMES_BY_ISO3: Record<string, string> = {
+  FRA: "France",
+  DEU: "Germany",
+};
+
 function makeGame(overrides: {
   mode?: Mode;
   feedback?: Feedback | null;
@@ -35,7 +40,7 @@ function makeGame(overrides: {
     unlearnedCount: 0,
     isoFromNumeric: () => undefined,
     numericFromIso3: () => undefined,
-    countryNameByIso3: () => undefined,
+    nameFromIso3: (iso3) => NAMES_BY_ISO3[iso3] ?? iso3,
     matchTypedAnswer: () => "",
     answer: vi.fn(),
     skip: vi.fn(),
@@ -106,6 +111,56 @@ describe("ControlZone", () => {
       screen.getByRole("button", { name: "Continue" }).click();
     });
     expect(game.dismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows selected and correct country names on a wrong click", () => {
+    const wrong: Feedback = {
+      kind: "wrong",
+      answerIso3: "DEU",
+      correctIso3: "FRA",
+    };
+    const game = makeGame({ mode: "name-to-click", feedback: wrong });
+    render(<ControlZone game={game} />);
+    const status = screen.getByRole("status");
+    expect(status.textContent).toContain("You selected: Germany");
+    expect(status.textContent).toContain("Correct answer: France");
+  });
+
+  it("shows only the correct answer when skipped (no You selected line)", () => {
+    const skipped: Feedback = {
+      kind: "skipped",
+      answerIso3: "",
+      correctIso3: "FRA",
+    };
+    const game = makeGame({ mode: "name-to-click", feedback: skipped });
+    render(<ControlZone game={game} />);
+    const status = screen.getByRole("status");
+    expect(status.textContent).toContain("Correct answer: France");
+    expect(status.textContent).not.toContain("You selected");
+  });
+
+  it("shows correct answer in shape-to-name mode without You selected line", () => {
+    const wrong: Feedback = {
+      kind: "wrong",
+      answerIso3: "DEU",
+      correctIso3: "FRA",
+    };
+    const game = makeGame({ mode: "shape-to-name", feedback: wrong });
+    render(<ControlZone game={game} />);
+    const status = screen.getByRole("status");
+    expect(status.textContent).toContain("Correct answer: France");
+    expect(status.textContent).not.toContain("You selected");
+  });
+
+  it("renders no feedback message on a correct answer", () => {
+    const correct: Feedback = {
+      kind: "correct",
+      answerIso3: "FRA",
+      correctIso3: "FRA",
+    };
+    const game = makeGame({ feedback: correct });
+    render(<ControlZone game={game} />);
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("renders the AnswerInput only in shape-to-name mode", () => {
