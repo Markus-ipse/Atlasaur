@@ -1,5 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ALL_CONTINENTS, type Continent, type Mode } from "../types";
+
+type PopupCoords = {
+  top?: number;
+  bottom?: number;
+  right: number;
+};
 
 type Props = {
   mode: Mode;
@@ -17,7 +24,9 @@ export function SettingsMenu({
   onEndSession,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<PopupCoords | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   const close = () => {
@@ -28,8 +37,9 @@ export function SettingsMenu({
   useEffect(() => {
     if (!open) return;
     const onPointer = (e: PointerEvent) => {
-      if (!rootRef.current) return;
-      if (rootRef.current.contains(e.target as Node)) return;
+      const target = e.target as Node;
+      if (rootRef.current?.contains(target)) return;
+      if (popupRef.current?.contains(target)) return;
       setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
@@ -40,6 +50,32 @@ export function SettingsMenu({
     return () => {
       document.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setCoords(null);
+      return;
+    }
+    const update = () => {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const right = Math.max(8, window.innerWidth - rect.right);
+      const portrait = window.matchMedia("(orientation: portrait)").matches;
+      if (portrait) {
+        setCoords({ bottom: window.innerHeight - rect.top + 8, right });
+      } else {
+        setCoords({ top: rect.bottom + 8, right });
+      }
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
     };
   }, [open]);
 
@@ -76,60 +112,72 @@ export function SettingsMenu({
       >
         <GearIcon />
       </button>
-      {open && (
-        <div className="absolute right-0 z-20 w-72 rounded-lg border border-slate-200 bg-white shadow-lg p-3 flex flex-col gap-3 portrait:bottom-full portrait:mb-2 landscape:top-full landscape:mt-2">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Mode</p>
-            <div
-              role="radiogroup"
-              aria-label="Game mode"
-              className="flex gap-1 p-1 rounded-full border border-slate-200 bg-slate-50"
-            >
-              <ModeButton
-                active={mode === "name-to-click"}
-                onClick={() => handleSetMode("name-to-click")}
-              >
-                Name → Click
-              </ModeButton>
-              <ModeButton
-                active={mode === "shape-to-name"}
-                onClick={() => handleSetMode("shape-to-name")}
-              >
-                Shape → Name
-              </ModeButton>
-            </div>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Continents</p>
-            <div role="group" aria-label="Continents" className="flex flex-wrap gap-1">
-              {ALL_CONTINENTS.map((continent) => {
-                const active = selectedSet.has(continent);
-                const lockedLast = active && selectedSet.size === 1;
-                return (
-                  <ContinentChip
-                    key={continent}
-                    active={active}
-                    disabled={lockedLast}
-                    title={
-                      lockedLast ? "At least one continent must be selected" : undefined
-                    }
-                    onClick={() => handleToggleContinent(continent)}
-                  >
-                    {continent}
-                  </ContinentChip>
-                );
-              })}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleEndSession}
-            className="min-h-11 px-3 rounded border border-slate-300 text-slate-700 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+      {open && coords &&
+        createPortal(
+          <div
+            ref={popupRef}
+            role="dialog"
+            style={{
+              position: "fixed",
+              top: coords.top,
+              bottom: coords.bottom,
+              right: coords.right,
+            }}
+            className="z-50 w-72 rounded-lg border border-slate-200 bg-white shadow-lg p-3 flex flex-col gap-3"
           >
-            End session
-          </button>
-        </div>
-      )}
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Mode</p>
+              <div
+                role="radiogroup"
+                aria-label="Game mode"
+                className="flex gap-1 p-1 rounded-full border border-slate-200 bg-slate-50"
+              >
+                <ModeButton
+                  active={mode === "name-to-click"}
+                  onClick={() => handleSetMode("name-to-click")}
+                >
+                  Name → Click
+                </ModeButton>
+                <ModeButton
+                  active={mode === "shape-to-name"}
+                  onClick={() => handleSetMode("shape-to-name")}
+                >
+                  Shape → Name
+                </ModeButton>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Continents</p>
+              <div role="group" aria-label="Continents" className="flex flex-wrap gap-1">
+                {ALL_CONTINENTS.map((continent) => {
+                  const active = selectedSet.has(continent);
+                  const lockedLast = active && selectedSet.size === 1;
+                  return (
+                    <ContinentChip
+                      key={continent}
+                      active={active}
+                      disabled={lockedLast}
+                      title={
+                        lockedLast ? "At least one continent must be selected" : undefined
+                      }
+                      onClick={() => handleToggleContinent(continent)}
+                    >
+                      {continent}
+                    </ContinentChip>
+                  );
+                })}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleEndSession}
+              className="min-h-11 px-3 rounded border border-slate-300 text-slate-700 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            >
+              End session
+            </button>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
