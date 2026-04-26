@@ -198,7 +198,7 @@ export function WorldMap({
                 key={p.key}
                 d={p.d}
                 fill={fill}
-                stroke="#fff"
+                stroke="#64748b"
                 strokeWidth={0.5}
                 vectorEffect="non-scaling-stroke"
                 className={clickable ? "country-clickable cursor-pointer" : ""}
