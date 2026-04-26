@@ -18,3 +18,19 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+@media (hover: hover) {
+  .country-clickable:hover {
+    filter: brightness(0.95);
+  }
+}
+
+.country-clickable:active {
+  filter: brightness(0.92);
+}

@@ -1,8 +1,6 @@
 import { useGame } from "./game/useGame";
 import { WorldMap } from "./components/WorldMap";
-import { PromptBar } from "./components/PromptBar";
-import { AnswerInput } from "./components/AnswerInput";
-import { ScorePanel } from "./components/ScorePanel";
+import { ControlZone } from "./components/ControlZone";
 import { SessionSummary } from "./components/SessionSummary";
 
 export default function App() {
@@ -13,24 +11,8 @@ export default function App() {
     state.mode === "shape-to-name" ? state.current.iso3 : null;
 
   return (
-    <div className="min-h-dvh bg-slate-50 text-slate-900 flex flex-col">
-      <main className="flex-1 flex flex-col gap-4 p-4 sm:p-6">
-        <ScorePanel
-          score={state.score}
-          streak={state.streak}
-          bestStreak={state.bestStreak}
-          total={state.total}
-        />
-        <PromptBar
-          mode={state.mode}
-          current={state.current}
-          feedbackKind={state.feedback?.kind ?? null}
-          phase={state.phase}
-          onSetMode={game.setMode}
-          onSkip={game.skip}
-          onDismiss={game.dismiss}
-          onEndSession={game.endSession}
-        />
+    <div className="h-dvh w-full flex overflow-hidden bg-slate-50 text-slate-900 portrait:flex-col landscape:flex-row pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
+      <div className="relative flex-1 min-h-0 min-w-0">
         <WorldMap
           mode={state.mode}
           highlightedIso3={highlightedIso3}
@@ -39,15 +21,8 @@ export default function App() {
           numericFromIso3={game.numericFromIso3}
           onCountryClick={game.answer}
         />
-        {state.mode === "shape-to-name" && (
-          <AnswerInput
-            current={state.current}
-            feedback={state.feedback}
-            matchTypedAnswer={game.matchTypedAnswer}
-            onAnswer={game.answer}
-          />
-        )}
-      </main>
+      </div>
+      <ControlZone game={game} />
       {state.sessionDone && (
         <SessionSummary
           score={state.score}

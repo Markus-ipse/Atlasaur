@@ -39,7 +39,7 @@ export function SessionSummary({
         role="dialog"
         aria-modal="true"
         aria-labelledby="session-summary-title"
-        className="w-full max-w-md bg-white rounded-lg shadow-lg p-6 flex flex-col gap-4"
+        className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-white rounded-lg shadow-lg p-6 flex flex-col gap-4"
       >
         <h2 id="session-summary-title" className="text-2xl font-bold">
           Session complete
@@ -54,7 +54,7 @@ export function SessionSummary({
             <p className="text-sm font-medium text-slate-700 mb-2">
               Missed ({missed.length}):
             </p>
-            <ul className="max-h-48 overflow-y-auto text-sm text-slate-700 border border-slate-200 rounded p-3 flex flex-wrap gap-x-4 gap-y-1">
+            <ul className="max-h-[28dvh] overflow-y-auto text-sm text-slate-700 border border-slate-200 rounded p-3 flex flex-wrap gap-x-4 gap-y-1">
               {missed.map((c) => (
                 <li key={c.iso3}>{c.name}</li>
               ))}

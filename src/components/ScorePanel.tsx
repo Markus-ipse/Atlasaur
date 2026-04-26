@@ -7,15 +7,10 @@ type Props = {
 
 export function ScorePanel({ score, streak, bestStreak, total }: Props) {
   return (
-    <div className="w-full max-w-5xl mx-auto flex items-center justify-between gap-4 text-sm sm:text-base">
-      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-        Atlasaur
-      </h1>
-      <div className="flex gap-4 sm:gap-6 text-slate-700">
-        <Stat label="Score" value={score} />
-        <Stat label="Streak" value={streak} sub={`best ${bestStreak}`} />
-        <Stat label="Round" value={total + 1} />
-      </div>
+    <div className="flex items-baseline justify-between gap-3 text-sm tabular-nums">
+      <Stat label="Score" value={score} />
+      <Stat label="Streak" value={streak} sub={`/${bestStreak}`} />
+      <Stat label="Round" value={total + 1} muted />
     </div>
   );
 }
@@ -24,18 +19,20 @@ function Stat({
   label,
   value,
   sub,
+  muted,
 }: {
   label: string;
   value: number;
   sub?: string;
+  muted?: boolean;
 }) {
   return (
-    <div className="flex flex-col items-end leading-tight">
-      <span className="text-xs uppercase tracking-wide text-slate-500">
-        {label}
+    <div className="flex items-baseline gap-1">
+      <span className="text-xs uppercase tracking-wide text-slate-500">{label}</span>
+      <span className={(muted ? "text-slate-600" : "text-slate-900") + " font-semibold"}>
+        {value}
       </span>
-      <span className="font-semibold text-slate-900 tabular-nums">{value}</span>
-      {sub && <span className="text-xs text-slate-500">{sub}</span>}
+      {sub && <span className="text-slate-500">{sub}</span>}
     </div>
   );
 }

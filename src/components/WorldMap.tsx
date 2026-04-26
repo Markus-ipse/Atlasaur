@@ -14,6 +14,13 @@ import type { Feature, FeatureCollection, Geometry } from "geojson";
 import topology from "world-atlas/countries-110m.json";
 import type { Feedback, Mode } from "../types";
 
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
+  );
+}
+
 const W = 800;
 const H = 400;
 
@@ -143,9 +150,10 @@ export function WorldMap({
       .scale(k);
 
     pendingRestoreRef.current = transformRef.current;
+    const duration = prefersReducedMotion() ? 0 : 700;
     select(svgRef.current)
       .transition()
-      .duration(700)
+      .duration(duration)
       .call(zoomRef.current.transform, target);
   }, [revealIso3, numericFromIso3]);
 
@@ -156,9 +164,10 @@ export function WorldMap({
     if (!restore) return;
     pendingRestoreRef.current = null;
     if (!svgRef.current || !zoomRef.current) return;
+    const duration = prefersReducedMotion() ? 0 : 450;
     select(svgRef.current)
       .transition()
-      .duration(450)
+      .duration(duration)
       .call(zoomRef.current.transform, restore);
   }, [hasFeedback]);
 
@@ -168,56 +177,47 @@ export function WorldMap({
   };
 
   const isClickMode = mode === "name-to-click" && !feedback;
+  const isPanned = transform !== zoomIdentity;
 
   return (
-    <div className="relative w-full">
-      <div className="w-full max-w-5xl mx-auto aspect-[2/1] border border-slate-200 rounded-lg overflow-hidden bg-sky-50">
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${W} ${H}`}
-          className="w-full h-full touch-none"
-          preserveAspectRatio="xMidYMid meet"
-        >
-          <g transform={transform.toString()}>
-            {PATHS.map((p) => {
-              const iso3 = p.numericId ? isoFromNumeric(p.numericId) : undefined;
-              const fill = fillFor(iso3, highlightedIso3, feedback);
-              const clickable = isClickMode && Boolean(iso3);
-              return (
-                <path
-                  key={p.key}
-                  d={p.d}
-                  fill={fill}
-                  stroke="#fff"
-                  strokeWidth={0.5}
-                  vectorEffect="non-scaling-stroke"
-                  className={
-                    clickable
-                      ? "cursor-pointer hover:brightness-95"
-                      : ""
-                  }
-                  onClick={
-                    clickable && iso3 ? () => onCountryClick(iso3) : undefined
-                  }
-                  style={{ transition: "fill 200ms ease, filter 100ms ease" }}
-                />
-              );
-            })}
-          </g>
-        </svg>
-      </div>
-      <div className="mt-2 flex justify-center gap-2 text-sm text-slate-600">
+    <div className="relative h-full w-full overflow-hidden bg-sky-50 [overscroll-behavior:none]">
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full h-full touch-none"
+        preserveAspectRatio="xMidYMid meet"
+      >
+        <g transform={transform.toString()}>
+          {PATHS.map((p) => {
+            const iso3 = p.numericId ? isoFromNumeric(p.numericId) : undefined;
+            const fill = fillFor(iso3, highlightedIso3, feedback);
+            const clickable = isClickMode && Boolean(iso3);
+            return (
+              <path
+                key={p.key}
+                d={p.d}
+                fill={fill}
+                stroke="#fff"
+                strokeWidth={0.5}
+                vectorEffect="non-scaling-stroke"
+                className={clickable ? "country-clickable cursor-pointer" : ""}
+                onClick={clickable && iso3 ? () => onCountryClick(iso3) : undefined}
+                style={{ transition: "fill 200ms ease, filter 100ms ease" }}
+              />
+            );
+          })}
+        </g>
+      </svg>
+      {isPanned && (
         <button
           type="button"
           onClick={resetView}
-          className="min-h-9 px-3 rounded border border-slate-300 hover:bg-slate-100"
+          aria-label="Reset map view"
+          className="absolute top-2 right-2 min-h-11 min-w-11 px-3 rounded-full border border-slate-300 bg-white/90 backdrop-blur text-sm text-slate-700 shadow-sm hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
         >
-          Reset view
+          Reset
         </button>
-        <span className="self-center text-slate-500">
-          Drag to pan · scroll or pinch to zoom
-        </span>
-      </div>
+      )}
     </div>
   );
 }
