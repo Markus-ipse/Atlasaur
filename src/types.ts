@@ -1,8 +1,21 @@
+export const ALL_CONTINENTS = [
+  "Africa",
+  "Antarctica",
+  "Asia",
+  "Europe",
+  "North America",
+  "Oceania",
+  "South America",
+] as const;
+
+export type Continent = (typeof ALL_CONTINENTS)[number];
+
 export type Country = {
   numeric: string;
   iso3: string;
   name: string;
   aliases: string[];
+  continent: Continent;
 };
 
 export type Mode = "name-to-click" | "shape-to-name";

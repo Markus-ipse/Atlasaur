@@ -3,13 +3,14 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, act } from "@testing-library/react";
 import { ControlZone } from "./ControlZone";
 import type { GameApi } from "../game/useGame";
-import type { Country, Feedback, Mode } from "../types";
+import { ALL_CONTINENTS, type Country, type Feedback, type Mode } from "../types";
 
 const SAMPLE: Country = {
   numeric: "250",
   iso3: "FRA",
   name: "France",
   aliases: [],
+  continent: "Europe",
 };
 
 const NAMES_BY_ISO3: Record<string, string> = {
@@ -25,6 +26,7 @@ function makeGame(overrides: {
   return {
     state: {
       mode: overrides.mode ?? "name-to-click",
+      selectedContinents: ALL_CONTINENTS,
       current: overrides.current ?? SAMPLE,
       feedback: overrides.feedback ?? null,
       phase: "normal",
@@ -41,11 +43,13 @@ function makeGame(overrides: {
     isoFromNumeric: () => undefined,
     numericFromIso3: () => undefined,
     nameFromIso3: (iso3) => NAMES_BY_ISO3[iso3] ?? iso3,
+    isInScope: () => true,
     matchTypedAnswer: () => "",
     answer: vi.fn(),
     skip: vi.fn(),
     dismiss: vi.fn(),
     setMode: vi.fn(),
+    setContinents: vi.fn(),
     endSession: vi.fn(),
     startReview: vi.fn(),
     reset: vi.fn(),

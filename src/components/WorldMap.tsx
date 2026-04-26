@@ -72,14 +72,17 @@ type Props = {
   feedback: Feedback | null;
   isoFromNumeric: (numeric: string) => string | undefined;
   numericFromIso3: (iso3: string) => string | undefined;
+  isInScope: (iso3: string) => boolean;
   onCountryClick: (iso3: string) => void;
 };
 
-function fillFor(
-  iso3: string | undefined,
-  highlightedIso3: string | null,
-  feedback: Feedback | null,
-): string {
+function fillFor(args: {
+  iso3: string | undefined;
+  highlightedIso3: string | null;
+  feedback: Feedback | null;
+  inScope: boolean;
+}): string {
+  const { iso3, highlightedIso3, feedback, inScope } = args;
   if (!iso3) return COLOR_INERT;
   if (feedback) {
     // The correct country always lights up — green when answered (right or
@@ -96,6 +99,7 @@ function fillFor(
     }
   }
   if (highlightedIso3 === iso3) return COLOR_HIGHLIGHT;
+  if (!inScope) return COLOR_INERT;
   return COLOR_DEFAULT;
 }
 
@@ -105,6 +109,7 @@ export function WorldMap({
   feedback,
   isoFromNumeric,
   numericFromIso3,
+  isInScope,
   onCountryClick,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -192,8 +197,9 @@ export function WorldMap({
         <g transform={transform.toString()}>
           {PATHS.map((p) => {
             const iso3 = p.numericId ? isoFromNumeric(p.numericId) : undefined;
-            const fill = fillFor(iso3, highlightedIso3, feedback);
-            const clickable = isClickMode && Boolean(iso3);
+            const inScope = iso3 ? isInScope(iso3) : false;
+            const fill = fillFor({ iso3, highlightedIso3, feedback, inScope });
+            const clickable = isClickMode && Boolean(iso3) && inScope;
             return (
               <path
                 key={p.key}

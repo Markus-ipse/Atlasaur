@@ -1,13 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import type { Mode } from "../types";
+import { ALL_CONTINENTS, type Continent, type Mode } from "../types";
 
 type Props = {
   mode: Mode;
   onSetMode: (mode: Mode) => void;
+  selectedContinents: readonly Continent[];
+  onSetContinents: (continents: readonly Continent[]) => void;
   onEndSession: () => void;
 };
 
-export function SettingsMenu({ mode, onSetMode, onEndSession }: Props) {
+export function SettingsMenu({
+  mode,
+  onSetMode,
+  selectedContinents,
+  onSetContinents,
+  onEndSession,
+}: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -45,6 +53,16 @@ export function SettingsMenu({ mode, onSetMode, onEndSession }: Props) {
     setOpen(false);
   };
 
+  const selectedSet = new Set(selectedContinents);
+  const handleToggleContinent = (continent: Continent) => {
+    const isSelected = selectedSet.has(continent);
+    if (isSelected && selectedSet.size === 1) return;
+    const next = new Set(selectedSet);
+    if (isSelected) next.delete(continent);
+    else next.add(continent);
+    onSetContinents(ALL_CONTINENTS.filter((c) => next.has(c)));
+  };
+
   return (
     <div ref={rootRef} className="relative">
       <button
@@ -59,7 +77,7 @@ export function SettingsMenu({ mode, onSetMode, onEndSession }: Props) {
         <GearIcon />
       </button>
       {open && (
-        <div className="absolute right-0 z-20 w-60 rounded-lg border border-slate-200 bg-white shadow-lg p-3 flex flex-col gap-3 portrait:bottom-full portrait:mb-2 landscape:top-full landscape:mt-2">
+        <div className="absolute right-0 z-20 w-72 rounded-lg border border-slate-200 bg-white shadow-lg p-3 flex flex-col gap-3 portrait:bottom-full portrait:mb-2 landscape:top-full landscape:mt-2">
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Mode</p>
             <div
@@ -79,6 +97,28 @@ export function SettingsMenu({ mode, onSetMode, onEndSession }: Props) {
               >
                 Shape → Name
               </ModeButton>
+            </div>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Continents</p>
+            <div role="group" aria-label="Continents" className="flex flex-wrap gap-1">
+              {ALL_CONTINENTS.map((continent) => {
+                const active = selectedSet.has(continent);
+                const lockedLast = active && selectedSet.size === 1;
+                return (
+                  <ContinentChip
+                    key={continent}
+                    active={active}
+                    disabled={lockedLast}
+                    title={
+                      lockedLast ? "At least one continent must be selected" : undefined
+                    }
+                    onClick={() => handleToggleContinent(continent)}
+                  >
+                    {continent}
+                  </ContinentChip>
+                );
+              })}
             </div>
           </div>
           <button
@@ -112,6 +152,40 @@ function ModeButton({
       className={
         "flex-1 min-h-9 px-3 rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 " +
         (active ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100")
+      }
+    >
+      {children}
+    </button>
+  );
+}
+
+function ContinentChip({
+  active,
+  disabled,
+  title,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  disabled: boolean;
+  title?: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={active}
+      aria-disabled={disabled || undefined}
+      title={title}
+      onClick={disabled ? undefined : onClick}
+      className={
+        "min-h-9 px-3 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 " +
+        (active
+          ? "bg-slate-900 text-white border-slate-900"
+          : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100") +
+        (disabled ? " cursor-not-allowed opacity-80" : "")
       }
     >
       {children}

@@ -19,6 +19,7 @@ export default function App() {
           feedback={state.feedback}
           isoFromNumeric={game.isoFromNumeric}
           numericFromIso3={game.numericFromIso3}
+          isInScope={game.isInScope}
           onCountryClick={game.answer}
         />
       </div>
