@@ -76,12 +76,13 @@ type Props = {
   onCountryClick: (iso3: string) => void;
 };
 
-function fillFor(
-  iso3: string | undefined,
-  highlightedIso3: string | null,
-  feedback: Feedback | null,
-  inScope: boolean,
-): string {
+function fillFor(args: {
+  iso3: string | undefined;
+  highlightedIso3: string | null;
+  feedback: Feedback | null;
+  inScope: boolean;
+}): string {
+  const { iso3, highlightedIso3, feedback, inScope } = args;
   if (!iso3) return COLOR_INERT;
   if (feedback) {
     // The correct country always lights up — green when answered (right or
@@ -197,7 +198,7 @@ export function WorldMap({
           {PATHS.map((p) => {
             const iso3 = p.numericId ? isoFromNumeric(p.numericId) : undefined;
             const inScope = iso3 ? isInScope(iso3) : false;
-            const fill = fillFor(iso3, highlightedIso3, feedback, inScope);
+            const fill = fillFor({ iso3, highlightedIso3, feedback, inScope });
             const clickable = isClickMode && Boolean(iso3) && inScope;
             return (
               <path

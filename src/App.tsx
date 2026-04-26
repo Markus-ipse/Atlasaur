@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useGame } from "./game/useGame";
 import { WorldMap } from "./components/WorldMap";
 import { ControlZone } from "./components/ControlZone";
@@ -11,14 +10,6 @@ export default function App() {
   const highlightedIso3 =
     state.mode === "shape-to-name" ? state.current.iso3 : null;
 
-  const isInScope = useMemo(() => {
-    const set = new Set(state.selectedContinents);
-    return (iso3: string) => {
-      const continent = game.continentFromIso3(iso3);
-      return continent !== undefined && set.has(continent);
-    };
-  }, [state.selectedContinents, game.continentFromIso3]);
-
   return (
     <div className="h-dvh w-full flex overflow-hidden bg-slate-50 text-slate-900 portrait:flex-col landscape:flex-row pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       <div className="relative flex-1 min-h-0 min-w-0">
@@ -28,7 +19,7 @@ export default function App() {
           feedback={state.feedback}
           isoFromNumeric={game.isoFromNumeric}
           numericFromIso3={game.numericFromIso3}
-          isInScope={isInScope}
+          isInScope={game.isInScope}
           onCountryClick={game.answer}
         />
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from "react";
+import { useEffect, useMemo, useReducer } from "react";
 import countriesData from "../data/countries.json";
 import { normalize } from "../data/normalize";
 import { pickRandom, pickNext } from "./pickCountry";
@@ -26,14 +26,14 @@ function filterPool(continents: readonly Continent[]): Country[] {
 }
 
 function loadContinents(): readonly Continent[] {
-  const valid = new Set<string>(ALL_CONTINENTS);
+  const valid = new Set<Continent>(ALL_CONTINENTS);
   try {
     const raw = window.localStorage.getItem(CONTINENTS_STORAGE_KEY);
     if (!raw) return ALL_CONTINENTS;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return ALL_CONTINENTS;
     const filtered = parsed.filter(
-      (v): v is Continent => typeof v === "string" && valid.has(v),
+      (v): v is Continent => valid.has(v),
     );
     return filtered.length > 0 ? filtered : ALL_CONTINENTS;
   } catch {
@@ -266,7 +266,7 @@ export type GameApi = {
   isoFromNumeric: (numeric: string) => string | undefined;
   numericFromIso3: (iso3: string) => string | undefined;
   nameFromIso3: (iso3: string) => string;
-  continentFromIso3: (iso3: string) => Continent | undefined;
+  isInScope: (iso3: string) => boolean;
   matchTypedAnswer: (input: string) => string;
   answer: (iso3: string) => void;
   skip: () => void;
@@ -277,9 +277,6 @@ export type GameApi = {
   startReview: () => void;
   reset: () => void;
 };
-
-const continentFromIso3 = (iso3: string): Continent | undefined =>
-  COUNTRY_BY_ISO3.get(iso3)?.continent;
 
 export function useGame(): GameApi {
   const [state, dispatch] = useReducer(reducer, undefined, () =>
@@ -299,13 +296,21 @@ export function useGame(): GameApi {
     saveContinents(state.selectedContinents);
   }, [state.selectedContinents]);
 
+  const isInScope = useMemo(() => {
+    const continents = new Set(state.selectedContinents);
+    const inScope = new Set(
+      COUNTRIES.filter((c) => continents.has(c.continent)).map((c) => c.iso3),
+    );
+    return (iso3: string) => inScope.has(iso3);
+  }, [state.selectedContinents]);
+
   return {
     state,
     unlearnedCount: state.retryQueue.length,
     isoFromNumeric,
     numericFromIso3,
     nameFromIso3,
-    continentFromIso3,
+    isInScope,
     matchTypedAnswer,
     answer: (iso3) => dispatch({ type: "answer", iso3 }),
     skip: () => dispatch({ type: "skip" }),

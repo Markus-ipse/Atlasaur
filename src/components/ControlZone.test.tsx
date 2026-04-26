@@ -43,7 +43,7 @@ function makeGame(overrides: {
     isoFromNumeric: () => undefined,
     numericFromIso3: () => undefined,
     nameFromIso3: (iso3) => NAMES_BY_ISO3[iso3] ?? iso3,
-    continentFromIso3: () => undefined,
+    isInScope: () => true,
     matchTypedAnswer: () => "",
     answer: vi.fn(),
     skip: vi.fn(),
