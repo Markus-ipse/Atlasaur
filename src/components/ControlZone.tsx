@@ -40,6 +40,21 @@ export function ControlZone({ game }: Props) {
         <Prompt mode={state.mode} current={state.current} phase={state.phase} />
       </div>
 
+      {state.mode === "name-to-click" &&
+        state.feedback &&
+        state.feedback.kind !== "correct" && (
+          <p className="text-sm text-red-600">
+            {state.feedback.kind === "wrong" && (
+              <>
+                You selected:{" "}
+                {game.countryNameByIso3(state.feedback.answerIso3) ?? "Unknown"}
+                <br />
+              </>
+            )}
+            Correct answer: {state.current.name}
+          </p>
+        )}
+
       {state.mode === "shape-to-name" && (
         <AnswerInput
           current={state.current}

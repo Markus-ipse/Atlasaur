@@ -35,6 +35,7 @@ function makeGame(overrides: {
     unlearnedCount: 0,
     isoFromNumeric: () => undefined,
     numericFromIso3: () => undefined,
+    countryNameByIso3: () => undefined,
     matchTypedAnswer: () => "",
     answer: vi.fn(),
     skip: vi.fn(),

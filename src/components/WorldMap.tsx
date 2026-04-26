@@ -103,21 +103,18 @@ export function WorldMap({
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
-  const transformRef = useRef<ZoomTransform>(zoomIdentity);
-  const pendingRestoreRef = useRef<ZoomTransform | null>(null);
   const [transform, setTransform] = useState<ZoomTransform>(zoomIdentity);
 
   useEffect(() => {
     if (!svgRef.current) return;
     const svg = select(svgRef.current);
     const z = d3zoom<SVGSVGElement, unknown>()
-      .scaleExtent([1, 12])
+      .scaleExtent([1, 24])
       .translateExtent([
         [0, 0],
         [W, H],
       ])
       .on("zoom", (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
-        transformRef.current = event.transform;
         setTransform(event.transform);
       });
     zoomRef.current = z;
@@ -149,7 +146,6 @@ export function WorldMap({
       .translate(W / 2 - cx * k, H / 2 - cy * k)
       .scale(k);
 
-    pendingRestoreRef.current = transformRef.current;
     const duration = prefersReducedMotion() ? 0 : 700;
     select(svgRef.current)
       .transition()
@@ -158,17 +154,17 @@ export function WorldMap({
   }, [revealIso3, numericFromIso3]);
 
   const hasFeedback = feedback !== null;
+  const prevHadFeedbackRef = useRef(false);
   useEffect(() => {
-    if (hasFeedback) return;
-    const restore = pendingRestoreRef.current;
-    if (!restore) return;
-    pendingRestoreRef.current = null;
+    const wasShown = prevHadFeedbackRef.current;
+    prevHadFeedbackRef.current = hasFeedback;
+    if (!wasShown || hasFeedback) return;
     if (!svgRef.current || !zoomRef.current) return;
     const duration = prefersReducedMotion() ? 0 : 450;
     select(svgRef.current)
       .transition()
       .duration(duration)
-      .call(zoomRef.current.transform, restore);
+      .call(zoomRef.current.transform, zoomIdentity);
   }, [hasFeedback]);
 
   const resetView = () => {

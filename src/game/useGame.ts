@@ -26,6 +26,7 @@ function randInt(min: number, max: number): number {
 
 const isoFromNumeric = (numeric: string) => ISO3_BY_NUMERIC.get(numeric);
 const numericFromIso3 = (iso3: string) => NUMERIC_BY_ISO3.get(iso3);
+const countryNameByIso3 = (iso3: string) => COUNTRY_BY_ISO3.get(iso3)?.name;
 
 function matchTypedAnswer(input: string): string {
   const n = normalize(input);
@@ -216,6 +217,7 @@ export type GameApi = {
   unlearnedCount: number;
   isoFromNumeric: (numeric: string) => string | undefined;
   numericFromIso3: (iso3: string) => string | undefined;
+  countryNameByIso3: (iso3: string) => string | undefined;
   matchTypedAnswer: (input: string) => string;
   answer: (iso3: string) => void;
   skip: () => void;
@@ -243,6 +245,7 @@ export function useGame(): GameApi {
     unlearnedCount: state.retryQueue.length,
     isoFromNumeric,
     numericFromIso3,
+    countryNameByIso3,
     matchTypedAnswer,
     answer: (iso3) => dispatch({ type: "answer", iso3 }),
     skip: () => dispatch({ type: "skip" }),
