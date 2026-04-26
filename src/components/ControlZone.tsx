@@ -25,6 +25,8 @@ export function ControlZone({ game }: Props) {
         <SettingsMenu
           mode={state.mode}
           onSetMode={game.setMode}
+          selectedContinents={state.selectedContinents}
+          onSetContinents={game.setContinents}
           onEndSession={game.endSession}
         />
       </header>

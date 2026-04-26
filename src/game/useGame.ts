@@ -2,19 +2,55 @@ import { useEffect, useReducer } from "react";
 import countriesData from "../data/countries.json";
 import { normalize } from "../data/normalize";
 import { pickRandom, pickNext } from "./pickCountry";
-import type {
-  Country,
-  Feedback,
-  FeedbackKind,
-  Mode,
-  Phase,
-  RetryEntry,
+import {
+  ALL_CONTINENTS,
+  type Continent,
+  type Country,
+  type Feedback,
+  type FeedbackKind,
+  type Mode,
+  type Phase,
+  type RetryEntry,
 } from "../types";
 
 const COUNTRIES = countriesData as Country[];
 const ISO3_BY_NUMERIC = new Map(COUNTRIES.map((c) => [c.numeric, c.iso3]));
 const NUMERIC_BY_ISO3 = new Map(COUNTRIES.map((c) => [c.iso3, c.numeric]));
 const COUNTRY_BY_ISO3 = new Map(COUNTRIES.map((c) => [c.iso3, c]));
+
+const CONTINENTS_STORAGE_KEY = "atlasaur:selectedContinents";
+
+function filterPool(continents: readonly Continent[]): Country[] {
+  const set = new Set(continents);
+  return COUNTRIES.filter((c) => set.has(c.continent));
+}
+
+function loadContinents(): readonly Continent[] {
+  const valid = new Set<string>(ALL_CONTINENTS);
+  try {
+    const raw = window.localStorage.getItem(CONTINENTS_STORAGE_KEY);
+    if (!raw) return ALL_CONTINENTS;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return ALL_CONTINENTS;
+    const filtered = parsed.filter(
+      (v): v is Continent => typeof v === "string" && valid.has(v),
+    );
+    return filtered.length > 0 ? filtered : ALL_CONTINENTS;
+  } catch {
+    return ALL_CONTINENTS;
+  }
+}
+
+function saveContinents(continents: readonly Continent[]): void {
+  try {
+    window.localStorage.setItem(
+      CONTINENTS_STORAGE_KEY,
+      JSON.stringify(continents),
+    );
+  } catch {
+    // localStorage may be unavailable (private mode, SSR); ignore.
+  }
+}
 
 const FEEDBACK_DURATION = { correct: 600 } as const;
 const RETRY_GAP_MIN = 3;
@@ -41,6 +77,7 @@ function matchTypedAnswer(input: string): string {
 
 export type State = {
   mode: Mode;
+  selectedContinents: readonly Continent[];
   current: Country;
   score: number;
   streak: number;
@@ -59,14 +96,20 @@ export type Action =
   | { type: "skip" }
   | { type: "dismiss" }
   | { type: "setMode"; mode: Mode }
+  | { type: "setContinents"; continents: readonly Continent[] }
   | { type: "endSession" }
   | { type: "startReview" }
   | { type: "reset" };
 
-export function initialState(mode: Mode = "name-to-click"): State {
+export function initialState(
+  mode: Mode = "name-to-click",
+  selectedContinents: readonly Continent[] = ALL_CONTINENTS,
+): State {
+  const pool = filterPool(selectedContinents);
   return {
     mode,
-    current: pickRandom(COUNTRIES, null),
+    selectedContinents,
+    current: pickRandom(pool, null),
     score: 0,
     streak: 0,
     bestStreak: 0,
@@ -82,7 +125,7 @@ export function initialState(mode: Mode = "name-to-click"): State {
 
 function nextCurrent(state: State): Country {
   return pickNext({
-    pool: COUNTRIES,
+    pool: filterPool(state.selectedContinents),
     byIso3: COUNTRY_BY_ISO3,
     excludeIso3: state.current.iso3,
     total: state.total,
@@ -190,7 +233,11 @@ export function reducer(state: State, action: Action): State {
     }
     case "setMode": {
       if (state.mode === action.mode) return state;
-      return initialState(action.mode);
+      return initialState(action.mode, state.selectedContinents);
+    }
+    case "setContinents": {
+      if (action.continents.length === 0) return state;
+      return initialState(state.mode, action.continents);
     }
     case "endSession": {
       return { ...state, sessionDone: true, feedback: null };
@@ -208,7 +255,7 @@ export function reducer(state: State, action: Action): State {
       };
     }
     case "reset": {
-      return initialState(state.mode);
+      return initialState(state.mode, state.selectedContinents);
     }
   }
 }
@@ -219,18 +266,25 @@ export type GameApi = {
   isoFromNumeric: (numeric: string) => string | undefined;
   numericFromIso3: (iso3: string) => string | undefined;
   nameFromIso3: (iso3: string) => string;
+  continentFromIso3: (iso3: string) => Continent | undefined;
   matchTypedAnswer: (input: string) => string;
   answer: (iso3: string) => void;
   skip: () => void;
   dismiss: () => void;
   setMode: (mode: Mode) => void;
+  setContinents: (continents: readonly Continent[]) => void;
   endSession: () => void;
   startReview: () => void;
   reset: () => void;
 };
 
+const continentFromIso3 = (iso3: string): Continent | undefined =>
+  COUNTRY_BY_ISO3.get(iso3)?.continent;
+
 export function useGame(): GameApi {
-  const [state, dispatch] = useReducer(reducer, undefined, () => initialState());
+  const [state, dispatch] = useReducer(reducer, undefined, () =>
+    initialState("name-to-click", loadContinents()),
+  );
 
   useEffect(() => {
     if (!state.feedback || state.feedback.kind !== "correct") return;
@@ -241,17 +295,24 @@ export function useGame(): GameApi {
     return () => window.clearTimeout(id);
   }, [state.feedback]);
 
+  useEffect(() => {
+    saveContinents(state.selectedContinents);
+  }, [state.selectedContinents]);
+
   return {
     state,
     unlearnedCount: state.retryQueue.length,
     isoFromNumeric,
     numericFromIso3,
     nameFromIso3,
+    continentFromIso3,
     matchTypedAnswer,
     answer: (iso3) => dispatch({ type: "answer", iso3 }),
     skip: () => dispatch({ type: "skip" }),
     dismiss: () => dispatch({ type: "dismiss" }),
     setMode: (mode) => dispatch({ type: "setMode", mode }),
+    setContinents: (continents) =>
+      dispatch({ type: "setContinents", continents }),
     endSession: () => dispatch({ type: "endSession" }),
     startReview: () => dispatch({ type: "startReview" }),
     reset: () => dispatch({ type: "reset" }),

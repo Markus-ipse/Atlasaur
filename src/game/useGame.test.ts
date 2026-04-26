@@ -6,7 +6,13 @@ function withCurrent(state: State, iso3: string): State {
   // Force a known current country by pulling it from any state's seed pool
   // via reducer-internal lookup is overkill; we just rebuild the country
   // with the same iso3 and trust the reducer keys off iso3.
-  const country: Country = { numeric: "000", iso3, name: iso3, aliases: [] };
+  const country: Country = {
+    numeric: "000",
+    iso3,
+    name: iso3,
+    aliases: [],
+    continent: "Europe",
+  };
   return { ...state, current: country };
 }
 

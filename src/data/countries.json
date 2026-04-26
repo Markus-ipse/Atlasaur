@@ -3,61 +3,71 @@
     "numeric": "004",
     "iso3": "AFG",
     "name": "Afghanistan",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "008",
     "iso3": "ALB",
     "name": "Albania",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "012",
     "iso3": "DZA",
     "name": "Algeria",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "024",
     "iso3": "AGO",
     "name": "Angola",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "010",
     "iso3": "ATA",
     "name": "Antarctica",
-    "aliases": []
+    "aliases": [],
+    "continent": "Antarctica"
   },
   {
     "numeric": "032",
     "iso3": "ARG",
     "name": "Argentina",
-    "aliases": []
+    "aliases": [],
+    "continent": "South America"
   },
   {
     "numeric": "051",
     "iso3": "ARM",
     "name": "Armenia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "036",
     "iso3": "AUS",
     "name": "Australia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Oceania"
   },
   {
     "numeric": "040",
     "iso3": "AUT",
     "name": "Austria",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "031",
     "iso3": "AZE",
     "name": "Azerbaijan",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "044",
@@ -65,49 +75,57 @@
     "name": "Bahamas",
     "aliases": [
       "The Bahamas"
-    ]
+    ],
+    "continent": "North America"
   },
   {
     "numeric": "050",
     "iso3": "BGD",
     "name": "Bangladesh",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "112",
     "iso3": "BLR",
     "name": "Belarus",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "056",
     "iso3": "BEL",
     "name": "Belgium",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "084",
     "iso3": "BLZ",
     "name": "Belize",
-    "aliases": []
+    "aliases": [],
+    "continent": "North America"
   },
   {
     "numeric": "204",
     "iso3": "BEN",
     "name": "Benin",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "064",
     "iso3": "BTN",
     "name": "Bhutan",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "068",
     "iso3": "BOL",
     "name": "Bolivia",
-    "aliases": []
+    "aliases": [],
+    "continent": "South America"
   },
   {
     "numeric": "070",
@@ -115,19 +133,22 @@
     "name": "Bosnia and Herzegovina",
     "aliases": [
       "Bosnia"
-    ]
+    ],
+    "continent": "Europe"
   },
   {
     "numeric": "072",
     "iso3": "BWA",
     "name": "Botswana",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "076",
     "iso3": "BRA",
     "name": "Brazil",
-    "aliases": []
+    "aliases": [],
+    "continent": "South America"
   },
   {
     "numeric": "096",
@@ -135,43 +156,50 @@
     "name": "Brunei",
     "aliases": [
       "Brunei Darussalam"
-    ]
+    ],
+    "continent": "Asia"
   },
   {
     "numeric": "100",
     "iso3": "BGR",
     "name": "Bulgaria",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "854",
     "iso3": "BFA",
     "name": "Burkina Faso",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "108",
     "iso3": "BDI",
     "name": "Burundi",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "116",
     "iso3": "KHM",
     "name": "Cambodia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "120",
     "iso3": "CMR",
     "name": "Cameroon",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "124",
     "iso3": "CAN",
     "name": "Canada",
-    "aliases": []
+    "aliases": [],
+    "continent": "North America"
   },
   {
     "numeric": "140",
@@ -179,19 +207,22 @@
     "name": "Central African Republic",
     "aliases": [
       "CAR"
-    ]
+    ],
+    "continent": "Africa"
   },
   {
     "numeric": "148",
     "iso3": "TCD",
     "name": "Chad",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "152",
     "iso3": "CHL",
     "name": "Chile",
-    "aliases": []
+    "aliases": [],
+    "continent": "South America"
   },
   {
     "numeric": "156",
@@ -200,19 +231,22 @@
     "aliases": [
       "People's Republic of China",
       "PRC"
-    ]
+    ],
+    "continent": "Asia"
   },
   {
     "numeric": "170",
     "iso3": "COL",
     "name": "Colombia",
-    "aliases": []
+    "aliases": [],
+    "continent": "South America"
   },
   {
     "numeric": "188",
     "iso3": "CRI",
     "name": "Costa Rica",
-    "aliases": []
+    "aliases": [],
+    "continent": "North America"
   },
   {
     "numeric": "384",
@@ -220,25 +254,29 @@
     "name": "Côte d'Ivoire",
     "aliases": [
       "Ivory Coast"
-    ]
+    ],
+    "continent": "Africa"
   },
   {
     "numeric": "191",
     "iso3": "HRV",
     "name": "Croatia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "192",
     "iso3": "CUB",
     "name": "Cuba",
-    "aliases": []
+    "aliases": [],
+    "continent": "North America"
   },
   {
     "numeric": "196",
     "iso3": "CYP",
     "name": "Cyprus",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "203",
@@ -246,7 +284,8 @@
     "name": "Czechia",
     "aliases": [
       "Czech Republic"
-    ]
+    ],
+    "continent": "Europe"
   },
   {
     "numeric": "180",
@@ -257,61 +296,71 @@
       "DR Congo",
       "Congo-Kinshasa",
       "Zaire"
-    ]
+    ],
+    "continent": "Africa"
   },
   {
     "numeric": "208",
     "iso3": "DNK",
     "name": "Denmark",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "262",
     "iso3": "DJI",
     "name": "Djibouti",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "214",
     "iso3": "DOM",
     "name": "Dominican Republic",
-    "aliases": []
+    "aliases": [],
+    "continent": "North America"
   },
   {
     "numeric": "218",
     "iso3": "ECU",
     "name": "Ecuador",
-    "aliases": []
+    "aliases": [],
+    "continent": "South America"
   },
   {
     "numeric": "818",
     "iso3": "EGY",
     "name": "Egypt",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "222",
     "iso3": "SLV",
     "name": "El Salvador",
-    "aliases": []
+    "aliases": [],
+    "continent": "North America"
   },
   {
     "numeric": "226",
     "iso3": "GNQ",
     "name": "Equatorial Guinea",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "232",
     "iso3": "ERI",
     "name": "Eritrea",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "233",
     "iso3": "EST",
     "name": "Estonia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "748",
@@ -319,13 +368,15 @@
     "name": "Eswatini",
     "aliases": [
       "Swaziland"
-    ]
+    ],
+    "continent": "Africa"
   },
   {
     "numeric": "231",
     "iso3": "ETH",
     "name": "Ethiopia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "238",
@@ -333,19 +384,22 @@
     "name": "Falkland Islands",
     "aliases": [
       "Malvinas"
-    ]
+    ],
+    "continent": "South America"
   },
   {
     "numeric": "242",
     "iso3": "FJI",
     "name": "Fiji",
-    "aliases": []
+    "aliases": [],
+    "continent": "Oceania"
   },
   {
     "numeric": "246",
     "iso3": "FIN",
     "name": "Finland",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "250",
@@ -353,19 +407,22 @@
     "name": "France",
     "aliases": [
       "French Republic"
-    ]
+    ],
+    "continent": "Europe"
   },
   {
     "numeric": "260",
     "iso3": "ATF",
     "name": "French Southern Territories",
-    "aliases": []
+    "aliases": [],
+    "continent": "Antarctica"
   },
   {
     "numeric": "266",
     "iso3": "GAB",
     "name": "Gabon",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "270",
@@ -373,13 +430,15 @@
     "name": "Gambia",
     "aliases": [
       "The Gambia"
-    ]
+    ],
+    "continent": "Africa"
   },
   {
     "numeric": "268",
     "iso3": "GEO",
     "name": "Georgia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "276",
@@ -387,13 +446,15 @@
     "name": "Germany",
     "aliases": [
       "Deutschland"
-    ]
+    ],
+    "continent": "Europe"
   },
   {
     "numeric": "288",
     "iso3": "GHA",
     "name": "Ghana",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "300",
@@ -401,61 +462,71 @@
     "name": "Greece",
     "aliases": [
       "Hellas"
-    ]
+    ],
+    "continent": "Europe"
   },
   {
     "numeric": "304",
     "iso3": "GRL",
     "name": "Greenland",
-    "aliases": []
+    "aliases": [],
+    "continent": "North America"
   },
   {
     "numeric": "320",
     "iso3": "GTM",
     "name": "Guatemala",
-    "aliases": []
+    "aliases": [],
+    "continent": "North America"
   },
   {
     "numeric": "324",
     "iso3": "GIN",
     "name": "Guinea",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "624",
     "iso3": "GNB",
     "name": "Guinea-Bissau",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "328",
     "iso3": "GUY",
     "name": "Guyana",
-    "aliases": []
+    "aliases": [],
+    "continent": "South America"
   },
   {
     "numeric": "332",
     "iso3": "HTI",
     "name": "Haiti",
-    "aliases": []
+    "aliases": [],
+    "continent": "North America"
   },
   {
     "numeric": "340",
     "iso3": "HND",
     "name": "Honduras",
-    "aliases": []
+    "aliases": [],
+    "continent": "North America"
   },
   {
     "numeric": "348",
     "iso3": "HUN",
     "name": "Hungary",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "352",
     "iso3": "ISL",
     "name": "Iceland",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "356",
@@ -463,13 +534,15 @@
     "name": "India",
     "aliases": [
       "Bharat"
-    ]
+    ],
+    "continent": "Asia"
   },
   {
     "numeric": "360",
     "iso3": "IDN",
     "name": "Indonesia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "364",
@@ -477,13 +550,15 @@
     "name": "Iran",
     "aliases": [
       "Persia"
-    ]
+    ],
+    "continent": "Asia"
   },
   {
     "numeric": "368",
     "iso3": "IRQ",
     "name": "Iraq",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "372",
@@ -492,25 +567,29 @@
     "aliases": [
       "Republic of Ireland",
       "Eire"
-    ]
+    ],
+    "continent": "Europe"
   },
   {
     "numeric": "376",
     "iso3": "ISR",
     "name": "Israel",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "380",
     "iso3": "ITA",
     "name": "Italy",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "388",
     "iso3": "JAM",
     "name": "Jamaica",
-    "aliases": []
+    "aliases": [],
+    "continent": "North America"
   },
   {
     "numeric": "392",
@@ -519,151 +598,176 @@
     "aliases": [
       "Nippon",
       "Nihon"
-    ]
+    ],
+    "continent": "Asia"
   },
   {
     "numeric": "400",
     "iso3": "JOR",
     "name": "Jordan",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "398",
     "iso3": "KAZ",
     "name": "Kazakhstan",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "404",
     "iso3": "KEN",
     "name": "Kenya",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "414",
     "iso3": "KWT",
     "name": "Kuwait",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "417",
     "iso3": "KGZ",
     "name": "Kyrgyzstan",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "418",
     "iso3": "LAO",
     "name": "Laos",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "428",
     "iso3": "LVA",
     "name": "Latvia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "422",
     "iso3": "LBN",
     "name": "Lebanon",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "426",
     "iso3": "LSO",
     "name": "Lesotho",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "430",
     "iso3": "LBR",
     "name": "Liberia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "434",
     "iso3": "LBY",
     "name": "Libya",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "440",
     "iso3": "LTU",
     "name": "Lithuania",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "442",
     "iso3": "LUX",
     "name": "Luxembourg",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "450",
     "iso3": "MDG",
     "name": "Madagascar",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "454",
     "iso3": "MWI",
     "name": "Malawi",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "458",
     "iso3": "MYS",
     "name": "Malaysia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "466",
     "iso3": "MLI",
     "name": "Mali",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "478",
     "iso3": "MRT",
     "name": "Mauritania",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "484",
     "iso3": "MEX",
     "name": "Mexico",
-    "aliases": []
+    "aliases": [],
+    "continent": "North America"
   },
   {
     "numeric": "498",
     "iso3": "MDA",
     "name": "Moldova",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "496",
     "iso3": "MNG",
     "name": "Mongolia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "499",
     "iso3": "MNE",
     "name": "Montenegro",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "504",
     "iso3": "MAR",
     "name": "Morocco",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "508",
     "iso3": "MOZ",
     "name": "Mozambique",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "104",
@@ -671,19 +775,22 @@
     "name": "Myanmar",
     "aliases": [
       "Burma"
-    ]
+    ],
+    "continent": "Asia"
   },
   {
     "numeric": "516",
     "iso3": "NAM",
     "name": "Namibia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "524",
     "iso3": "NPL",
     "name": "Nepal",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "528",
@@ -692,13 +799,15 @@
     "aliases": [
       "The Netherlands",
       "Holland"
-    ]
+    ],
+    "continent": "Europe"
   },
   {
     "numeric": "540",
     "iso3": "NCL",
     "name": "New Caledonia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Oceania"
   },
   {
     "numeric": "554",
@@ -706,25 +815,29 @@
     "name": "New Zealand",
     "aliases": [
       "Aotearoa"
-    ]
+    ],
+    "continent": "Oceania"
   },
   {
     "numeric": "558",
     "iso3": "NIC",
     "name": "Nicaragua",
-    "aliases": []
+    "aliases": [],
+    "continent": "North America"
   },
   {
     "numeric": "562",
     "iso3": "NER",
     "name": "Niger",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "566",
     "iso3": "NGA",
     "name": "Nigeria",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "408",
@@ -733,7 +846,8 @@
     "aliases": [
       "Democratic People's Republic of Korea",
       "DPRK"
-    ]
+    ],
+    "continent": "Asia"
   },
   {
     "numeric": "807",
@@ -742,25 +856,29 @@
     "aliases": [
       "Macedonia",
       "FYROM"
-    ]
+    ],
+    "continent": "Europe"
   },
   {
     "numeric": "578",
     "iso3": "NOR",
     "name": "Norway",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "512",
     "iso3": "OMN",
     "name": "Oman",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "586",
     "iso3": "PAK",
     "name": "Pakistan",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "275",
@@ -769,31 +887,36 @@
     "aliases": [
       "Palestinian Territories",
       "State of Palestine"
-    ]
+    ],
+    "continent": "Asia"
   },
   {
     "numeric": "591",
     "iso3": "PAN",
     "name": "Panama",
-    "aliases": []
+    "aliases": [],
+    "continent": "North America"
   },
   {
     "numeric": "598",
     "iso3": "PNG",
     "name": "Papua New Guinea",
-    "aliases": []
+    "aliases": [],
+    "continent": "Oceania"
   },
   {
     "numeric": "600",
     "iso3": "PRY",
     "name": "Paraguay",
-    "aliases": []
+    "aliases": [],
+    "continent": "South America"
   },
   {
     "numeric": "604",
     "iso3": "PER",
     "name": "Peru",
-    "aliases": []
+    "aliases": [],
+    "continent": "South America"
   },
   {
     "numeric": "608",
@@ -801,31 +924,36 @@
     "name": "Philippines",
     "aliases": [
       "The Philippines"
-    ]
+    ],
+    "continent": "Asia"
   },
   {
     "numeric": "616",
     "iso3": "POL",
     "name": "Poland",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "620",
     "iso3": "PRT",
     "name": "Portugal",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "630",
     "iso3": "PRI",
     "name": "Puerto Rico",
-    "aliases": []
+    "aliases": [],
+    "continent": "North America"
   },
   {
     "numeric": "634",
     "iso3": "QAT",
     "name": "Qatar",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "178",
@@ -834,13 +962,15 @@
     "aliases": [
       "Congo",
       "Congo-Brazzaville"
-    ]
+    ],
+    "continent": "Africa"
   },
   {
     "numeric": "642",
     "iso3": "ROU",
     "name": "Romania",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "643",
@@ -848,61 +978,71 @@
     "name": "Russia",
     "aliases": [
       "Russian Federation"
-    ]
+    ],
+    "continent": "Europe"
   },
   {
     "numeric": "646",
     "iso3": "RWA",
     "name": "Rwanda",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "682",
     "iso3": "SAU",
     "name": "Saudi Arabia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "686",
     "iso3": "SEN",
     "name": "Senegal",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "688",
     "iso3": "SRB",
     "name": "Serbia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "694",
     "iso3": "SLE",
     "name": "Sierra Leone",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "703",
     "iso3": "SVK",
     "name": "Slovakia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "705",
     "iso3": "SVN",
     "name": "Slovenia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "090",
     "iso3": "SLB",
     "name": "Solomon Islands",
-    "aliases": []
+    "aliases": [],
+    "continent": "Oceania"
   },
   {
     "numeric": "706",
     "iso3": "SOM",
     "name": "Somalia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "710",
@@ -910,7 +1050,8 @@
     "name": "South Africa",
     "aliases": [
       "RSA"
-    ]
+    ],
+    "continent": "Africa"
   },
   {
     "numeric": "410",
@@ -919,13 +1060,15 @@
     "aliases": [
       "Republic of Korea",
       "ROK"
-    ]
+    ],
+    "continent": "Asia"
   },
   {
     "numeric": "728",
     "iso3": "SSD",
     "name": "South Sudan",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "724",
@@ -933,25 +1076,29 @@
     "name": "Spain",
     "aliases": [
       "España"
-    ]
+    ],
+    "continent": "Europe"
   },
   {
     "numeric": "144",
     "iso3": "LKA",
     "name": "Sri Lanka",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "729",
     "iso3": "SDN",
     "name": "Sudan",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "740",
     "iso3": "SUR",
     "name": "Suriname",
-    "aliases": []
+    "aliases": [],
+    "continent": "South America"
   },
   {
     "numeric": "752",
@@ -959,13 +1106,15 @@
     "name": "Sweden",
     "aliases": [
       "Sverige"
-    ]
+    ],
+    "continent": "Europe"
   },
   {
     "numeric": "756",
     "iso3": "CHE",
     "name": "Switzerland",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "760",
@@ -973,7 +1122,8 @@
     "name": "Syria",
     "aliases": [
       "Syrian Arab Republic"
-    ]
+    ],
+    "continent": "Asia"
   },
   {
     "numeric": "158",
@@ -982,25 +1132,29 @@
     "aliases": [
       "Republic of China",
       "ROC"
-    ]
+    ],
+    "continent": "Asia"
   },
   {
     "numeric": "762",
     "iso3": "TJK",
     "name": "Tajikistan",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "834",
     "iso3": "TZA",
     "name": "Tanzania",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "764",
     "iso3": "THA",
     "name": "Thailand",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "626",
@@ -1008,25 +1162,29 @@
     "name": "Timor-Leste",
     "aliases": [
       "East Timor"
-    ]
+    ],
+    "continent": "Asia"
   },
   {
     "numeric": "768",
     "iso3": "TGO",
     "name": "Togo",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "780",
     "iso3": "TTO",
     "name": "Trinidad and Tobago",
-    "aliases": []
+    "aliases": [],
+    "continent": "North America"
   },
   {
     "numeric": "788",
     "iso3": "TUN",
     "name": "Tunisia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "792",
@@ -1034,25 +1192,29 @@
     "name": "Turkey",
     "aliases": [
       "Türkiye"
-    ]
+    ],
+    "continent": "Asia"
   },
   {
     "numeric": "795",
     "iso3": "TKM",
     "name": "Turkmenistan",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "800",
     "iso3": "UGA",
     "name": "Uganda",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "804",
     "iso3": "UKR",
     "name": "Ukraine",
-    "aliases": []
+    "aliases": [],
+    "continent": "Europe"
   },
   {
     "numeric": "784",
@@ -1061,7 +1223,8 @@
     "aliases": [
       "UAE",
       "Emirates"
-    ]
+    ],
+    "continent": "Asia"
   },
   {
     "numeric": "826",
@@ -1072,7 +1235,8 @@
       "Britain",
       "Great Britain",
       "England"
-    ]
+    ],
+    "continent": "Europe"
   },
   {
     "numeric": "840",
@@ -1083,31 +1247,36 @@
       "US",
       "America",
       "United States of America"
-    ]
+    ],
+    "continent": "North America"
   },
   {
     "numeric": "858",
     "iso3": "URY",
     "name": "Uruguay",
-    "aliases": []
+    "aliases": [],
+    "continent": "South America"
   },
   {
     "numeric": "860",
     "iso3": "UZB",
     "name": "Uzbekistan",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "548",
     "iso3": "VUT",
     "name": "Vanuatu",
-    "aliases": []
+    "aliases": [],
+    "continent": "Oceania"
   },
   {
     "numeric": "862",
     "iso3": "VEN",
     "name": "Venezuela",
-    "aliases": []
+    "aliases": [],
+    "continent": "South America"
   },
   {
     "numeric": "704",
@@ -1115,30 +1284,35 @@
     "name": "Vietnam",
     "aliases": [
       "Viet Nam"
-    ]
+    ],
+    "continent": "Asia"
   },
   {
     "numeric": "732",
     "iso3": "ESH",
     "name": "Western Sahara",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "887",
     "iso3": "YEM",
     "name": "Yemen",
-    "aliases": []
+    "aliases": [],
+    "continent": "Asia"
   },
   {
     "numeric": "894",
     "iso3": "ZMB",
     "name": "Zambia",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   },
   {
     "numeric": "716",
     "iso3": "ZWE",
     "name": "Zimbabwe",
-    "aliases": []
+    "aliases": [],
+    "continent": "Africa"
   }
 ]
