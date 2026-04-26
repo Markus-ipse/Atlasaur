@@ -41,10 +41,7 @@ export function AnswerInput({
       : null;
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="w-full max-w-5xl mx-auto flex flex-col gap-2"
-    >
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2">
       <div className="flex gap-2">
         <input
           ref={inputRef}
@@ -56,8 +53,10 @@ export function AnswerInput({
           autoFocus
           autoCapitalize="none"
           autoCorrect="off"
+          autoComplete="off"
           spellCheck={false}
           inputMode="text"
+          enterKeyHint="go"
           className="flex-1 min-h-11 px-4 text-lg rounded border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50"
         />
         <button
@@ -68,9 +67,7 @@ export function AnswerInput({
           Submit
         </button>
       </div>
-      {showCorrect && (
-        <p className="text-sm text-red-600">{showCorrect}</p>
-      )}
+      {showCorrect && <p className="text-sm text-red-600">{showCorrect}</p>}
     </form>
   );
 }
