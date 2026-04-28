@@ -16,6 +16,9 @@ export type Country = {
   name: string;
   aliases: string[];
   continent: Continent;
+  // Set only for partially-recognized territories whose topology features
+  // lack an ISO id; matched by world-atlas `properties.name` instead.
+  topoName?: string;
 };
 
 export type Mode = "name-to-click" | "shape-to-name";

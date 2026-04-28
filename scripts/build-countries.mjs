@@ -6,6 +6,15 @@
 // numeric codes (zero-padded, matching world-atlas feature.id). Aliases are
 // matched after normalize() (lowercased, diacritics stripped, apostrophes
 // removed), so they don't need diacritics or case to be exact here.
+//
+// Partially-recognized territories (Kosovo, N. Cyprus, Somaliland) have no
+// official ISO 3166-1 numeric or alpha-3 code. They render in the topology
+// without a feature.id, so we match them by topology feature name instead.
+// For each, set `topoName` to the exact `properties.name` from the topology
+// and use a synthetic key from the ISO-reserved user-assigned ranges:
+//   - numeric: 900–999  (ISO 3166-1 user-assigned)
+//   - alpha-3: XAA–XZZ  (ISO 3166-1 user-assigned)
+// These are guaranteed by ISO never to collide with future official codes.
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -195,6 +204,13 @@ const COUNTRIES = {
   "887": { iso3: "YEM", name: "Yemen", aliases: [], continent: "Asia" },
   "894": { iso3: "ZMB", name: "Zambia", aliases: [], continent: "Africa" },
   "716": { iso3: "ZWE", name: "Zimbabwe", aliases: [], continent: "Africa" },
+
+  // Partially-recognized territories — keyed by synthetic numeric (900–999
+  // user-assigned range), iso3 in user-assigned XAA–XZZ range. These features
+  // have no `id` in world-atlas, so the build matches them by `topoName`.
+  "901": { iso3: "XKX", name: "Kosovo", aliases: ["Republic of Kosovo"], continent: "Europe", topoName: "Kosovo" },
+  "902": { iso3: "XNC", name: "Northern Cyprus", aliases: ["N. Cyprus", "Turkish Republic of Northern Cyprus", "TRNC"], continent: "Asia", topoName: "N. Cyprus" },
+  "903": { iso3: "XSL", name: "Somaliland", aliases: ["Republic of Somaliland"], continent: "Africa", topoName: "Somaliland" },
 };
 
 const topology = JSON.parse(
@@ -206,15 +222,65 @@ const topologyIds = new Set(
     .map((g) => g.id)
     .filter((id) => typeof id === "string"),
 );
+const topologyNames = new Set(
+  topology.objects.countries.geometries
+    .filter((g) => typeof g.id !== "string")
+    .map((g) => g.properties?.name)
+    .filter((n) => typeof n === "string"),
+);
+
+// Sanity-check the table before matching: malformed entries are easy to
+// introduce and silently produce a broken build.
+const errors = [];
+const seenIso3 = new Set();
+for (const [numeric, info] of Object.entries(COUNTRIES)) {
+  if (info.topoName) {
+    if (topologyIds.has(numeric)) {
+      errors.push(
+        `${numeric} ${info.iso3} ${info.name}: has topoName but ${numeric} is also a real ISO numeric in the topology — drop topoName.`,
+      );
+    }
+    if (!/^9\d\d$/.test(numeric)) {
+      errors.push(
+        `${numeric} ${info.iso3} ${info.name}: topoName entries must use a synthetic numeric in 900–999.`,
+      );
+    }
+  }
+  if (seenIso3.has(info.iso3)) {
+    errors.push(`Duplicate iso3 ${info.iso3} (${info.name})`);
+  }
+  seenIso3.add(info.iso3);
+}
+if (errors.length > 0) {
+  console.error("Errors in COUNTRIES table:");
+  for (const e of errors) console.error(`  ${e}`);
+  process.exit(1);
+}
 
 const matched = [];
 const missingFromTopology = [];
+const missingTopoNames = [];
 for (const [numeric, info] of Object.entries(COUNTRIES)) {
-  if (topologyIds.has(numeric)) {
+  if (info.topoName) {
+    if (topologyNames.has(info.topoName)) {
+      matched.push({ numeric, ...info });
+    } else {
+      // Unlike a missing real ISO numeric (often just "too small at 110m"),
+      // a missing topoName almost always means a typo — fail loudly.
+      missingTopoNames.push({ numeric, ...info });
+    }
+  } else if (topologyIds.has(numeric)) {
     matched.push({ numeric, ...info });
   } else {
     missingFromTopology.push({ numeric, ...info });
   }
+}
+if (missingTopoNames.length > 0) {
+  console.error("topoName not found in topology (typo?):");
+  for (const c of missingTopoNames) {
+    console.error(`  ${c.numeric} ${c.iso3} ${c.name}: topoName=${JSON.stringify(c.topoName)}`);
+  }
+  process.exit(1);
 }
 matched.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -239,10 +305,15 @@ if (invalidContinents.length > 0) {
   process.exit(1);
 }
 
+const claimedTopoNames = new Set(
+  matched.filter((m) => m.topoName).map((m) => m.topoName),
+);
 const orphans = [];
 for (const g of topology.objects.countries.geometries) {
-  if (typeof g.id === "string" && !COUNTRIES[g.id]) {
-    orphans.push({ id: g.id, name: g.properties?.name });
+  if (typeof g.id === "string") {
+    if (!COUNTRIES[g.id]) orphans.push({ id: g.id, name: g.properties?.name });
+  } else if (!claimedTopoNames.has(g.properties?.name)) {
+    orphans.push({ id: "(no id)", name: g.properties?.name });
   }
 }
 

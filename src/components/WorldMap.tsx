@@ -13,7 +13,26 @@ import { feature } from "topojson-client";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import polylabel from "polylabel";
 import topology from "world-atlas/countries-110m.json";
-import type { Feedback, Mode } from "../types";
+import countriesData from "../data/countries.json";
+import type { Country, Feedback, Mode } from "../types";
+
+// Identifier wiring only — for partially-recognized territories whose
+// topology features have no ISO numeric id, the build script assigns a
+// synthetic numeric and records the matching topology `properties.name`
+// here. We read it once at module load so PATHS/LABELS can use the
+// synthetic id uniformly. WorldMap deliberately does not consume any
+// game data (names/aliases/continents) from countries.json.
+const SYNTHETIC_NUMERIC_BY_TOPO_NAME = new Map<string, string>(
+  (countriesData as Country[])
+    .filter((c) => c.topoName)
+    .map((c) => [c.topoName as string, c.numeric]),
+);
+
+function numericIdFor(f: Feature<Geometry, { name?: string }>): string | null {
+  if (typeof f.id === "string") return f.id;
+  const name = f.properties?.name;
+  return (name && SYNTHETIC_NUMERIC_BY_TOPO_NAME.get(name)) ?? null;
+}
 
 function prefersReducedMotion(): boolean {
   return (
@@ -71,11 +90,14 @@ type LabelItem = {
 
 // Path strings depend only on the (module-level) projection, so they're
 // computed once. During pan/zoom we re-render but the d strings stay equal.
-const PATHS: PathItem[] = collection.features.map((f, i) => ({
-  key: typeof f.id === "string" ? f.id : `idx-${i}`,
-  numericId: typeof f.id === "string" ? f.id : null,
-  d: pathGen(f) ?? "",
-}));
+const PATHS: PathItem[] = collection.features.map((f, i) => {
+  const numericId = numericIdFor(f);
+  return {
+    key: numericId ?? `idx-${i}`,
+    numericId,
+    d: pathGen(f) ?? "",
+  };
+});
 
 type ProjRing = [number, number][];
 
@@ -159,7 +181,8 @@ const GLYPH_W_RATIO = 0.55;
 
 const LABELS: LabelItem[] = [];
 for (const f of collection.features) {
-  if (typeof f.id !== "string") continue;
+  const numericId = numericIdFor(f);
+  if (!numericId) continue;
   const name = f.properties?.name;
   if (!name) continue;
   const ring = pickLargestRing(f);
@@ -172,7 +195,7 @@ for (const f of collection.features) {
   const { x0, x1, y0, y1 } = ringBounds(ring);
   const bw = x1 - x0;
   const bypassFit = name.length * (8 / BYPASS_FIT_K) * GLYPH_W_RATIO > bw;
-  LABELS.push({ numericId: f.id, name, cx, cy, x0, x1, y0, y1, bypassFit });
+  LABELS.push({ numericId, name, cx, cy, x0, x1, y0, y1, bypassFit });
 }
 
 const LABELS_BY_NUMERIC = new Map<string, LabelItem>(

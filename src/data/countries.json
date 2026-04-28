@@ -623,6 +623,16 @@
     "continent": "Africa"
   },
   {
+    "numeric": "901",
+    "iso3": "XKX",
+    "name": "Kosovo",
+    "aliases": [
+      "Republic of Kosovo"
+    ],
+    "continent": "Europe",
+    "topoName": "Kosovo"
+  },
+  {
     "numeric": "414",
     "iso3": "KWT",
     "name": "Kuwait",
@@ -860,6 +870,18 @@
     "continent": "Europe"
   },
   {
+    "numeric": "902",
+    "iso3": "XNC",
+    "name": "Northern Cyprus",
+    "aliases": [
+      "N. Cyprus",
+      "Turkish Republic of Northern Cyprus",
+      "TRNC"
+    ],
+    "continent": "Asia",
+    "topoName": "N. Cyprus"
+  },
+  {
     "numeric": "578",
     "iso3": "NOR",
     "name": "Norway",
@@ -1043,6 +1065,16 @@
     "name": "Somalia",
     "aliases": [],
     "continent": "Africa"
+  },
+  {
+    "numeric": "903",
+    "iso3": "XSL",
+    "name": "Somaliland",
+    "aliases": [
+      "Republic of Somaliland"
+    ],
+    "continent": "Africa",
+    "topoName": "Somaliland"
   },
   {
     "numeric": "710",
