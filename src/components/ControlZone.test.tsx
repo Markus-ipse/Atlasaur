@@ -40,6 +40,8 @@ function makeGame(overrides: {
       sessionDone: false,
     },
     unlearnedCount: 0,
+    showLabelsOnReveal: true,
+    setShowLabelsOnReveal: vi.fn(),
     isoFromNumeric: () => undefined,
     numericFromIso3: () => undefined,
     nameFromIso3: (iso3) => NAMES_BY_ISO3[iso3] ?? iso3,

@@ -27,6 +27,8 @@ export function ControlZone({ game }: Props) {
           onSetMode={game.setMode}
           selectedContinents={state.selectedContinents}
           onSetContinents={game.setContinents}
+          showLabelsOnReveal={game.showLabelsOnReveal}
+          onSetShowLabelsOnReveal={game.setShowLabelsOnReveal}
           onEndSession={game.endSession}
         />
       </header>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer } from "react";
+import { useEffect, useMemo, useReducer, useState } from "react";
 import countriesData from "../data/countries.json";
 import { normalize } from "../data/normalize";
 import { pickRandom, pickNext } from "./pickCountry";
@@ -19,6 +19,7 @@ const NUMERIC_BY_ISO3 = new Map(COUNTRIES.map((c) => [c.iso3, c.numeric]));
 const COUNTRY_BY_ISO3 = new Map(COUNTRIES.map((c) => [c.iso3, c]));
 
 const CONTINENTS_STORAGE_KEY = "atlasaur:selectedContinents";
+const SHOW_LABELS_STORAGE_KEY = "atlasaur:showLabelsOnReveal";
 
 function filterPool(continents: readonly Continent[]): Country[] {
   const set = new Set(continents);
@@ -47,6 +48,24 @@ function saveContinents(continents: readonly Continent[]): void {
       CONTINENTS_STORAGE_KEY,
       JSON.stringify(continents),
     );
+  } catch {
+    // localStorage may be unavailable (private mode, SSR); ignore.
+  }
+}
+
+function loadShowLabels(): boolean {
+  try {
+    const raw = window.localStorage.getItem(SHOW_LABELS_STORAGE_KEY);
+    if (raw === null) return true;
+    return raw === "true";
+  } catch {
+    return true;
+  }
+}
+
+function saveShowLabels(value: boolean): void {
+  try {
+    window.localStorage.setItem(SHOW_LABELS_STORAGE_KEY, String(value));
   } catch {
     // localStorage may be unavailable (private mode, SSR); ignore.
   }
@@ -278,6 +297,8 @@ export function reducer(state: State, action: Action): State {
 export type GameApi = {
   state: State;
   unlearnedCount: number;
+  showLabelsOnReveal: boolean;
+  setShowLabelsOnReveal: (value: boolean) => void;
   isoFromNumeric: (numeric: string) => string | undefined;
   numericFromIso3: (iso3: string) => string | undefined;
   nameFromIso3: (iso3: string) => string;
@@ -297,6 +318,7 @@ export function useGame(): GameApi {
   const [state, dispatch] = useReducer(reducer, undefined, () =>
     initialState("name-to-click", loadContinents()),
   );
+  const [showLabelsOnReveal, setShowLabelsOnReveal] = useState(loadShowLabels);
 
   useEffect(() => {
     if (!state.feedback || state.feedback.kind !== "correct") return;
@@ -311,6 +333,10 @@ export function useGame(): GameApi {
     saveContinents(state.selectedContinents);
   }, [state.selectedContinents]);
 
+  useEffect(() => {
+    saveShowLabels(showLabelsOnReveal);
+  }, [showLabelsOnReveal]);
+
   const isInScope = useMemo(() => {
     const continents = new Set(state.selectedContinents);
     const inScope = new Set(
@@ -322,6 +348,8 @@ export function useGame(): GameApi {
   return {
     state,
     unlearnedCount: state.retryQueue.length,
+    showLabelsOnReveal,
+    setShowLabelsOnReveal,
     isoFromNumeric,
     numericFromIso3,
     nameFromIso3,

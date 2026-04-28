@@ -50,6 +50,14 @@ type PathItem = {
   d: string;
 };
 
+type LabelItem = {
+  numericId: string;
+  name: string;
+  cx: number;
+  cy: number;
+  bw: number;
+};
+
 // Path strings depend only on the (module-level) projection, so they're
 // computed once. During pan/zoom we re-render but the d strings stay equal.
 const PATHS: PathItem[] = collection.features.map((f, i) => ({
@@ -57,6 +65,17 @@ const PATHS: PathItem[] = collection.features.map((f, i) => ({
   numericId: typeof f.id === "string" ? f.id : null,
   d: pathGen(f) ?? "",
 }));
+
+const LABELS: LabelItem[] = [];
+for (const f of collection.features) {
+  if (typeof f.id !== "string") continue;
+  const name = f.properties?.name;
+  if (!name) continue;
+  const [cx, cy] = pathGen.centroid(f);
+  if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
+  const [[x0], [x1]] = pathGen.bounds(f);
+  LABELS.push({ numericId: f.id, name, cx, cy, bw: x1 - x0 });
+}
 
 const FEATURE_BY_NUMERIC = new Map<
   string,
@@ -70,6 +89,7 @@ type Props = {
   mode: Mode;
   highlightedIso3: string | null;
   feedback: Feedback | null;
+  showLabelsOnReveal: boolean;
   isoFromNumeric: (numeric: string) => string | undefined;
   numericFromIso3: (iso3: string) => string | undefined;
   isInScope: (iso3: string) => boolean;
@@ -107,6 +127,7 @@ export function WorldMap({
   mode,
   highlightedIso3,
   feedback,
+  showLabelsOnReveal,
   isoFromNumeric,
   numericFromIso3,
   isInScope,
@@ -214,6 +235,34 @@ export function WorldMap({
               />
             );
           })}
+          {revealIso3 && showLabelsOnReveal &&
+            LABELS.map((l) => {
+              const iso3 = isoFromNumeric(l.numericId);
+              if (!iso3) return null;
+              if (!isInScope(iso3) && iso3 !== feedback?.correctIso3) return null;
+              // Scaled inverse to zoom so labels stay constant-sized on screen.
+              const fontSize = 8 / transform.k;
+              // 0.55 ≈ average glyph width / em.
+              const approxWidth = l.name.length * fontSize * 0.55;
+              if (approxWidth > l.bw) return null;
+              return (
+                <text
+                  key={l.numericId}
+                  x={l.cx}
+                  y={l.cy}
+                  fontSize={fontSize}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="#0f172a"
+                  stroke="white"
+                  strokeWidth={fontSize * 0.18}
+                  paintOrder="stroke"
+                  style={{ pointerEvents: "none", fontWeight: 500 }}
+                >
+                  {l.name}
+                </text>
+              );
+            })}
         </g>
       </svg>
       {isPanned && (

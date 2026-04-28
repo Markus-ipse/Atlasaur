@@ -17,6 +17,7 @@ export default function App() {
           mode={state.mode}
           highlightedIso3={highlightedIso3}
           feedback={state.feedback}
+          showLabelsOnReveal={game.showLabelsOnReveal}
           isoFromNumeric={game.isoFromNumeric}
           numericFromIso3={game.numericFromIso3}
           isInScope={game.isInScope}
