@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { geoEqualEarth, geoPath } from "d3-geo";
+import { geoEqualEarth, geoPath, geoStream } from "d3-geo";
 import { select } from "d3-selection";
 import {
   zoom as d3zoom,
@@ -11,6 +11,7 @@ import {
 import "d3-transition";
 import { feature } from "topojson-client";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
+import polylabel from "polylabel";
 import topology from "world-atlas/countries-110m.json";
 import type { Feedback, Mode } from "../types";
 
@@ -66,14 +67,86 @@ const PATHS: PathItem[] = collection.features.map((f, i) => ({
   d: pathGen(f) ?? "",
 }));
 
+type ProjRing = [number, number][];
+
+function ringArea(ring: ProjRing): number {
+  let a = 0;
+  const n = ring.length;
+  for (let i = 0; i < n; i++) {
+    const [x1, y1] = ring[i];
+    const [x2, y2] = ring[(i + 1) % n];
+    a += x1 * y2 - x2 * y1;
+  }
+  return Math.abs(a) / 2;
+}
+
+function ringXBounds(ring: ProjRing): [number, number] {
+  let xMin = Infinity;
+  let xMax = -Infinity;
+  for (const [x] of ring) {
+    if (x < xMin) xMin = x;
+    if (x > xMax) xMax = x;
+  }
+  return [xMin, xMax];
+}
+
+// Stream the feature through the projection so antimeridian clipping (and
+// any other projection-level clipping) happens before we see points;
+// otherwise rings spanning ±180° (Fiji, Russia, Antarctica) project as a
+// stripe across the whole map and polylabel lands in the ocean.
+//
+// Across all clipped rings, pick the largest by area as the country's
+// "main" landmass — that's where the label belongs (continental US, not
+// Alaska; mainland Russia, not Chukotka). Holes are ignored: at 110m
+// resolution real holes are rare, and antimeridian splits emit disjoint
+// pieces as multiple rings of one polygon, so a strict outer/hole reading
+// wouldn't be reliable anyway.
+function pickLargestRing(feat: Feature<Geometry>): ProjRing | null {
+  let best: ProjRing | null = null;
+  let bestArea = 0;
+  let curRing: ProjRing | null = null;
+  geoStream(
+    feat,
+    projection.stream({
+      polygonStart() {},
+      polygonEnd() {},
+      lineStart() {
+        curRing = [];
+      },
+      lineEnd() {
+        if (curRing && curRing.length >= 3) {
+          const a = ringArea(curRing);
+          if (a > bestArea) {
+            best = curRing;
+            bestArea = a;
+          }
+        }
+        curRing = null;
+      },
+      point(x: number, y: number) {
+        if (curRing && Number.isFinite(x) && Number.isFinite(y)) {
+          curRing.push([x, y]);
+        }
+      },
+      sphere() {},
+    }),
+  );
+  return best;
+}
+
 const LABELS: LabelItem[] = [];
 for (const f of collection.features) {
   if (typeof f.id !== "string") continue;
   const name = f.properties?.name;
   if (!name) continue;
-  const [cx, cy] = pathGen.centroid(f);
+  const ring = pickLargestRing(f);
+  if (!ring) continue;
+  // Pole of inaccessibility — point inside the polygon furthest from any
+  // edge. Beats centroid for concave shapes (e.g. Croatia's crescent
+  // around Bosnia would land outside the country with a centroid).
+  const [cx, cy] = polylabel([ring], 1.0);
   if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
-  const [[x0], [x1]] = pathGen.bounds(f);
+  const [x0, x1] = ringXBounds(ring);
   LABELS.push({ numericId: f.id, name, cx, cy, bw: x1 - x0 });
 }
 
