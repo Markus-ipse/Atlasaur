@@ -56,7 +56,17 @@ type LabelItem = {
   name: string;
   cx: number;
   cy: number;
-  bw: number;
+  // Bounding box of the largest projected ring, used to (a) frame the
+  // reveal-zoom and (b) decide whether the label fits inside the country.
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+  // True when even at moderate zoom the label can't fit inside the country
+  // — i.e. small islands and microstates whose label always overflows the
+  // coastline. For these, render the label regardless of zoom; gating
+  // them by fit means the user has to zoom way in to ever see the name.
+  bypassFit: boolean;
 };
 
 // Path strings depend only on the (module-level) projection, so they're
@@ -80,14 +90,20 @@ function ringArea(ring: ProjRing): number {
   return Math.abs(a) / 2;
 }
 
-function ringXBounds(ring: ProjRing): [number, number] {
+function ringBounds(
+  ring: ProjRing,
+): { x0: number; x1: number; y0: number; y1: number } {
   let xMin = Infinity;
+  let yMin = Infinity;
   let xMax = -Infinity;
-  for (const [x] of ring) {
+  let yMax = -Infinity;
+  for (const [x, y] of ring) {
     if (x < xMin) xMin = x;
+    if (y < yMin) yMin = y;
     if (x > xMax) xMax = x;
+    if (y > yMax) yMax = y;
   }
-  return [xMin, xMax];
+  return { x0: xMin, x1: xMax, y0: yMin, y1: yMax };
 }
 
 // Stream the feature through the projection so antimeridian clipping (and
@@ -134,6 +150,13 @@ function pickLargestRing(feat: Feature<Geometry>): ProjRing | null {
   return best;
 }
 
+// "Moderate" zoom for the bypassFit threshold — countries whose label
+// can't fit at this zoom level always overflow their coastline, so we
+// render their labels at any zoom rather than gating them.
+const BYPASS_FIT_K = 1.5;
+// 0.55 ≈ average glyph width / em, matched against the rendering check.
+const GLYPH_W_RATIO = 0.55;
+
 const LABELS: LabelItem[] = [];
 for (const f of collection.features) {
   if (typeof f.id !== "string") continue;
@@ -146,17 +169,15 @@ for (const f of collection.features) {
   // around Bosnia would land outside the country with a centroid).
   const [cx, cy] = polylabel([ring], 1.0);
   if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
-  const [x0, x1] = ringXBounds(ring);
-  LABELS.push({ numericId: f.id, name, cx, cy, bw: x1 - x0 });
+  const { x0, x1, y0, y1 } = ringBounds(ring);
+  const bw = x1 - x0;
+  const bypassFit = name.length * (8 / BYPASS_FIT_K) * GLYPH_W_RATIO > bw;
+  LABELS.push({ numericId: f.id, name, cx, cy, x0, x1, y0, y1, bypassFit });
 }
 
-const FEATURE_BY_NUMERIC = new Map<
-  string,
-  Feature<Geometry, { name?: string }>
->();
-for (const f of collection.features) {
-  if (typeof f.id === "string") FEATURE_BY_NUMERIC.set(f.id, f);
-}
+const LABELS_BY_NUMERIC = new Map<string, LabelItem>(
+  LABELS.map((l) => [l.numericId, l]),
+);
 
 type Props = {
   mode: Mode;
@@ -237,10 +258,13 @@ export function WorldMap({
     if (!svgRef.current || !zoomRef.current) return;
     const numeric = numericFromIso3(revealIso3);
     if (!numeric) return;
-    const feat = FEATURE_BY_NUMERIC.get(numeric);
-    if (!feat) return;
-
-    const [[x0, y0], [x1, y1]] = pathGen.bounds(feat);
+    // Frame the largest clipped ring rather than pathGen.bounds(feat) —
+    // for antimeridian-crossing features (Fiji, Russia, Antarctica) the
+    // raw feature bounds span the whole map width, which collapses the
+    // zoom factor to ~1 and the user never lands on the country.
+    const label = LABELS_BY_NUMERIC.get(numeric);
+    if (!label) return;
+    const { x0, x1, y0, y1 } = label;
     const w = Math.max(1, x1 - x0);
     const h = Math.max(1, y1 - y0);
     const cx = (x0 + x1) / 2;
@@ -315,9 +339,9 @@ export function WorldMap({
               if (!isInScope(iso3) && iso3 !== feedback?.correctIso3) return null;
               // Scaled inverse to zoom so labels stay constant-sized on screen.
               const fontSize = 8 / transform.k;
-              // 0.55 ≈ average glyph width / em.
-              const approxWidth = l.name.length * fontSize * 0.55;
-              if (approxWidth > l.bw) return null;
+              const approxWidth = l.name.length * fontSize * GLYPH_W_RATIO;
+              const bw = l.x1 - l.x0;
+              if (!l.bypassFit && approxWidth > bw) return null;
               return (
                 <text
                   key={l.numericId}
