@@ -15,6 +15,13 @@ import polylabel from "polylabel";
 import topology from "world-atlas/countries-110m.json";
 import countriesData from "../data/countries.json";
 import type { Country, Feedback, Mode } from "../types";
+import {
+  W,
+  H,
+  MIN_ZOOM,
+  MAX_ZOOM,
+  computeRevealTarget,
+} from "./revealZoom";
 
 // Identifier wiring only — for partially-recognized territories whose
 // topology features have no ISO numeric id, the build script assigns a
@@ -40,14 +47,6 @@ function prefersReducedMotion(): boolean {
     window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
   );
 }
-
-const W = 800;
-const H = 400;
-
-const MIN_ZOOM = 1;
-// MAX_ZOOM picked to make the smallest countries comfortably clickable on
-// mobile. Revisit if it's still hard to hit micro-states (e.g. Singapore).
-const MAX_ZOOM = 24;
 
 const COLOR_DEFAULT = "#e5e7eb";
 const COLOR_INERT = "#f3f4f6";
@@ -273,13 +272,20 @@ export function WorldMap({
     };
   }, []);
 
-  const revealIso3 =
+  // On wrong/skipped, frame the correct country. On wrong, also frame the
+  // country the user clicked so they get spatial context (close miss vs.
+  // way off). Skips have no second reference point.
+  const revealCorrectIso3 =
     feedback && feedback.kind !== "correct" ? feedback.correctIso3 : null;
+  const revealWrongIso3 =
+    feedback?.kind === "wrong" && feedback.answerIso3 !== feedback.correctIso3
+      ? feedback.answerIso3
+      : null;
 
   useEffect(() => {
-    if (!revealIso3) return;
+    if (!revealCorrectIso3) return;
     if (!svgRef.current || !zoomRef.current) return;
-    const numeric = numericFromIso3(revealIso3);
+    const numeric = numericFromIso3(revealCorrectIso3);
     if (!numeric) return;
     // Frame the largest clipped ring rather than pathGen.bounds(feat) —
     // for antimeridian-crossing features (Fiji, Russia, Antarctica) the
@@ -287,13 +293,14 @@ export function WorldMap({
     // zoom factor to ~1 and the user never lands on the country.
     const label = LABELS_BY_NUMERIC.get(numeric);
     if (!label) return;
-    const { x0, x1, y0, y1 } = label;
-    const w = Math.max(1, x1 - x0);
-    const h = Math.max(1, y1 - y0);
-    const cx = (x0 + x1) / 2;
-    const cy = (y0 + y1) / 2;
+    const wrongNumeric = revealWrongIso3
+      ? numericFromIso3(revealWrongIso3)
+      : undefined;
+    const wrongLabel = wrongNumeric
+      ? LABELS_BY_NUMERIC.get(wrongNumeric) ?? null
+      : null;
 
-    const k = Math.min(MAX_ZOOM, 0.55 * Math.min(W / w, H / h));
+    const { k, cx, cy } = computeRevealTarget(label, wrongLabel);
     const target = zoomIdentity
       .translate(W / 2 - cx * k, H / 2 - cy * k)
       .scale(k);
@@ -303,7 +310,7 @@ export function WorldMap({
       .transition()
       .duration(duration)
       .call(zoomRef.current.transform, target);
-  }, [revealIso3, numericFromIso3]);
+  }, [revealCorrectIso3, revealWrongIso3, numericFromIso3]);
 
   const hasFeedback = feedback !== null;
   const prevHadFeedbackRef = useRef(false);
@@ -355,7 +362,7 @@ export function WorldMap({
               />
             );
           })}
-          {revealIso3 && showLabelsOnReveal &&
+          {revealCorrectIso3 && showLabelsOnReveal &&
             LABELS.map((l) => {
               const iso3 = isoFromNumeric(l.numericId);
               if (!iso3) return null;
