@@ -23,8 +23,8 @@ import {
   computeRevealTarget,
 } from "./revealZoom";
 import {
-  BYPASS_FIT_K,
-  GLYPH_W_RATIO,
+  LABEL_EM,
+  TARGET_LABEL_PX,
   computeVisibleLabels,
   fontSizeFor,
   type Label,
@@ -177,9 +177,7 @@ for (const f of collection.features) {
   const [cx, cy] = polylabel([ring], 1.0);
   if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
   const { x0, x1, y0, y1 } = ringBounds(ring);
-  const bw = x1 - x0;
-  const bypassFit = name.length * fontSizeFor(BYPASS_FIT_K) * GLYPH_W_RATIO > bw;
-  LABELS.push({ numericId, name, cx, cy, x0, x1, y0, y1, bypassFit, area });
+  LABELS.push({ numericId, name, cx, cy, x0, x1, y0, y1, area });
 }
 
 const LABELS_BY_NUMERIC = new Map<string, Label>(
@@ -237,6 +235,11 @@ export function WorldMap({
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const [transform, setTransform] = useState<ZoomTransform>(zoomIdentity);
+  // Rendered SVG dimensions in CSS pixels — used to scale label em so
+  // the on-screen label size stays readable on mobile (~375px) without
+  // ballooning on large desktops (~1920px+). Tracks both axes because
+  // preserveAspectRatio="xMidYMid meet" uses the smaller of W/H ratios.
+  const [svgSize, setSvgSize] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     if (!svgRef.current) return;
@@ -255,6 +258,26 @@ export function WorldMap({
     return () => {
       svg.on(".zoom", null);
     };
+  }, []);
+
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const width = entry.contentRect.width;
+      const height = entry.contentRect.height;
+      // Dedupe — the observer can fire with unchanged dims (e.g. on
+      // visibility transitions) and would otherwise force a re-render.
+      setSvgSize((prev) =>
+        prev.width === width && prev.height === height
+          ? prev
+          : { width, height },
+      );
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   // On wrong/skipped, frame the correct country. On wrong, also frame the
@@ -319,6 +342,18 @@ export function WorldMap({
   const isClickMode = mode === "name-to-click" && !feedback;
   const isPanned = transform !== zoomIdentity;
 
+  // The effective projection-to-pixel scale matches preserveAspectRatio
+  // ="xMidYMid meet": the smaller of the two axis ratios. Using width
+  // alone would be wrong on landscape containers wider than the
+  // viewBox's 2:1 ratio (where height is the constraint and the map is
+  // letterboxed horizontally). Falls back to LABEL_EM until the resize
+  // observer reports dimensions.
+  const effectiveScale =
+    svgSize.width > 0 && svgSize.height > 0
+      ? Math.min(svgSize.width / W, svgSize.height / H)
+      : 0;
+  const labelEm = effectiveScale > 0 ? TARGET_LABEL_PX / effectiveScale : LABEL_EM;
+
   // Compute the visible label set on every zoom change while a reveal is
   // showing. Memoized so pure pans (which re-render but don't change k)
   // don't redo the O(N²) collision pass.
@@ -328,6 +363,7 @@ export function WorldMap({
       revealCorrectIso3 && showLabelsOnReveal
         ? computeVisibleLabels(LABELS, {
             k: transform.k,
+            em: labelEm,
             isInScope,
             isoFromNumeric,
             correctIso3,
@@ -337,12 +373,13 @@ export function WorldMap({
       revealCorrectIso3,
       showLabelsOnReveal,
       transform.k,
+      labelEm,
       isInScope,
       isoFromNumeric,
       correctIso3,
     ],
   );
-  const labelFontSize = fontSizeFor(transform.k);
+  const labelFontSize = fontSizeFor(transform.k, labelEm);
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-sky-50 [overscroll-behavior:none]">

@@ -13,12 +13,20 @@ export const GLYPH_W_RATIO = 0.55;
 // pass decide whether they're shown.
 export const BYPASS_FIT_K = 1.5;
 
-// Em size for label text in projection units before the zoom transform
-// scales it. Labels render at fontSize = LABEL_EM / k so they stay a
-// constant 8px-equivalent on screen regardless of zoom.
+// Default em size in projection units. Used as the fallback for
+// `fontSizeFor` and `computeVisibleLabels` callers that don't pass
+// their own em — most importantly during the first render before the
+// SVG has been measured.
 export const LABEL_EM = 8;
-export function fontSizeFor(k: number): number {
-  return LABEL_EM / k;
+
+// Target on-screen label size in CSS pixels. The runtime em is scaled
+// from this against the rendered SVG width so labels stay this size
+// regardless of viewport — without scaling, an 8-em label on a 375px
+// phone renders at ~4px, way below readable.
+export const TARGET_LABEL_PX = 14;
+
+export function fontSizeFor(k: number, em: number = LABEL_EM): number {
+  return em / k;
 }
 
 // Each label's collision rect is grown by this fraction of the font size
@@ -39,11 +47,6 @@ export type Label = {
   x1: number;
   y0: number;
   y1: number;
-  // True when even at moderate zoom the label can't fit inside the
-  // country — i.e. small islands and microstates whose label always
-  // overflows the coastline. For these, skip the per-country fit check
-  // and let collision detection alone decide visibility.
-  bypassFit: boolean;
   // Largest-ring area in projected units; used as the importance score
   // when collision-rejecting overlapping labels (bigger country wins).
   area: number;
@@ -58,26 +61,43 @@ function rectsOverlap(a: Rect, b: Rect): boolean {
 // Render-time filter: given the full label list and the current zoom,
 // return the labels that should actually be drawn. The pipeline is
 //   (1) scope filter — in-scope or the correct country
-//   (2) fit check — label can't be wider than the country, unless bypassFit
+//   (2) fit check — label can't be wider than the country, unless the
+//       country is too small to ever fit it (bypass check, computed
+//       per-render from the runtime em so it scales with viewport)
 //   (3) collision rejection — sort by importance (correct first, then by
 //       area), greedily place each label's screen-space rect, drop any
 //       whose rect overlaps one already placed.
 // O(N²) in the candidate count, but N is ≤ ~180 and the caller is
-// expected to memoize on (k, scope, correct-iso3) so this only re-runs
-// when one of those changes.
+// expected to memoize on (k, em, scope, correct-iso3) so this only
+// re-runs when one of those changes.
 export function computeVisibleLabels(
   labels: readonly Label[],
   args: {
     k: number;
+    /**
+     * Em size in projection units. Pass the SVG-scaled em to keep on-
+     * screen label size consistent across viewports — see
+     * WorldMap.tsx where it's computed from the rendered SVG width.
+     * Defaults to LABEL_EM (the desktop reference em).
+     */
+    em?: number;
     isInScope: (iso3: string) => boolean;
     isoFromNumeric: (numeric: string) => string | undefined;
     correctIso3: string | null;
   },
 ): readonly Label[] {
-  const { k, isInScope, isoFromNumeric, correctIso3 } = args;
-  const fontSize = fontSizeFor(k);
+  const { k, em = LABEL_EM, isInScope, isoFromNumeric, correctIso3 } = args;
+  const fontSize = fontSizeFor(k, em);
   const labelHeight = fontSize;
   const pad = fontSize * COLLISION_PADDING;
+
+  // Per-label bypass threshold: at "moderate" zoom (BYPASS_FIT_K) using
+  // the current em, can the name fit inside the country's projected
+  // width? If not, the country is small enough that the label always
+  // overflows — skip the per-country fit-check and let collision
+  // rejection alone decide visibility. Computed from current em (not
+  // module-load em) so the rule scales correctly across viewports.
+  const bypassWidthPerChar = fontSizeFor(BYPASS_FIT_K, em) * GLYPH_W_RATIO;
 
   type Candidate = { label: Label; w: number; isCorrect: boolean };
   const candidates: Candidate[] = [];
@@ -86,8 +106,14 @@ export function computeVisibleLabels(
     if (!iso3) continue;
     const isCorrect = iso3 === correctIso3;
     if (!isCorrect && !isInScope(iso3)) continue;
+    const countryWidth = l.x1 - l.x0;
     const w = l.name.length * fontSize * GLYPH_W_RATIO;
-    if (!l.bypassFit && w > l.x1 - l.x0) continue;
+    const bypassFit = l.name.length * bypassWidthPerChar > countryWidth;
+    // The correct country bypasses the fit-check too — the whole point
+    // of the reveal is to show the answer, even if its label has to
+    // overflow into neighbors. Collision rejection still applies, but
+    // because correct sorts first it always wins placement.
+    if (!isCorrect && !bypassFit && w > countryWidth) continue;
     candidates.push({ label: l, w, isCorrect });
   }
 

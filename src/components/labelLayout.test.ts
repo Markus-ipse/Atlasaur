@@ -12,10 +12,11 @@ function makeLabel(partial: Partial<Label> & Pick<Label, "numericId" | "name">):
     cx: 100,
     cy: 100,
     x0: 0,
+    // Default bw=1000 so labels comfortably fit (no fit-check rejection)
+    // unless tests override it.
     x1: 1000,
     y0: 0,
     y1: 1000,
-    bypassFit: true,
     area: 1,
     ...partial,
   };
@@ -49,16 +50,11 @@ describe("computeVisibleLabels", () => {
     expect(visible[0].name).toBe("A");
   });
 
-  it("hides a non-bypass label whose width exceeds the country's projected width", () => {
+  it("hides a label that doesn't fit the country at the current zoom", () => {
+    // bw=20: "France" fits at moderate zoom (k=BYPASS_FIT_K=1.5: 17.6 < 20)
+    // but not at low zoom (k=1: 26.4 > 20). Fit-check kicks in.
     const labels = [
-      // Width: 6 chars * 8/1 * 0.55 = 26.4. Country width: 10. Hidden.
-      makeLabel({
-        numericId: "1",
-        name: "France",
-        x0: 0,
-        x1: 10,
-        bypassFit: false,
-      }),
+      makeLabel({ numericId: "1", name: "France", x0: 0, x1: 20 }),
     ];
     expect(
       computeVisibleLabels(labels, {
@@ -70,15 +66,24 @@ describe("computeVisibleLabels", () => {
     ).toEqual([]);
   });
 
-  it("renders a non-bypass label that fits inside the country", () => {
+  it("shows the same label once zoomed in enough to fit it", () => {
     const labels = [
-      makeLabel({
-        numericId: "1",
-        name: "France",
-        x0: 0,
-        x1: 100,
-        bypassFit: false,
-      }),
+      makeLabel({ numericId: "1", name: "France", x0: 0, x1: 20 }),
+    ];
+    const visible = computeVisibleLabels(labels, {
+      k: 2,
+      isInScope: allInScope,
+      isoFromNumeric,
+      correctIso3: null,
+    });
+    expect(visible).toHaveLength(1);
+  });
+
+  it("always shows a label whose country can never fit it (microstate path)", () => {
+    // bw=2: "Liechtenstein" can't fit at any reasonable zoom. The
+    // bypass-fit branch lets it through even at k=1.
+    const labels = [
+      makeLabel({ numericId: "1", name: "Liechtenstein", x0: 0, x1: 2 }),
     ];
     const visible = computeVisibleLabels(labels, {
       k: 1,
@@ -132,6 +137,22 @@ describe("computeVisibleLabels", () => {
     });
     expect(ordered.map((l) => l.name)).toEqual(["Big"]);
     expect(reversed.map((l) => l.name)).toEqual(["Big"]);
+  });
+
+  it("renders the correct country even when its label overflows the country bounds", () => {
+    // bw=20: "France" fits at moderate zoom but not at k=1 (26.4 > 20).
+    // As the answer it must still render — the user needs to see it.
+    const labels = [
+      makeLabel({ numericId: "1", name: "France", x0: 0, x1: 20 }),
+    ];
+    const visible = computeVisibleLabels(labels, {
+      k: 1,
+      isInScope: () => false,
+      isoFromNumeric,
+      correctIso3: "ISO_1",
+    });
+    expect(visible).toHaveLength(1);
+    expect(visible[0].name).toBe("France");
   });
 
   it("places the correct country first even when smaller than competitors", () => {
@@ -196,14 +217,12 @@ describe("computeVisibleLabels", () => {
       name,
       x0: 0,
       x1: widthAt - 0.01,
-      bypassFit: false,
     });
     const justOver = makeLabel({
       numericId: "2",
       name,
       x0: 0,
       x1: widthAt + 0.01,
-      bypassFit: false,
       cx: 500, // place far away so it doesn't collide with #1
     });
     const visible = computeVisibleLabels([justUnder, justOver], {
@@ -215,14 +234,17 @@ describe("computeVisibleLabels", () => {
     expect(visible.map((l) => l.numericId)).toEqual(["2"]);
   });
 
-  it("two bypassFit labels collide; the larger area wins", () => {
+  it("two microstate-sized labels collide; the larger area wins", () => {
+    // Both x0/x1 are tiny — they bypass the fit-check via the moderate-
+    // zoom rule, then collision rejection picks the larger area.
     const labels = [
       makeLabel({
         numericId: "1",
         name: "Tiny",
         cx: 100,
         cy: 100,
-        bypassFit: true,
+        x0: 99,
+        x1: 101,
         area: 1,
       }),
       makeLabel({
@@ -230,7 +252,8 @@ describe("computeVisibleLabels", () => {
         name: "Big",
         cx: 102,
         cy: 100,
-        bypassFit: true,
+        x0: 101,
+        x1: 103,
         area: 100,
       }),
     ];
@@ -262,9 +285,68 @@ describe("computeVisibleLabels", () => {
     expect(visible.map((l) => l.numericId)).toEqual(["1"]);
   });
 
-  it("fontSizeFor returns LABEL_EM / k", () => {
+  it("fontSizeFor returns LABEL_EM / k by default", () => {
     expect(fontSizeFor(1)).toBe(LABEL_EM);
     expect(fontSizeFor(2)).toBe(LABEL_EM / 2);
     expect(fontSizeFor(8)).toBe(LABEL_EM / 8);
+  });
+
+  it("fontSizeFor honors a custom em (mobile-scaled labels)", () => {
+    expect(fontSizeFor(1, 25.6)).toBe(25.6);
+    expect(fontSizeFor(2, 25.6)).toBe(12.8);
+  });
+
+  it("a larger em widens the bypass-fit threshold (mobile-em regression pin)", () => {
+    // bw=20, "France" (6 chars). At desktop em=8, bypass-fit threshold
+    // is 6 × 8/1.5 × 0.55 = 17.6 < 20 → not bypassed → fit-check applies
+    // at k=1 (w=26.4 > 20) → hidden. At mobile em=25.6, bypass-fit
+    // threshold is 6 × 25.6/1.5 × 0.55 = 56.3 > 20 → bypassed → label
+    // is allowed through. This pins the runtime-em-aware bypass logic
+    // so the static-precompute regression doesn't reappear.
+    const labels = [
+      makeLabel({ numericId: "1", name: "France", x0: 0, x1: 20 }),
+    ];
+    const desktop = computeVisibleLabels(labels, {
+      k: 1,
+      em: 8,
+      isInScope: allInScope,
+      isoFromNumeric,
+      correctIso3: null,
+    });
+    expect(desktop).toEqual([]);
+    const mobile = computeVisibleLabels(labels, {
+      k: 1,
+      em: 25.6,
+      isInScope: allInScope,
+      isoFromNumeric,
+      correctIso3: null,
+    });
+    expect(mobile).toHaveLength(1);
+  });
+
+  it("a larger em widens the rect and tightens collision (mobile case)", () => {
+    // Two labels far enough apart that they don't collide at em=8...
+    const labels = [
+      makeLabel({ numericId: "1", name: "AA", cx: 0, cy: 0, area: 10 }),
+      makeLabel({ numericId: "2", name: "AA", cx: 14, cy: 0, area: 1 }),
+    ];
+    const desktop = computeVisibleLabels(labels, {
+      k: 1,
+      em: 8,
+      isInScope: allInScope,
+      isoFromNumeric,
+      correctIso3: null,
+    });
+    expect(desktop).toHaveLength(2);
+    // ...but at mobile-scaled em the wider rects collide and the
+    // smaller-area label gets dropped.
+    const mobile = computeVisibleLabels(labels, {
+      k: 1,
+      em: 25.6,
+      isInScope: allInScope,
+      isoFromNumeric,
+      correctIso3: null,
+    });
+    expect(mobile.map((l) => l.numericId)).toEqual(["1"]);
   });
 });
