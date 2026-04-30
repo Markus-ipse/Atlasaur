@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { geoEqualEarth, geoPath, geoStream } from "d3-geo";
 import { select } from "d3-selection";
 import {
@@ -22,6 +22,13 @@ import {
   MAX_ZOOM,
   computeRevealTarget,
 } from "./revealZoom";
+import {
+  BYPASS_FIT_K,
+  GLYPH_W_RATIO,
+  computeVisibleLabels,
+  fontSizeFor,
+  type Label,
+} from "./labelLayout";
 
 // Identifier wiring only — for partially-recognized territories whose
 // topology features have no ISO numeric id, the build script assigns a
@@ -67,24 +74,6 @@ type PathItem = {
   key: string;
   numericId: string | null;
   d: string;
-};
-
-type LabelItem = {
-  numericId: string;
-  name: string;
-  cx: number;
-  cy: number;
-  // Bounding box of the largest projected ring, used to (a) frame the
-  // reveal-zoom and (b) decide whether the label fits inside the country.
-  x0: number;
-  x1: number;
-  y0: number;
-  y1: number;
-  // True when even at moderate zoom the label can't fit inside the country
-  // — i.e. small islands and microstates whose label always overflows the
-  // coastline. For these, render the label regardless of zoom; gating
-  // them by fit means the user has to zoom way in to ever see the name.
-  bypassFit: boolean;
 };
 
 // Path strings depend only on the (module-level) projection, so they're
@@ -138,7 +127,9 @@ function ringBounds(
 // resolution real holes are rare, and antimeridian splits emit disjoint
 // pieces as multiple rings of one polygon, so a strict outer/hole reading
 // wouldn't be reliable anyway.
-function pickLargestRing(feat: Feature<Geometry>): ProjRing | null {
+function pickLargestRing(
+  feat: Feature<Geometry>,
+): { ring: ProjRing; area: number } | null {
   let best: ProjRing | null = null;
   let bestArea = 0;
   let curRing: ProjRing | null = null;
@@ -168,24 +159,18 @@ function pickLargestRing(feat: Feature<Geometry>): ProjRing | null {
       sphere() {},
     }),
   );
-  return best;
+  return best ? { ring: best, area: bestArea } : null;
 }
 
-// "Moderate" zoom for the bypassFit threshold — countries whose label
-// can't fit at this zoom level always overflow their coastline, so we
-// render their labels at any zoom rather than gating them.
-const BYPASS_FIT_K = 1.5;
-// 0.55 ≈ average glyph width / em, matched against the rendering check.
-const GLYPH_W_RATIO = 0.55;
-
-const LABELS: LabelItem[] = [];
+const LABELS: Label[] = [];
 for (const f of collection.features) {
   const numericId = numericIdFor(f);
   if (!numericId) continue;
   const name = f.properties?.name;
   if (!name) continue;
-  const ring = pickLargestRing(f);
-  if (!ring) continue;
+  const result = pickLargestRing(f);
+  if (!result) continue;
+  const { ring, area } = result;
   // Pole of inaccessibility — point inside the polygon furthest from any
   // edge. Beats centroid for concave shapes (e.g. Croatia's crescent
   // around Bosnia would land outside the country with a centroid).
@@ -193,11 +178,11 @@ for (const f of collection.features) {
   if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
   const { x0, x1, y0, y1 } = ringBounds(ring);
   const bw = x1 - x0;
-  const bypassFit = name.length * (8 / BYPASS_FIT_K) * GLYPH_W_RATIO > bw;
-  LABELS.push({ numericId, name, cx, cy, x0, x1, y0, y1, bypassFit });
+  const bypassFit = name.length * fontSizeFor(BYPASS_FIT_K) * GLYPH_W_RATIO > bw;
+  LABELS.push({ numericId, name, cx, cy, x0, x1, y0, y1, bypassFit, area });
 }
 
-const LABELS_BY_NUMERIC = new Map<string, LabelItem>(
+const LABELS_BY_NUMERIC = new Map<string, Label>(
   LABELS.map((l) => [l.numericId, l]),
 );
 
@@ -334,6 +319,31 @@ export function WorldMap({
   const isClickMode = mode === "name-to-click" && !feedback;
   const isPanned = transform !== zoomIdentity;
 
+  // Compute the visible label set on every zoom change while a reveal is
+  // showing. Memoized so pure pans (which re-render but don't change k)
+  // don't redo the O(N²) collision pass.
+  const correctIso3 = feedback?.correctIso3 ?? null;
+  const visibleLabels = useMemo(
+    () =>
+      revealCorrectIso3 && showLabelsOnReveal
+        ? computeVisibleLabels(LABELS, {
+            k: transform.k,
+            isInScope,
+            isoFromNumeric,
+            correctIso3,
+          })
+        : [],
+    [
+      revealCorrectIso3,
+      showLabelsOnReveal,
+      transform.k,
+      isInScope,
+      isoFromNumeric,
+      correctIso3,
+    ],
+  );
+  const labelFontSize = fontSizeFor(transform.k);
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-sky-50 [overscroll-behavior:none]">
       <svg
@@ -362,34 +372,23 @@ export function WorldMap({
               />
             );
           })}
-          {revealCorrectIso3 && showLabelsOnReveal &&
-            LABELS.map((l) => {
-              const iso3 = isoFromNumeric(l.numericId);
-              if (!iso3) return null;
-              if (!isInScope(iso3) && iso3 !== feedback?.correctIso3) return null;
-              // Scaled inverse to zoom so labels stay constant-sized on screen.
-              const fontSize = 8 / transform.k;
-              const approxWidth = l.name.length * fontSize * GLYPH_W_RATIO;
-              const bw = l.x1 - l.x0;
-              if (!l.bypassFit && approxWidth > bw) return null;
-              return (
-                <text
-                  key={l.numericId}
-                  x={l.cx}
-                  y={l.cy}
-                  fontSize={fontSize}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fill="#0f172a"
-                  stroke="white"
-                  strokeWidth={fontSize * 0.18}
-                  paintOrder="stroke"
-                  style={{ pointerEvents: "none", fontWeight: 500 }}
-                >
-                  {l.name}
-                </text>
-              );
-            })}
+          {visibleLabels.map((l) => (
+            <text
+              key={l.numericId}
+              x={l.cx}
+              y={l.cy}
+              fontSize={labelFontSize}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="#0f172a"
+              stroke="white"
+              strokeWidth={labelFontSize * 0.18}
+              paintOrder="stroke"
+              style={{ pointerEvents: "none", fontWeight: 500 }}
+            >
+              {l.name}
+            </text>
+          ))}
         </g>
       </svg>
       {isPanned && (
