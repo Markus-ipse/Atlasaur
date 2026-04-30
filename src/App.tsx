@@ -1,17 +1,19 @@
 import { useGame } from "./game/useGame";
+import { useTheme } from "./theme/useTheme";
 import { WorldMap } from "./components/WorldMap";
 import { ControlZone } from "./components/ControlZone";
 import { SessionSummary } from "./components/SessionSummary";
 
 export default function App() {
   const game = useGame();
+  const { theme, toggleTheme } = useTheme();
   const { state } = game;
 
   const highlightedIso3 =
     state.mode === "shape-to-name" ? state.current.iso3 : null;
 
   return (
-    <div className="h-dvh w-full flex overflow-hidden bg-slate-50 text-slate-900 portrait:flex-col landscape:flex-row pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
+    <div className="h-dvh w-full flex overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 portrait:flex-col landscape:flex-row pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       <div className="relative flex-1 min-h-0 min-w-0">
         <WorldMap
           mode={state.mode}
@@ -24,7 +26,7 @@ export default function App() {
           onCountryClick={game.answer}
         />
       </div>
-      <ControlZone game={game} />
+      <ControlZone game={game} theme={theme} onToggleTheme={toggleTheme} />
       {state.sessionDone && (
         <SessionSummary
           score={state.score}

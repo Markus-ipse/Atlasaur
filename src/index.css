@@ -1,5 +1,31 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --map-default: #e5e7eb;
+  --map-inert: #f3f4f6;
+  --map-highlight: #3b82f6;
+  --map-correct: #22c55e;
+  --map-wrong: #ef4444;
+  --map-skipped: #eab308;
+  --map-border: #64748b;
+  --map-label-fill: #0f172a;
+  --map-label-stroke: #ffffff;
+}
+
+.dark {
+  --map-default: #334155;
+  --map-inert: #1e293b;
+  --map-highlight: #60a5fa;
+  --map-correct: #4ade80;
+  --map-wrong: #f87171;
+  --map-skipped: #facc15;
+  --map-border: #94a3b8;
+  --map-label-fill: #f1f5f9;
+  --map-label-stroke: #0f172a;
+}
+
 html,
 body,
 #root {
@@ -29,8 +55,15 @@ a {
   .country-clickable:hover {
     filter: brightness(0.95);
   }
+  .dark .country-clickable:hover {
+    filter: brightness(1.15);
+  }
 }
 
 .country-clickable:active {
   filter: brightness(0.92);
+}
+
+.dark .country-clickable:active {
+  filter: brightness(1.2);
 }

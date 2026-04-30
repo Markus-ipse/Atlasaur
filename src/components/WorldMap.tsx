@@ -55,13 +55,13 @@ function prefersReducedMotion(): boolean {
   );
 }
 
-const COLOR_DEFAULT = "#e5e7eb";
-const COLOR_INERT = "#f3f4f6";
-const COLOR_HIGHLIGHT = "#3b82f6";
-const COLOR_CORRECT = "#22c55e";
-const COLOR_WRONG = "#ef4444";
-const COLOR_SKIPPED = "#eab308";
-const COLOR_BORDER = "#64748b";
+const COLOR_DEFAULT = "var(--map-default)";
+const COLOR_INERT = "var(--map-inert)";
+const COLOR_HIGHLIGHT = "var(--map-highlight)";
+const COLOR_CORRECT = "var(--map-correct)";
+const COLOR_WRONG = "var(--map-wrong)";
+const COLOR_SKIPPED = "var(--map-skipped)";
+const COLOR_BORDER = "var(--map-border)";
 
 const collection = feature(
   topology,
@@ -382,7 +382,7 @@ export function WorldMap({
   const labelFontSize = fontSizeFor(transform.k, labelEm);
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-sky-50 [overscroll-behavior:none]">
+    <div className="relative h-full w-full overflow-hidden bg-sky-50 dark:bg-slate-950 [overscroll-behavior:none]">
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
@@ -417,8 +417,8 @@ export function WorldMap({
               fontSize={labelFontSize}
               textAnchor="middle"
               dominantBaseline="middle"
-              fill="#0f172a"
-              stroke="white"
+              fill="var(--map-label-fill)"
+              stroke="var(--map-label-stroke)"
               strokeWidth={labelFontSize * 0.18}
               paintOrder="stroke"
               style={{ pointerEvents: "none", fontWeight: 500 }}
@@ -433,7 +433,7 @@ export function WorldMap({
           type="button"
           onClick={resetView}
           aria-label="Reset map view"
-          className="absolute top-2 right-2 min-h-11 min-w-11 px-3 rounded-full border border-slate-300 bg-white/90 backdrop-blur text-sm text-slate-700 shadow-sm hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          className="absolute top-2 right-2 min-h-11 min-w-11 px-3 rounded-full border border-slate-300 bg-white/90 backdrop-blur text-sm text-slate-700 shadow-sm hover:bg-white dark:border-slate-600 dark:bg-slate-900/90 dark:text-slate-200 dark:hover:bg-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
         >
           Reset
         </button>

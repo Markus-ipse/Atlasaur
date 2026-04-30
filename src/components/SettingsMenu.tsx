@@ -112,7 +112,7 @@ export function SettingsMenu({
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full border border-slate-300 text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+        className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
       >
         <GearIcon />
       </button>
@@ -127,14 +127,14 @@ export function SettingsMenu({
               bottom: coords.bottom,
               right: coords.right,
             }}
-            className="z-50 w-72 rounded-lg border border-slate-200 bg-white shadow-lg p-3 flex flex-col gap-3"
+            className="z-50 w-72 rounded-lg border border-slate-200 bg-white shadow-lg p-3 flex flex-col gap-3 dark:bg-slate-900 dark:border-slate-700"
           >
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Mode</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Mode</p>
               <div
                 role="radiogroup"
                 aria-label="Game mode"
-                className="flex gap-1 p-1 rounded-full border border-slate-200 bg-slate-50"
+                className="flex gap-1 p-1 rounded-full border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800"
               >
                 <ModeButton
                   active={mode === "name-to-click"}
@@ -151,7 +151,7 @@ export function SettingsMenu({
               </div>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Continents</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Continents</p>
               <div role="group" aria-label="Continents" className="flex flex-wrap gap-1">
                 {ALL_CONTINENTS.map((continent) => {
                   const active = selectedSet.has(continent);
@@ -173,13 +173,13 @@ export function SettingsMenu({
               </div>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Reveal</p>
-              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Reveal</p>
+              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={showLabelsOnReveal}
                   onChange={(e) => onSetShowLabelsOnReveal(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  className="h-4 w-4 rounded border-slate-300 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 />
                 Show country names after a wrong answer
               </label>
@@ -187,7 +187,7 @@ export function SettingsMenu({
             <button
               type="button"
               onClick={handleEndSession}
-              className="min-h-11 px-3 rounded border border-slate-300 text-slate-700 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              className="min-h-11 px-3 rounded border border-slate-300 text-slate-700 text-sm hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             >
               End session
             </button>
@@ -215,7 +215,9 @@ function ModeButton({
       onClick={onClick}
       className={
         "flex-1 min-h-9 px-3 rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 " +
-        (active ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100")
+        (active
+          ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+          : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700")
       }
     >
       {children}
@@ -247,8 +249,8 @@ function ContinentChip({
       className={
         "min-h-9 px-3 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 " +
         (active
-          ? "bg-slate-900 text-white border-slate-900"
-          : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100") +
+          ? "bg-slate-900 text-white border-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:border-slate-100"
+          : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-700") +
         (disabled ? " cursor-not-allowed opacity-80" : "")
       }
     >

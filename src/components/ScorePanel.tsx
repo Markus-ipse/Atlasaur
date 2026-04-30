@@ -28,11 +28,11 @@ function Stat({
 }) {
   return (
     <div className="flex items-baseline gap-1">
-      <span className="text-xs uppercase tracking-wide text-slate-500">{label}</span>
-      <span className={(muted ? "text-slate-600" : "text-slate-900") + " font-semibold"}>
+      <span className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</span>
+      <span className={(muted ? "text-slate-600 dark:text-slate-400" : "text-slate-900 dark:text-slate-100") + " font-semibold"}>
         {value}
       </span>
-      {sub && <span className="text-slate-500">{sub}</span>}
+      {sub && <span className="text-slate-500 dark:text-slate-400">{sub}</span>}
     </div>
   );
 }

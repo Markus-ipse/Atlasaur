@@ -58,6 +58,12 @@ function makeGame(overrides: {
   };
 }
 
+function renderControlZone(game: GameApi) {
+  return render(
+    <ControlZone game={game} theme="light" onToggleTheme={vi.fn()} />,
+  );
+}
+
 afterEach(() => {
   cleanup();
 });
@@ -65,7 +71,7 @@ afterEach(() => {
 describe("ControlZone", () => {
   it("renders Skip when there is no feedback", () => {
     const game = makeGame({});
-    render(<ControlZone game={game} />);
+    renderControlZone(game);
     expect(screen.getByRole("button", { name: "Skip" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
   });
@@ -77,7 +83,7 @@ describe("ControlZone", () => {
       correctIso3: "FRA",
     };
     const game = makeGame({ feedback: wrong });
-    render(<ControlZone game={game} />);
+    renderControlZone(game);
     const cont = screen.getByRole("button", { name: "Continue" });
     expect(document.activeElement).toBe(cont);
   });
@@ -89,7 +95,7 @@ describe("ControlZone", () => {
       correctIso3: "FRA",
     };
     const game = makeGame({ feedback: correct });
-    render(<ControlZone game={game} />);
+    renderControlZone(game);
     expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
     // Skip is shown but disabled because feedback is non-null
     const skip = screen.getByRole("button", { name: "Skip" }) as HTMLButtonElement;
@@ -98,7 +104,7 @@ describe("ControlZone", () => {
 
   it("Skip click invokes game.skip", () => {
     const game = makeGame({});
-    render(<ControlZone game={game} />);
+    renderControlZone(game);
     act(() => {
       screen.getByRole("button", { name: "Skip" }).click();
     });
@@ -112,7 +118,7 @@ describe("ControlZone", () => {
       correctIso3: "FRA",
     };
     const game = makeGame({ feedback: wrong });
-    render(<ControlZone game={game} />);
+    renderControlZone(game);
     act(() => {
       screen.getByRole("button", { name: "Continue" }).click();
     });
@@ -126,7 +132,7 @@ describe("ControlZone", () => {
       correctIso3: "FRA",
     };
     const game = makeGame({ mode: "name-to-click", feedback: wrong });
-    render(<ControlZone game={game} />);
+    renderControlZone(game);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("You selected: Germany");
     expect(status.textContent).toContain("Correct answer: France");
@@ -139,7 +145,7 @@ describe("ControlZone", () => {
       correctIso3: "FRA",
     };
     const game = makeGame({ mode: "name-to-click", feedback: skipped });
-    render(<ControlZone game={game} />);
+    renderControlZone(game);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("Correct answer: France");
     expect(status.textContent).not.toContain("You selected");
@@ -152,7 +158,7 @@ describe("ControlZone", () => {
       correctIso3: "FRA",
     };
     const game = makeGame({ mode: "shape-to-name", feedback: wrong });
-    render(<ControlZone game={game} />);
+    renderControlZone(game);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("Correct answer: France");
     expect(status.textContent).not.toContain("You selected");
@@ -165,15 +171,24 @@ describe("ControlZone", () => {
       correctIso3: "FRA",
     };
     const game = makeGame({ feedback: correct });
-    render(<ControlZone game={game} />);
+    renderControlZone(game);
     expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("renders the AnswerInput only in shape-to-name mode", () => {
     const a = makeGame({ mode: "name-to-click" });
-    const { rerender } = render(<ControlZone game={a} />);
+    const onToggleTheme = vi.fn();
+    const { rerender } = render(
+      <ControlZone game={a} theme="light" onToggleTheme={onToggleTheme} />,
+    );
     expect(screen.queryByPlaceholderText(/type the country name/i)).toBeNull();
-    rerender(<ControlZone game={makeGame({ mode: "shape-to-name" })} />);
+    rerender(
+      <ControlZone
+        game={makeGame({ mode: "shape-to-name" })}
+        theme="light"
+        onToggleTheme={onToggleTheme}
+      />,
+    );
     expect(screen.getByPlaceholderText(/type the country name/i)).toBeTruthy();
   });
 });

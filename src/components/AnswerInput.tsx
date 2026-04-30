@@ -51,12 +51,12 @@ export function AnswerInput({
         spellCheck={false}
         inputMode="text"
         enterKeyHint="go"
-        className="flex-1 min-h-11 px-4 text-lg rounded border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50"
+        className="flex-1 min-h-11 px-4 text-lg rounded border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:disabled:bg-slate-900"
       />
       <button
         type="submit"
         disabled={Boolean(feedback) || !value.trim()}
-        className="min-h-11 px-5 rounded bg-slate-900 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        className="min-h-11 px-5 rounded bg-slate-900 text-white font-medium dark:bg-slate-100 dark:text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Submit
       </button>
