@@ -23,11 +23,14 @@ import {
   computeRevealTarget,
 } from "./revealZoom";
 import {
+  COLLISION_PADDING,
+  GLYPH_W_RATIO,
   LABEL_EM,
   TARGET_LABEL_PX,
   computeVisibleLabels,
   fontSizeFor,
   type Label,
+  type Rect,
 } from "./labelLayout";
 
 // Identifier wiring only — for partially-recognized territories whose
@@ -381,31 +384,6 @@ export function WorldMap({
       : 0;
   const labelEm = effectiveScale > 0 ? TARGET_LABEL_PX / effectiveScale : LABEL_EM;
 
-  // Compute the visible label set on every zoom change while a reveal is
-  // showing. Memoized so pure pans (which re-render but don't change k)
-  // don't redo the O(N²) collision pass.
-  const correctIso3 = feedback?.correctIso3 ?? null;
-  const visibleLabels = useMemo(
-    () =>
-      revealCorrectIso3 && showLabelsOnReveal
-        ? computeVisibleLabels(LABELS, {
-            k: transform.k,
-            em: labelEm,
-            isInScope,
-            isoFromNumeric,
-            correctIso3,
-          })
-        : [],
-    [
-      revealCorrectIso3,
-      showLabelsOnReveal,
-      transform.k,
-      labelEm,
-      isInScope,
-      isoFromNumeric,
-      correctIso3,
-    ],
-  );
   const labelFontSize = fontSizeFor(transform.k, labelEm);
   // Use rendered map width (effectiveScale * W), not container width — on
   // letterboxed viewports the container is wider than the actual map.
@@ -418,6 +396,65 @@ export function WorldMap({
     effectiveScale > 0 ? oceanScreenPx / effectiveScale : LABEL_EM;
   const oceanLabelFontSize =
     baseOceanEm / Math.pow(transform.k, 1 - OCEAN_ZOOM_GROWTH);
+
+  // Reveal targets — countries that must always render their label.
+  // Always the answer; on a wrong click, also the country the user
+  // clicked (so they see "you clicked here, the answer was there").
+  const revealIso3s = useMemo(() => {
+    const set = new Set<string>();
+    if (revealCorrectIso3) set.add(revealCorrectIso3);
+    if (revealWrongIso3) set.add(revealWrongIso3);
+    return set;
+  }, [revealCorrectIso3, revealWrongIso3]);
+
+  // Ocean labels participate in the country-label collision graph as
+  // fixed obstacles — country labels yield to oceans (reveal targets
+  // bypass). Memoized on font size so pan/zoom doesn't rebuild.
+  const oceanObstacles = useMemo<Rect[]>(() => {
+    const pad = oceanLabelFontSize * COLLISION_PADDING;
+    const lineHeight = oceanLabelFontSize;
+    const oceanLineLen = "Ocean".length;
+    return OCEAN_LABELS.map((o) => {
+      const longestChars = Math.max(o.qualifier.length, oceanLineLen);
+      const halfW = (longestChars * oceanLabelFontSize * GLYPH_W_RATIO) / 2 + pad;
+      const halfH = lineHeight + pad;
+      return {
+        x0: o.cx - halfW,
+        x1: o.cx + halfW,
+        y0: o.cy - halfH,
+        y1: o.cy + halfH,
+      };
+    });
+  }, [oceanLabelFontSize]);
+
+  // Compute the visible label set on every zoom change while a reveal is
+  // showing. Memoized so pure pans (which re-render but don't change k)
+  // don't redo the O(N²) collision pass.
+  const visibleLabels = useMemo(
+    () =>
+      revealCorrectIso3 && showLabelsOnReveal
+        ? computeVisibleLabels(LABELS, {
+            k: transform.k,
+            em: labelEm,
+            effectiveScale,
+            isInScope,
+            isoFromNumeric,
+            revealIso3s,
+            obstacles: oceanObstacles,
+          })
+        : [],
+    [
+      revealCorrectIso3,
+      showLabelsOnReveal,
+      transform.k,
+      labelEm,
+      effectiveScale,
+      isInScope,
+      isoFromNumeric,
+      revealIso3s,
+      oceanObstacles,
+    ],
+  );
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-sky-50 [overscroll-behavior:none]">

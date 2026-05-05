@@ -5,6 +5,7 @@ import {
   GLYPH_W_RATIO,
   LABEL_EM,
   type Label,
+  type Rect,
 } from "./labelLayout";
 
 function makeLabel(partial: Partial<Label> & Pick<Label, "numericId" | "name">): Label {
@@ -24,44 +25,49 @@ function makeLabel(partial: Partial<Label> & Pick<Label, "numericId" | "name">):
 
 const isoFromNumeric = (n: string) => `ISO_${n}`;
 const allInScope = () => true;
+const noReveal: ReadonlySet<string> = new Set();
 
 describe("computeVisibleLabels", () => {
-  it("returns nothing when nothing is in scope and there's no correct answer", () => {
+  it("returns nothing when nothing is in scope and no reveal targets", () => {
     const labels = [makeLabel({ numericId: "1", name: "A" })];
     expect(
       computeVisibleLabels(labels, {
         k: 1,
+        effectiveScale: 1,
         isInScope: () => false,
         isoFromNumeric,
-        correctIso3: null,
+        revealIso3s: noReveal,
       }),
     ).toEqual([]);
   });
 
-  it("renders the correct country even when out of scope", () => {
+  it("renders a reveal target even when out of scope", () => {
     const labels = [makeLabel({ numericId: "1", name: "A" })];
     const visible = computeVisibleLabels(labels, {
       k: 1,
+      effectiveScale: 1,
       isInScope: () => false,
       isoFromNumeric,
-      correctIso3: "ISO_1",
+      revealIso3s: new Set(["ISO_1"]),
     });
     expect(visible).toHaveLength(1);
     expect(visible[0].name).toBe("A");
   });
 
   it("hides a label that doesn't fit the country at the current zoom", () => {
-    // bw=20: "France" fits at moderate zoom (k=BYPASS_FIT_K=1.5: 17.6 < 20)
-    // but not at low zoom (k=1: 26.4 > 20). Fit-check kicks in.
+    // bw=20, effectiveScale=2 → 40px on screen, above microstate threshold
+    // (~23px). At k=1 with em=LABEL_EM=8, "France" width=26.4 > 20, so the
+    // fit-check drops it.
     const labels = [
       makeLabel({ numericId: "1", name: "France", x0: 0, x1: 20 }),
     ];
     expect(
       computeVisibleLabels(labels, {
         k: 1,
+        effectiveScale: 2,
         isInScope: allInScope,
         isoFromNumeric,
-        correctIso3: null,
+        revealIso3s: noReveal,
       }),
     ).toEqual([]);
   });
@@ -72,24 +78,27 @@ describe("computeVisibleLabels", () => {
     ];
     const visible = computeVisibleLabels(labels, {
       k: 2,
+      effectiveScale: 2,
       isInScope: allInScope,
       isoFromNumeric,
-      correctIso3: null,
+      revealIso3s: noReveal,
     });
     expect(visible).toHaveLength(1);
   });
 
-  it("always shows a label whose country can never fit it (microstate path)", () => {
-    // bw=2: "Liechtenstein" can't fit at any reasonable zoom. The
-    // bypass-fit branch lets it through even at k=1.
+  it("always shows a label for a true microstate regardless of zoom (Liechtenstein-sized)", () => {
+    // bw=0.5: below the absolute SVG microstate threshold. Bypass
+    // triggers at any zoom or viewport, label is a candidate and
+    // renders alone.
     const labels = [
-      makeLabel({ numericId: "1", name: "Liechtenstein", x0: 0, x1: 2 }),
+      makeLabel({ numericId: "1", name: "Liechtenstein", x0: 0, x1: 0.5 }),
     ];
     const visible = computeVisibleLabels(labels, {
       k: 1,
+      effectiveScale: 1,
       isInScope: allInScope,
       isoFromNumeric,
-      correctIso3: null,
+      revealIso3s: noReveal,
     });
     expect(visible).toHaveLength(1);
   });
@@ -101,9 +110,10 @@ describe("computeVisibleLabels", () => {
     ];
     const visible = computeVisibleLabels(labels, {
       k: 1,
+      effectiveScale: 1,
       isInScope: allInScope,
       isoFromNumeric,
-      correctIso3: null,
+      revealIso3s: noReveal,
     });
     expect(visible.map((l) => l.name)).toEqual(["Big"]);
   });
@@ -125,37 +135,40 @@ describe("computeVisibleLabels", () => {
     });
     const ordered = computeVisibleLabels([small, big], {
       k: 1,
+      effectiveScale: 1,
       isInScope: allInScope,
       isoFromNumeric,
-      correctIso3: null,
+      revealIso3s: noReveal,
     });
     const reversed = computeVisibleLabels([big, small], {
       k: 1,
+      effectiveScale: 1,
       isInScope: allInScope,
       isoFromNumeric,
-      correctIso3: null,
+      revealIso3s: noReveal,
     });
     expect(ordered.map((l) => l.name)).toEqual(["Big"]);
     expect(reversed.map((l) => l.name)).toEqual(["Big"]);
   });
 
-  it("renders the correct country even when its label overflows the country bounds", () => {
-    // bw=20: "France" fits at moderate zoom but not at k=1 (26.4 > 20).
-    // As the answer it must still render — the user needs to see it.
+  it("renders a reveal target even when its label overflows the country bounds", () => {
+    // bw=20: "France" doesn't fit at any practical zoom — but as the
+    // reveal target it must still render.
     const labels = [
       makeLabel({ numericId: "1", name: "France", x0: 0, x1: 20 }),
     ];
     const visible = computeVisibleLabels(labels, {
       k: 1,
+      effectiveScale: 2,
       isInScope: () => false,
       isoFromNumeric,
-      correctIso3: "ISO_1",
+      revealIso3s: new Set(["ISO_1"]),
     });
     expect(visible).toHaveLength(1);
     expect(visible[0].name).toBe("France");
   });
 
-  it("places the correct country first even when smaller than competitors", () => {
+  it("places the reveal target first even when smaller than competitors", () => {
     const big = makeLabel({
       numericId: "1",
       name: "BigCountry",
@@ -172,9 +185,10 @@ describe("computeVisibleLabels", () => {
     });
     const visible = computeVisibleLabels([big, tinyAnswer], {
       k: 1,
+      effectiveScale: 1,
       isInScope: allInScope,
       isoFromNumeric,
-      correctIso3: "ISO_2",
+      revealIso3s: new Set(["ISO_2"]),
     });
     expect(visible.map((l) => l.name)).toEqual(["Sml"]);
   });
@@ -186,9 +200,10 @@ describe("computeVisibleLabels", () => {
     ];
     const visible = computeVisibleLabels(labels, {
       k: 1,
+      effectiveScale: 1,
       isInScope: allInScope,
       isoFromNumeric,
-      correctIso3: null,
+      revealIso3s: noReveal,
     });
     expect(visible).toHaveLength(2);
   });
@@ -198,9 +213,10 @@ describe("computeVisibleLabels", () => {
     expect(
       computeVisibleLabels(labels, {
         k: 1,
+        effectiveScale: 1,
         isInScope: allInScope,
         isoFromNumeric: () => undefined,
-        correctIso3: null,
+        revealIso3s: noReveal,
       }),
     ).toEqual([]);
   });
@@ -208,6 +224,8 @@ describe("computeVisibleLabels", () => {
   it("hides a label at the exact width-cutoff boundary (one char wider)", () => {
     // Width formula: name.length * fontSizeFor(k) * GLYPH_W_RATIO.
     // Pick a country bbox just shy of the width needed for an N-char name.
+    // Both bw values must be above the microstate threshold so the
+    // fit-check actually applies.
     const k = 1;
     const fontSize = fontSizeFor(k);
     const name = "FRANCE";
@@ -227,24 +245,26 @@ describe("computeVisibleLabels", () => {
     });
     const visible = computeVisibleLabels([justUnder, justOver], {
       k,
+      effectiveScale: 1,
       isInScope: allInScope,
       isoFromNumeric,
-      correctIso3: null,
+      revealIso3s: noReveal,
     });
     expect(visible.map((l) => l.numericId)).toEqual(["2"]);
   });
 
   it("two microstate-sized labels collide; the larger area wins", () => {
-    // Both x0/x1 are tiny — they bypass the fit-check via the moderate-
-    // zoom rule, then collision rejection picks the larger area.
+    // Both bboxes are below TRUE_MICROSTATE_SVG — they bypass the fit-
+    // check via the microstate rule, then collision rejection picks the
+    // larger area.
     const labels = [
       makeLabel({
         numericId: "1",
         name: "Tiny",
         cx: 100,
         cy: 100,
-        x0: 99,
-        x1: 101,
+        x0: 99.75,
+        x1: 100.25,
         area: 1,
       }),
       makeLabel({
@@ -252,25 +272,24 @@ describe("computeVisibleLabels", () => {
         name: "Big",
         cx: 102,
         cy: 100,
-        x0: 101,
-        x1: 103,
+        x0: 101.75,
+        x1: 102.25,
         area: 100,
       }),
     ];
     const visible = computeVisibleLabels(labels, {
       k: 1,
+      effectiveScale: 1,
       isInScope: allInScope,
       isoFromNumeric,
-      correctIso3: null,
+      revealIso3s: noReveal,
     });
     expect(visible.map((l) => l.numericId)).toEqual(["2"]);
   });
 
   it("padding pushes adjacent labels into a collision", () => {
-    // Compute the exact width of "AB" at k=1 so the rect-touching case is
-    // unambiguous. Without padding, two labels exactly width-apart would
-    // touch but not overlap. The render-side pad should push them into a
-    // collision.
+    // Without padding, two labels exactly width-apart would touch but not
+    // overlap. The render-side pad should push them into a collision.
     const k = 1;
     const fontSize = fontSizeFor(k);
     const w = 2 * fontSize * GLYPH_W_RATIO;
@@ -278,9 +297,10 @@ describe("computeVisibleLabels", () => {
     const b = makeLabel({ numericId: "2", name: "AB", cx: w, cy: 0, area: 1 });
     const visible = computeVisibleLabels([a, b], {
       k,
+      effectiveScale: 1,
       isInScope: allInScope,
       isoFromNumeric,
-      correctIso3: null,
+      revealIso3s: noReveal,
     });
     expect(visible.map((l) => l.numericId)).toEqual(["1"]);
   });
@@ -296,46 +316,79 @@ describe("computeVisibleLabels", () => {
     expect(fontSizeFor(2, 25.6)).toBe(12.8);
   });
 
-  it("a larger em widens the bypass-fit threshold (mobile-em regression pin)", () => {
-    // bw=20, "France" (6 chars). At desktop em=8, bypass-fit threshold
-    // is 6 × 8/1.5 × 0.55 = 17.6 < 20 → not bypassed → fit-check applies
-    // at k=1 (w=26.4 > 20) → hidden. At mobile em=25.6, bypass-fit
-    // threshold is 6 × 25.6/1.5 × 0.55 = 56.3 > 20 → bypassed → label
-    // is allowed through. This pins the runtime-em-aware bypass logic
-    // so the static-precompute regression doesn't reappear.
+  it("high-zoom bypass renders labels that overflow their country (zoom-in regression pin)", () => {
+    // Belgium-sized: bw=5 (above microstate threshold). At low zoom on
+    // desktop the label is wider than the country and gets dropped;
+    // once the user zooms past the high-zoom px-per-svg threshold the
+    // bypass fires and the label renders even though it overflows.
     const labels = [
-      makeLabel({ numericId: "1", name: "France", x0: 0, x1: 20 }),
+      makeLabel({ numericId: "1", name: "Belgium", x0: 0, x1: 5 }),
     ];
-    const desktop = computeVisibleLabels(labels, {
+    const lowZoom = computeVisibleLabels(labels, {
       k: 1,
-      em: 8,
+      effectiveScale: 1,
       isInScope: allInScope,
       isoFromNumeric,
-      correctIso3: null,
+      revealIso3s: noReveal,
     });
-    expect(desktop).toEqual([]);
-    const mobile = computeVisibleLabels(labels, {
-      k: 1,
-      em: 25.6,
+    expect(lowZoom).toEqual([]);
+    const highZoom = computeVisibleLabels(labels, {
+      k: 5,
+      effectiveScale: 1,
       isInScope: allInScope,
       isoFromNumeric,
-      correctIso3: null,
+      revealIso3s: noReveal,
     });
-    expect(mobile).toHaveLength(1);
+    expect(highZoom).toHaveLength(1);
+  });
+
+  it("high-zoom bypass kicks in at higher k on small screens (viewport-aware)", () => {
+    // Same Belgium-sized country. On a mobile-like effectiveScale=0.5
+    // it takes k>8 to trigger the bypass; on a desktop-like
+    // effectiveScale=2.5 it takes only k>1.6.
+    const labels = [
+      makeLabel({ numericId: "1", name: "Belgium", x0: 0, x1: 5 }),
+    ];
+    const mobileBelowThreshold = computeVisibleLabels(labels, {
+      k: 4,
+      effectiveScale: 0.5,
+      isInScope: allInScope,
+      isoFromNumeric,
+      revealIso3s: noReveal,
+    });
+    expect(mobileBelowThreshold).toEqual([]);
+    const mobileAboveThreshold = computeVisibleLabels(labels, {
+      k: 12,
+      effectiveScale: 0.5,
+      isInScope: allInScope,
+      isoFromNumeric,
+      revealIso3s: noReveal,
+    });
+    expect(mobileAboveThreshold).toHaveLength(1);
+    const desktopAboveThreshold = computeVisibleLabels(labels, {
+      k: 2,
+      effectiveScale: 2.5,
+      isInScope: allInScope,
+      isoFromNumeric,
+      revealIso3s: noReveal,
+    });
+    expect(desktopAboveThreshold).toHaveLength(1);
   });
 
   it("a larger em widens the rect and tightens collision (mobile case)", () => {
-    // Two labels far enough apart that they don't collide at em=8...
+    // Two labels far enough apart that they don't collide at em=8 with
+    // the new padding...
     const labels = [
       makeLabel({ numericId: "1", name: "AA", cx: 0, cy: 0, area: 10 }),
-      makeLabel({ numericId: "2", name: "AA", cx: 14, cy: 0, area: 1 }),
+      makeLabel({ numericId: "2", name: "AA", cx: 16, cy: 0, area: 1 }),
     ];
     const desktop = computeVisibleLabels(labels, {
       k: 1,
       em: 8,
+      effectiveScale: 1,
       isInScope: allInScope,
       isoFromNumeric,
-      correctIso3: null,
+      revealIso3s: noReveal,
     });
     expect(desktop).toHaveLength(2);
     // ...but at mobile-scaled em the wider rects collide and the
@@ -343,10 +396,81 @@ describe("computeVisibleLabels", () => {
     const mobile = computeVisibleLabels(labels, {
       k: 1,
       em: 25.6,
+      effectiveScale: 1,
       isInScope: allInScope,
       isoFromNumeric,
-      correctIso3: null,
+      revealIso3s: noReveal,
     });
     expect(mobile.map((l) => l.numericId)).toEqual(["1"]);
+  });
+
+  it("obstacles reject overlapping country candidates", () => {
+    // A single country label centered at (100, 100) with a wide bbox.
+    // Without an obstacle there it renders. Place an obstacle on top of
+    // its center and it gets rejected.
+    const labels = [makeLabel({ numericId: "1", name: "Spain", cx: 100, cy: 100 })];
+    const baseArgs = {
+      k: 1,
+      effectiveScale: 1,
+      isInScope: allInScope,
+      isoFromNumeric,
+      revealIso3s: noReveal,
+    } as const;
+    expect(
+      computeVisibleLabels(labels, baseArgs).map((l) => l.name),
+    ).toEqual(["Spain"]);
+    const blocking: Rect = { x0: 80, x1: 120, y0: 90, y1: 110 };
+    expect(
+      computeVisibleLabels(labels, {
+        ...baseArgs,
+        obstacles: [blocking],
+      }),
+    ).toEqual([]);
+  });
+
+  it("reveal targets render even when an obstacle covers them", () => {
+    const labels = [makeLabel({ numericId: "1", name: "Spain", cx: 100, cy: 100 })];
+    const blocking: Rect = { x0: 80, x1: 120, y0: 90, y1: 110 };
+    const visible = computeVisibleLabels(labels, {
+      k: 1,
+      effectiveScale: 1,
+      isInScope: allInScope,
+      isoFromNumeric,
+      revealIso3s: new Set(["ISO_1"]),
+      obstacles: [blocking],
+    });
+    expect(visible.map((l) => l.name)).toEqual(["Spain"]);
+  });
+
+  it("two reveal targets both render even if they'd collide with each other", () => {
+    const a = makeLabel({ numericId: "1", name: "Aaa", cx: 100, cy: 100, area: 1 });
+    const b = makeLabel({ numericId: "2", name: "Bbb", cx: 102, cy: 100, area: 1 });
+    const visible = computeVisibleLabels([a, b], {
+      k: 1,
+      effectiveScale: 1,
+      isInScope: allInScope,
+      isoFromNumeric,
+      revealIso3s: new Set(["ISO_1", "ISO_2"]),
+    });
+    expect(visible.map((l) => l.numericId).sort()).toEqual(["1", "2"]);
+  });
+
+  it("effectiveScale=0 falls back to legacy em-relative bypass (initial-render regression pin)", () => {
+    // At first paint effectiveScale is 0. The legacy em-relative bypass
+    // takes over so country-size logic still applies sensibly with the
+    // default LABEL_EM. bw=20 with em=LABEL_EM=8: legacy bypass threshold
+    // is 6 * (8/1.5) * 0.55 ≈ 17.6, less than 20, so no bypass; fit-check
+    // (26.4 > 20) drops "France".
+    const labels = [
+      makeLabel({ numericId: "1", name: "France", x0: 0, x1: 20 }),
+    ];
+    const visible = computeVisibleLabels(labels, {
+      k: 1,
+      effectiveScale: 0,
+      isInScope: allInScope,
+      isoFromNumeric,
+      revealIso3s: noReveal,
+    });
+    expect(visible).toEqual([]);
   });
 });
