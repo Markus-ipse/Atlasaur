@@ -62,6 +62,16 @@ const COLOR_CORRECT = "#22c55e";
 const COLOR_WRONG = "#ef4444";
 const COLOR_SKIPPED = "#eab308";
 const COLOR_BORDER = "#64748b";
+const COLOR_OCEAN_LABEL = "#0369a1";
+// Ocean labels: target on-screen size scales linearly with rendered SVG
+// width between these caps. Min keeps mobile legible; max stops them
+// ballooning on large desktops.
+const OCEAN_MIN_PX = 11;
+const OCEAN_MAX_PX = 18;
+const OCEAN_PX_PER_SVG_PX = 0.022;
+// Zoom growth exponent: 0 = constant on-screen size, 1 = scales 1:1 with k.
+// 0.2 gives roughly +30% size at k=4 — a noticeable but mild grow-on-zoom.
+const OCEAN_ZOOM_GROWTH = 0.2;
 
 const collection = feature(
   topology,
@@ -161,6 +171,23 @@ function pickLargestRing(
   );
   return best ? { ring: best, area: bestArea } : null;
 }
+
+// Two-line labels — qualifier above "Ocean" — keep label width narrow
+// enough that adjacent oceans don't overlap on a 375px-wide phone.
+const OCEAN_LABEL_DATA: { qualifier: string; lon: number; lat: number }[] = [
+  { qualifier: "North Pacific", lon: -125, lat: 30 },
+  { qualifier: "South Pacific", lon: -115, lat: -25 },
+  { qualifier: "North Atlantic", lon: -40, lat: 30 },
+  { qualifier: "South Atlantic", lon: -20, lat: -25 },
+  { qualifier: "Indian", lon: 75, lat: -25 },
+  { qualifier: "Arctic", lon: 0, lat: 78 },
+  { qualifier: "Southern", lon: 20, lat: -65 },
+];
+const OCEAN_LABELS: { qualifier: string; cx: number; cy: number }[] =
+  OCEAN_LABEL_DATA.flatMap((o) => {
+    const p = projection([o.lon, o.lat]);
+    return p ? [{ qualifier: o.qualifier, cx: p[0], cy: p[1] }] : [];
+  });
 
 const LABELS: Label[] = [];
 for (const f of collection.features) {
@@ -380,6 +407,17 @@ export function WorldMap({
     ],
   );
   const labelFontSize = fontSizeFor(transform.k, labelEm);
+  // Use rendered map width (effectiveScale * W), not container width — on
+  // letterboxed viewports the container is wider than the actual map.
+  const renderedMapWidth = effectiveScale * W;
+  const oceanScreenPx = Math.max(
+    OCEAN_MIN_PX,
+    Math.min(OCEAN_MAX_PX, renderedMapWidth * OCEAN_PX_PER_SVG_PX),
+  );
+  const baseOceanEm =
+    effectiveScale > 0 ? oceanScreenPx / effectiveScale : LABEL_EM;
+  const oceanLabelFontSize =
+    baseOceanEm / Math.pow(transform.k, 1 - OCEAN_ZOOM_GROWTH);
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-sky-50 [overscroll-behavior:none]">
@@ -409,6 +447,32 @@ export function WorldMap({
               />
             );
           })}
+          <g
+            style={{
+              fontStyle: "italic",
+              letterSpacing: "0.08em",
+              fontWeight: 500,
+              pointerEvents: "none",
+            }}
+          >
+            {OCEAN_LABELS.map((o) => (
+              <text
+                key={o.qualifier}
+                x={o.cx}
+                y={o.cy}
+                fontSize={oceanLabelFontSize}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill={COLOR_OCEAN_LABEL}
+                stroke="white"
+                strokeWidth={oceanLabelFontSize * 0.18}
+                paintOrder="stroke"
+              >
+                <tspan x={o.cx} dy="-0.55em">{o.qualifier}</tspan>
+                <tspan x={o.cx} dy="1.1em">Ocean</tspan>
+              </text>
+            ))}
+          </g>
           {visibleLabels.map((l) => (
             <text
               key={l.numericId}
