@@ -4,7 +4,7 @@ import { computeRevealTarget } from "./revealZoom";
 const W = 800;
 const H = 400;
 const MIN_ZOOM = 1;
-const MAX_ZOOM = 24;
+const MAX_ZOOM = 48;
 const REVEAL_FIT_RATIO = 0.55;
 
 describe("computeRevealTarget", () => {
