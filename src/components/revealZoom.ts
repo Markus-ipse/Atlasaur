@@ -7,8 +7,9 @@ export const H = 400;
 
 export const MIN_ZOOM = 1;
 // MAX_ZOOM picked to make the smallest countries comfortably clickable on
-// mobile. Revisit if it's still hard to hit micro-states (e.g. Singapore).
-export const MAX_ZOOM = 24;
+// mobile and let users pinch in past the auto-reveal frame to resolve
+// dense label clusters (e.g. Hispaniola, the Baltics).
+export const MAX_ZOOM = 48;
 // Fraction of the smaller viewport dimension the framed bounds should
 // occupy at the auto-computed reveal zoom — leaves ~45% padding around
 // the focus so neighboring countries are visible for context.

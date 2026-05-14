@@ -58,13 +58,13 @@ function prefersReducedMotion(): boolean {
   );
 }
 
-const COLOR_DEFAULT = "#e5e7eb";
-const COLOR_INERT = "#f3f4f6";
+const COLOR_DEFAULT = "#cbd5e1";
+const COLOR_INERT = "#e2e8f0";
 const COLOR_HIGHLIGHT = "#3b82f6";
 const COLOR_CORRECT = "#22c55e";
 const COLOR_WRONG = "#ef4444";
 const COLOR_SKIPPED = "#eab308";
-const COLOR_BORDER = "#64748b";
+const COLOR_BORDER = "#475569";
 const COLOR_OCEAN_LABEL = "#0369a1";
 // Ocean labels: target on-screen size scales linearly with rendered SVG
 // width between these caps. Min keeps mobile legible; max stops them
@@ -457,7 +457,7 @@ export function WorldMap({
   );
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-sky-50 [overscroll-behavior:none]">
+    <div className="relative h-full w-full overflow-hidden bg-sky-100 [overscroll-behavior:none]">
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
