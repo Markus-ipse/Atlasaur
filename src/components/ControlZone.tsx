@@ -32,7 +32,6 @@ export function ControlZone({ game }: Props) {
         <ScorePanel
           score={state.score}
           streak={state.streak}
-          bestStreak={state.bestStreak}
           total={state.total}
         />
         <SettingsMenu
