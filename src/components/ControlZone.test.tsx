@@ -11,6 +11,11 @@ const SAMPLE: Country = {
   name: "France",
   aliases: [],
   continent: "Europe",
+  subregion: "Western Europe",
+  capital: "Paris",
+  neighbors: ["DEU", "BEL", "LUX", "CHE", "ITA", "ESP"],
+  sizeTier: 2,
+  notabilityTier: 2,
 };
 
 const NAMES_BY_ISO3: Record<string, string> = {
