@@ -51,4 +51,46 @@ describe("computeRevealTarget", () => {
     const r = computeRevealTarget({ x0: 0, y0: 0, x1: W, y1: H }, null);
     expect(r.k).toBe(MIN_ZOOM);
   });
+
+  // M2 — neighbor cascade.
+
+  it("includes neighbors in the framed area when they fit alongside the primary", () => {
+    const primary = { x0: 395, y0: 195, x1: 405, y1: 205 };
+    const neighbors = [
+      { x0: 385, y0: 195, x1: 395, y1: 205 },
+      { x0: 405, y0: 195, x1: 415, y1: 205 },
+    ];
+    const withNeighbors = computeRevealTarget(primary, null, neighbors);
+    const withoutNeighbors = computeRevealTarget(primary, null);
+    // Symmetric neighbors → same center, looser zoom.
+    expect(withNeighbors.cx).toBe(withoutNeighbors.cx);
+    expect(withNeighbors.k).toBeLessThan(withoutNeighbors.k);
+  });
+
+  it("falls back to primary alone when primary+neighbors would be too wide", () => {
+    const primary = { x0: 395, y0: 195, x1: 405, y1: 205 };
+    const hugeNeighbor = { x0: 0, y0: 0, x1: W - 1, y1: H - 1 };
+    const cascade = computeRevealTarget(primary, null, [hugeNeighbor]);
+    expect(cascade).toEqual(computeRevealTarget(primary, null));
+  });
+
+  it("drops a far secondary but keeps neighbors when neighbors still fit", () => {
+    const primary = { x0: 395, y0: 195, x1: 405, y1: 205 };
+    const neighbors = [
+      { x0: 385, y0: 195, x1: 395, y1: 205 },
+      { x0: 405, y0: 195, x1: 415, y1: 205 },
+    ];
+    // Whole-map secondary collapses the full union below MIN_ZOOM, so the
+    // cascade drops it and re-tries with primary+neighbors (which fit).
+    const farSecondary = { x0: 0, y0: 0, x1: W, y1: H };
+    const withSecondary = computeRevealTarget(primary, farSecondary, neighbors);
+    expect(withSecondary).toEqual(computeRevealTarget(primary, null, neighbors));
+  });
+
+  it("empty neighbor list behaves identically to no neighbors", () => {
+    const primary = { x0: 395, y0: 195, x1: 405, y1: 205 };
+    expect(computeRevealTarget(primary, null, [])).toEqual(
+      computeRevealTarget(primary, null),
+    );
+  });
 });

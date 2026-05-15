@@ -12,6 +12,11 @@ function withCurrent(state: State, iso3: string): State {
     name: iso3,
     aliases: [],
     continent: "Europe",
+    subregion: "Western Europe",
+    capital: "—",
+    neighbors: [],
+    sizeTier: 0,
+    notabilityTier: 0,
   };
   return { ...state, current: country };
 }
@@ -253,6 +258,11 @@ describe("reducer — setContinents", () => {
       name: "Egypt",
       aliases: [],
       continent: "Africa",
+      subregion: "Northern Africa",
+      capital: "Cairo",
+      neighbors: ["LBY", "SDN", "ISR", "PSE"],
+      sizeTier: 2,
+      notabilityTier: 2,
     };
     const s: State = {
       ...initialState("name-to-click", ALL_CONTINENTS),

@@ -11,11 +11,22 @@ const SAMPLE: Country = {
   name: "France",
   aliases: [],
   continent: "Europe",
+  subregion: "Western Europe",
+  capital: "Paris",
+  neighbors: ["DEU", "BEL", "LUX", "CHE", "ITA", "ESP"],
+  sizeTier: 2,
+  notabilityTier: 2,
 };
 
 const NAMES_BY_ISO3: Record<string, string> = {
   FRA: "France",
   DEU: "Germany",
+  BEL: "Belgium",
+  LUX: "Luxembourg",
+  CHE: "Switzerland",
+  ITA: "Italy",
+  ESP: "Spain",
+  JPN: "Japan",
 };
 
 function makeGame(overrides: {
@@ -156,6 +167,82 @@ describe("ControlZone", () => {
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("Correct answer: France");
     expect(status.textContent).not.toContain("You selected");
+  });
+
+  it("shows capital and neighbors on a wrong answer", () => {
+    const wrong: Feedback = {
+      kind: "wrong",
+      answerIso3: "DEU",
+      correctIso3: "FRA",
+    };
+    const game = makeGame({ feedback: wrong });
+    render(<ControlZone game={game} />);
+    const status = screen.getByRole("status");
+    expect(status.textContent).toContain("Capital: Paris");
+    expect(status.textContent).toContain(
+      "Bordered by: Belgium, Germany, Italy, Luxembourg, Spain, Switzerland",
+    );
+  });
+
+  it("shows capital on a skip too", () => {
+    const skipped: Feedback = {
+      kind: "skipped",
+      answerIso3: "",
+      correctIso3: "FRA",
+    };
+    const game = makeGame({ feedback: skipped });
+    render(<ControlZone game={game} />);
+    expect(screen.getByRole("status").textContent).toContain("Capital: Paris");
+  });
+
+  it("omits the Bordered by line for countries with no land neighbors", () => {
+    const japan: Country = {
+      numeric: "392",
+      iso3: "JPN",
+      name: "Japan",
+      aliases: [],
+      continent: "Asia",
+      subregion: "Eastern Asia",
+      capital: "Tokyo",
+      neighbors: [],
+      sizeTier: 1,
+      notabilityTier: 2,
+    };
+    const wrong: Feedback = {
+      kind: "wrong",
+      answerIso3: "FRA",
+      correctIso3: "JPN",
+    };
+    const game = makeGame({ current: japan, feedback: wrong });
+    render(<ControlZone game={game} />);
+    const status = screen.getByRole("status");
+    expect(status.textContent).toContain("Capital: Tokyo");
+    expect(status.textContent).not.toContain("Bordered by");
+  });
+
+  it("omits the Capital line when capital is null (e.g. Antarctica)", () => {
+    const antarctica: Country = {
+      numeric: "010",
+      iso3: "ATA",
+      name: "Antarctica",
+      aliases: [],
+      continent: "Antarctica",
+      subregion: "Antarctica",
+      capital: null,
+      neighbors: [],
+      sizeTier: 3,
+      notabilityTier: 2,
+    };
+    const wrong: Feedback = {
+      kind: "wrong",
+      answerIso3: "FRA",
+      correctIso3: "ATA",
+    };
+    const game = makeGame({ current: antarctica, feedback: wrong });
+    render(<ControlZone game={game} />);
+    const status = screen.getByRole("status");
+    expect(status.textContent).toContain("Correct answer: Antarctica");
+    expect(status.textContent).not.toContain("Capital");
   });
 
   it("renders no feedback message on a correct answer", () => {

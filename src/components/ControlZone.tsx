@@ -45,15 +45,29 @@ export function ControlZone({ game }: Props) {
       </div>
 
       {state.feedback && state.feedback.kind !== "correct" && (
-        <p role="status" className="text-sm text-red-600">
-          {state.mode === "name-to-click" && state.feedback.kind === "wrong" && (
-            <>
-              You selected: {game.nameFromIso3(state.feedback.answerIso3)}
-              <br />
-            </>
+        <div role="status" className="space-y-1 text-sm">
+          <p className="text-red-600">
+            {state.mode === "name-to-click" && state.feedback.kind === "wrong" && (
+              <>
+                You selected: {game.nameFromIso3(state.feedback.answerIso3)}
+                <br />
+              </>
+            )}
+            Correct answer: {state.current.name}
+          </p>
+          {state.current.capital !== null && (
+            <p className="text-slate-600">Capital: {state.current.capital}</p>
           )}
-          Correct answer: {state.current.name}
-        </p>
+          {state.current.neighbors.length > 0 && (
+            <p className="text-slate-600">
+              Bordered by:{" "}
+              {state.current.neighbors
+                .map(game.nameFromIso3)
+                .sort((a, b) => a.localeCompare(b))
+                .join(", ")}
+            </p>
+          )}
+        </div>
       )}
 
       {state.mode === "shape-to-name" && (

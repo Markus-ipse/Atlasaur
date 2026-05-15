@@ -64,6 +64,10 @@ const COLOR_HIGHLIGHT = "#3b82f6";
 const COLOR_CORRECT = "#22c55e";
 const COLOR_WRONG = "#ef4444";
 const COLOR_SKIPPED = "#eab308";
+// Muted tone for the correct country's land neighbors at miss-reveal —
+// elaborative spatial cue, never the primary signal. Sits visually under
+// the correct/wrong fills so it doesn't compete with them.
+const COLOR_NEIGHBOR = "#bfdbfe";
 const COLOR_BORDER = "#475569";
 const COLOR_OCEAN_LABEL = "#0369a1";
 // Ocean labels: target on-screen size scales linearly with rendered SVG
@@ -219,6 +223,10 @@ type Props = {
   highlightedIso3: string | null;
   feedback: Feedback | null;
   showLabelsOnReveal: boolean;
+  // Neighbors of the correct country, painted in a muted tone during a
+  // wrong/skipped reveal. Empty when feedback is null or the correct
+  // country has no land neighbors (islands).
+  correctNeighborIso3s: readonly string[];
   isoFromNumeric: (numeric: string) => string | undefined;
   numericFromIso3: (iso3: string) => string | undefined;
   isInScope: (iso3: string) => boolean;
@@ -230,8 +238,9 @@ function fillFor(args: {
   highlightedIso3: string | null;
   feedback: Feedback | null;
   inScope: boolean;
+  neighborSet: ReadonlySet<string>;
 }): string {
-  const { iso3, highlightedIso3, feedback, inScope } = args;
+  const { iso3, highlightedIso3, feedback, inScope, neighborSet } = args;
   if (!iso3) return COLOR_INERT;
   if (feedback) {
     // The correct country always lights up — green when answered (right or
@@ -246,6 +255,10 @@ function fillFor(args: {
     ) {
       return COLOR_WRONG;
     }
+    // Elaborative-encoding cue: paint land neighbors of the correct country.
+    // Wrong-clicked country is handled above so it stays red if it happens
+    // to also be a neighbor.
+    if (neighborSet.has(iso3)) return COLOR_NEIGHBOR;
   }
   if (highlightedIso3 === iso3) return COLOR_HIGHLIGHT;
   if (!inScope) return COLOR_INERT;
@@ -257,11 +270,16 @@ export function WorldMap({
   highlightedIso3,
   feedback,
   showLabelsOnReveal,
+  correctNeighborIso3s,
   isoFromNumeric,
   numericFromIso3,
   isInScope,
   onCountryClick,
 }: Props) {
+  const neighborSet = useMemo(
+    () => new Set(correctNeighborIso3s),
+    [correctNeighborIso3s],
+  );
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const [transform, setTransform] = useState<ZoomTransform>(zoomIdentity);
@@ -338,7 +356,14 @@ export function WorldMap({
       ? LABELS_BY_NUMERIC.get(wrongNumeric) ?? null
       : null;
 
-    const { k, cx, cy } = computeRevealTarget(label, wrongLabel);
+    const neighborBounds: Label[] = [];
+    for (const iso3 of correctNeighborIso3s) {
+      const n = numericFromIso3(iso3);
+      const lab = n ? LABELS_BY_NUMERIC.get(n) : undefined;
+      if (lab) neighborBounds.push(lab);
+    }
+
+    const { k, cx, cy } = computeRevealTarget(label, wrongLabel, neighborBounds);
     const target = zoomIdentity
       .translate(W / 2 - cx * k, H / 2 - cy * k)
       .scale(k);
@@ -348,7 +373,7 @@ export function WorldMap({
       .transition()
       .duration(duration)
       .call(zoomRef.current.transform, target);
-  }, [revealCorrectIso3, revealWrongIso3, numericFromIso3]);
+  }, [revealCorrectIso3, revealWrongIso3, correctNeighborIso3s, numericFromIso3]);
 
   const hasFeedback = feedback !== null;
   const prevHadFeedbackRef = useRef(false);
@@ -404,8 +429,13 @@ export function WorldMap({
     const set = new Set<string>();
     if (revealCorrectIso3) set.add(revealCorrectIso3);
     if (revealWrongIso3) set.add(revealWrongIso3);
+    // M2: neighbors of the correct country bypass scope, fit-check, and
+    // obstacle rejection so the spatial-name binding completes — without
+    // labels the muted-blue fill alone doesn't tell you which country is
+    // which.
+    for (const iso3 of correctNeighborIso3s) set.add(iso3);
     return set;
-  }, [revealCorrectIso3, revealWrongIso3]);
+  }, [revealCorrectIso3, revealWrongIso3, correctNeighborIso3s]);
 
   // Ocean labels participate in the country-label collision graph as
   // fixed obstacles — country labels yield to oceans (reveal targets
@@ -468,7 +498,7 @@ export function WorldMap({
           {PATHS.map((p) => {
             const iso3 = p.numericId ? isoFromNumeric(p.numericId) : undefined;
             const inScope = iso3 ? isInScope(iso3) : false;
-            const fill = fillFor({ iso3, highlightedIso3, feedback, inScope });
+            const fill = fillFor({ iso3, highlightedIso3, feedback, inScope, neighborSet });
             const clickable = isClickMode && Boolean(iso3) && inScope;
             return (
               <path

@@ -3,12 +3,21 @@ import { WorldMap } from "./components/WorldMap";
 import { ControlZone } from "./components/ControlZone";
 import { SessionSummary } from "./components/SessionSummary";
 
+// Stable empty reference so WorldMap's neighborSet memo doesn't churn while
+// no feedback is showing.
+const NO_NEIGHBORS: readonly string[] = [];
+
 export default function App() {
   const game = useGame();
   const { state } = game;
 
   const highlightedIso3 =
     state.mode === "shape-to-name" ? state.current.iso3 : null;
+
+  const correctNeighborIso3s =
+    state.feedback && state.feedback.kind !== "correct"
+      ? state.current.neighbors
+      : NO_NEIGHBORS;
 
   return (
     <div className="h-dvh w-full flex overflow-hidden bg-slate-50 text-slate-900 portrait:flex-col landscape:flex-row pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
@@ -18,6 +27,7 @@ export default function App() {
           highlightedIso3={highlightedIso3}
           feedback={state.feedback}
           showLabelsOnReveal={game.showLabelsOnReveal}
+          correctNeighborIso3s={correctNeighborIso3s}
           isoFromNumeric={game.isoFromNumeric}
           numericFromIso3={game.numericFromIso3}
           isInScope={game.isInScope}

@@ -4,70 +4,169 @@
     "iso3": "AFG",
     "name": "Afghanistan",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Southern Asia",
+    "capital": "Kabul",
+    "notabilityTier": 1,
+    "sizeTier": 2,
+    "neighbors": [
+      "CHN",
+      "IRN",
+      "PAK",
+      "TJK",
+      "TKM",
+      "UZB"
+    ]
   },
   {
     "numeric": "008",
     "iso3": "ALB",
     "name": "Albania",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Southern Europe",
+    "capital": "Tirana",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": [
+      "GRC",
+      "MKD",
+      "MNE",
+      "XKX"
+    ]
   },
   {
     "numeric": "012",
     "iso3": "DZA",
     "name": "Algeria",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Northern Africa",
+    "capital": "Algiers",
+    "notabilityTier": 1,
+    "sizeTier": 3,
+    "neighbors": [
+      "ESH",
+      "LBY",
+      "MAR",
+      "MLI",
+      "MRT",
+      "NER",
+      "TUN"
+    ]
   },
   {
     "numeric": "024",
     "iso3": "AGO",
     "name": "Angola",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Middle Africa",
+    "capital": "Luanda",
+    "notabilityTier": 1,
+    "sizeTier": 2,
+    "neighbors": [
+      "COD",
+      "COG",
+      "NAM",
+      "ZMB"
+    ]
   },
   {
     "numeric": "010",
     "iso3": "ATA",
     "name": "Antarctica",
     "aliases": [],
-    "continent": "Antarctica"
+    "continent": "Antarctica",
+    "subregion": "Antarctica",
+    "capital": null,
+    "notabilityTier": 2,
+    "sizeTier": 3,
+    "neighbors": []
   },
   {
     "numeric": "032",
     "iso3": "ARG",
     "name": "Argentina",
     "aliases": [],
-    "continent": "South America"
+    "continent": "South America",
+    "subregion": "South America",
+    "capital": "Buenos Aires",
+    "notabilityTier": 2,
+    "sizeTier": 3,
+    "neighbors": [
+      "BOL",
+      "BRA",
+      "CHL",
+      "PRY",
+      "URY"
+    ]
   },
   {
     "numeric": "051",
     "iso3": "ARM",
     "name": "Armenia",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Yerevan",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": [
+      "AZE",
+      "GEO",
+      "IRN",
+      "TUR"
+    ]
   },
   {
     "numeric": "036",
     "iso3": "AUS",
     "name": "Australia",
     "aliases": [],
-    "continent": "Oceania"
+    "continent": "Oceania",
+    "subregion": "Australia and New Zealand",
+    "capital": "Canberra",
+    "notabilityTier": 2,
+    "sizeTier": 3,
+    "neighbors": []
   },
   {
     "numeric": "040",
     "iso3": "AUT",
     "name": "Austria",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Western Europe",
+    "capital": "Vienna",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "CHE",
+      "CZE",
+      "DEU",
+      "HUN",
+      "ITA",
+      "SVK",
+      "SVN"
+    ]
   },
   {
     "numeric": "031",
     "iso3": "AZE",
     "name": "Azerbaijan",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Baku",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "ARM",
+      "GEO",
+      "IRN",
+      "RUS"
+    ]
   },
   {
     "numeric": "044",
@@ -76,56 +175,127 @@
     "aliases": [
       "The Bahamas"
     ],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Caribbean",
+    "capital": "Nassau",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "050",
     "iso3": "BGD",
     "name": "Bangladesh",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Southern Asia",
+    "capital": "Dhaka",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "IND",
+      "MMR"
+    ]
   },
   {
     "numeric": "112",
     "iso3": "BLR",
     "name": "Belarus",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Eastern Europe",
+    "capital": "Minsk",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "LTU",
+      "LVA",
+      "POL",
+      "RUS",
+      "UKR"
+    ]
   },
   {
     "numeric": "056",
     "iso3": "BEL",
     "name": "Belgium",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Western Europe",
+    "capital": "Brussels",
+    "notabilityTier": 2,
+    "sizeTier": 0,
+    "neighbors": [
+      "DEU",
+      "FRA",
+      "LUX",
+      "NLD"
+    ]
   },
   {
     "numeric": "084",
     "iso3": "BLZ",
     "name": "Belize",
     "aliases": [],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Central America",
+    "capital": "Belmopan",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": [
+      "GTM",
+      "MEX"
+    ]
   },
   {
     "numeric": "204",
     "iso3": "BEN",
     "name": "Benin",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Western Africa",
+    "capital": "Porto-Novo",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "BFA",
+      "NER",
+      "NGA",
+      "TGO"
+    ]
   },
   {
     "numeric": "064",
     "iso3": "BTN",
     "name": "Bhutan",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Southern Asia",
+    "capital": "Thimphu",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": [
+      "CHN",
+      "IND"
+    ]
   },
   {
     "numeric": "068",
     "iso3": "BOL",
     "name": "Bolivia",
     "aliases": [],
-    "continent": "South America"
+    "continent": "South America",
+    "subregion": "South America",
+    "capital": "Sucre",
+    "notabilityTier": 1,
+    "sizeTier": 2,
+    "neighbors": [
+      "ARG",
+      "BRA",
+      "CHL",
+      "PER",
+      "PRY"
+    ]
   },
   {
     "numeric": "070",
@@ -134,21 +304,55 @@
     "aliases": [
       "Bosnia"
     ],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Southern Europe",
+    "capital": "Sarajevo",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "HRV",
+      "MNE",
+      "SRB"
+    ]
   },
   {
     "numeric": "072",
     "iso3": "BWA",
     "name": "Botswana",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Southern Africa",
+    "capital": "Gaborone",
+    "notabilityTier": 1,
+    "sizeTier": 2,
+    "neighbors": [
+      "NAM",
+      "ZAF",
+      "ZMB",
+      "ZWE"
+    ]
   },
   {
     "numeric": "076",
     "iso3": "BRA",
     "name": "Brazil",
     "aliases": [],
-    "continent": "South America"
+    "continent": "South America",
+    "subregion": "South America",
+    "capital": "Brasília",
+    "notabilityTier": 2,
+    "sizeTier": 3,
+    "neighbors": [
+      "ARG",
+      "BOL",
+      "COL",
+      "GUY",
+      "PER",
+      "PRY",
+      "SUR",
+      "URY",
+      "VEN"
+    ]
   },
   {
     "numeric": "096",
@@ -157,49 +361,117 @@
     "aliases": [
       "Brunei Darussalam"
     ],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "South-eastern Asia",
+    "capital": "Bandar Seri Begawan",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": [
+      "MYS"
+    ]
   },
   {
     "numeric": "100",
     "iso3": "BGR",
     "name": "Bulgaria",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Eastern Europe",
+    "capital": "Sofia",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "GRC",
+      "MKD",
+      "ROU",
+      "SRB",
+      "TUR"
+    ]
   },
   {
     "numeric": "854",
     "iso3": "BFA",
     "name": "Burkina Faso",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Western Africa",
+    "capital": "Ouagadougou",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "BEN",
+      "CIV",
+      "GHA",
+      "MLI",
+      "NER",
+      "TGO"
+    ]
   },
   {
     "numeric": "108",
     "iso3": "BDI",
     "name": "Burundi",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Gitega",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": [
+      "COD",
+      "RWA",
+      "TZA"
+    ]
   },
   {
     "numeric": "116",
     "iso3": "KHM",
     "name": "Cambodia",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "South-eastern Asia",
+    "capital": "Phnom Penh",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "LAO",
+      "THA",
+      "VNM"
+    ]
   },
   {
     "numeric": "120",
     "iso3": "CMR",
     "name": "Cameroon",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Middle Africa",
+    "capital": "Yaoundé",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "CAF",
+      "COG",
+      "GAB",
+      "GNQ",
+      "NER",
+      "NGA",
+      "TCD"
+    ]
   },
   {
     "numeric": "124",
     "iso3": "CAN",
     "name": "Canada",
     "aliases": [],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Northern America",
+    "capital": "Ottawa",
+    "notabilityTier": 2,
+    "sizeTier": 3,
+    "neighbors": [
+      "USA"
+    ]
   },
   {
     "numeric": "140",
@@ -208,21 +480,53 @@
     "aliases": [
       "CAR"
     ],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Middle Africa",
+    "capital": "Bangui",
+    "notabilityTier": 0,
+    "sizeTier": 2,
+    "neighbors": [
+      "CMR",
+      "COD",
+      "COG",
+      "SDN",
+      "SSD",
+      "TCD"
+    ]
   },
   {
     "numeric": "148",
     "iso3": "TCD",
     "name": "Chad",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Middle Africa",
+    "capital": "N'Djamena",
+    "notabilityTier": 0,
+    "sizeTier": 2,
+    "neighbors": [
+      "CAF",
+      "CMR",
+      "LBY",
+      "NER",
+      "SDN"
+    ]
   },
   {
     "numeric": "152",
     "iso3": "CHL",
     "name": "Chile",
     "aliases": [],
-    "continent": "South America"
+    "continent": "South America",
+    "subregion": "South America",
+    "capital": "Santiago",
+    "notabilityTier": 2,
+    "sizeTier": 2,
+    "neighbors": [
+      "ARG",
+      "BOL",
+      "PER"
+    ]
   },
   {
     "numeric": "156",
@@ -232,21 +536,60 @@
       "People's Republic of China",
       "PRC"
     ],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Eastern Asia",
+    "capital": "Beijing",
+    "notabilityTier": 2,
+    "sizeTier": 3,
+    "neighbors": [
+      "AFG",
+      "BTN",
+      "IND",
+      "KAZ",
+      "KGZ",
+      "LAO",
+      "MMR",
+      "MNG",
+      "NPL",
+      "PAK",
+      "PRK",
+      "RUS",
+      "TJK",
+      "VNM"
+    ]
   },
   {
     "numeric": "170",
     "iso3": "COL",
     "name": "Colombia",
     "aliases": [],
-    "continent": "South America"
+    "continent": "South America",
+    "subregion": "South America",
+    "capital": "Bogotá",
+    "notabilityTier": 2,
+    "sizeTier": 2,
+    "neighbors": [
+      "BRA",
+      "ECU",
+      "PAN",
+      "PER",
+      "VEN"
+    ]
   },
   {
     "numeric": "188",
     "iso3": "CRI",
     "name": "Costa Rica",
     "aliases": [],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Central America",
+    "capital": "San José",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "NIC",
+      "PAN"
+    ]
   },
   {
     "numeric": "384",
@@ -255,28 +598,62 @@
     "aliases": [
       "Ivory Coast"
     ],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Western Africa",
+    "capital": "Yamoussoukro",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "BFA",
+      "GHA",
+      "GIN",
+      "LBR",
+      "MLI"
+    ]
   },
   {
     "numeric": "191",
     "iso3": "HRV",
     "name": "Croatia",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Southern Europe",
+    "capital": "Zagreb",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "BIH",
+      "HUN",
+      "MNE",
+      "SRB",
+      "SVN"
+    ]
   },
   {
     "numeric": "192",
     "iso3": "CUB",
     "name": "Cuba",
     "aliases": [],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Caribbean",
+    "capital": "Havana",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": []
   },
   {
     "numeric": "196",
     "iso3": "CYP",
     "name": "Cyprus",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Nicosia",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": [
+      "XNC"
+    ]
   },
   {
     "numeric": "203",
@@ -285,7 +662,17 @@
     "aliases": [
       "Czech Republic"
     ],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Eastern Europe",
+    "capital": "Prague",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "AUT",
+      "DEU",
+      "POL",
+      "SVK"
+    ]
   },
   {
     "numeric": "180",
@@ -297,70 +684,158 @@
       "Congo-Kinshasa",
       "Zaire"
     ],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Middle Africa",
+    "capital": "Kinshasa",
+    "notabilityTier": 1,
+    "sizeTier": 3,
+    "neighbors": [
+      "AGO",
+      "BDI",
+      "CAF",
+      "COG",
+      "RWA",
+      "SSD",
+      "TZA",
+      "UGA",
+      "ZMB"
+    ]
   },
   {
     "numeric": "208",
     "iso3": "DNK",
     "name": "Denmark",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Northern Europe",
+    "capital": "Copenhagen",
+    "notabilityTier": 2,
+    "sizeTier": 0,
+    "neighbors": [
+      "DEU"
+    ]
   },
   {
     "numeric": "262",
     "iso3": "DJI",
     "name": "Djibouti",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Djibouti",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": [
+      "ERI",
+      "ETH",
+      "XSL"
+    ]
   },
   {
     "numeric": "214",
     "iso3": "DOM",
     "name": "Dominican Republic",
     "aliases": [],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Caribbean",
+    "capital": "Santo Domingo",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": [
+      "HTI"
+    ]
   },
   {
     "numeric": "218",
     "iso3": "ECU",
     "name": "Ecuador",
     "aliases": [],
-    "continent": "South America"
+    "continent": "South America",
+    "subregion": "South America",
+    "capital": "Quito",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "COL",
+      "PER"
+    ]
   },
   {
     "numeric": "818",
     "iso3": "EGY",
     "name": "Egypt",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Northern Africa",
+    "capital": "Cairo",
+    "notabilityTier": 2,
+    "sizeTier": 2,
+    "neighbors": [
+      "ISR",
+      "LBY",
+      "SDN"
+    ]
   },
   {
     "numeric": "222",
     "iso3": "SLV",
     "name": "El Salvador",
     "aliases": [],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Central America",
+    "capital": "San Salvador",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": [
+      "GTM",
+      "HND"
+    ]
   },
   {
     "numeric": "226",
     "iso3": "GNQ",
     "name": "Equatorial Guinea",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Middle Africa",
+    "capital": "Malabo",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": [
+      "CMR",
+      "GAB"
+    ]
   },
   {
     "numeric": "232",
     "iso3": "ERI",
     "name": "Eritrea",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Asmara",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "DJI",
+      "ETH",
+      "SDN"
+    ]
   },
   {
     "numeric": "233",
     "iso3": "EST",
     "name": "Estonia",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Northern Europe",
+    "capital": "Tallinn",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": [
+      "LVA",
+      "RUS"
+    ]
   },
   {
     "numeric": "748",
@@ -369,14 +844,35 @@
     "aliases": [
       "Swaziland"
     ],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Southern Africa",
+    "capital": "Mbabane",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": [
+      "MOZ",
+      "ZAF"
+    ]
   },
   {
     "numeric": "231",
     "iso3": "ETH",
     "name": "Ethiopia",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Addis Ababa",
+    "notabilityTier": 1,
+    "sizeTier": 2,
+    "neighbors": [
+      "DJI",
+      "ERI",
+      "KEN",
+      "SDN",
+      "SOM",
+      "SSD",
+      "XSL"
+    ]
   },
   {
     "numeric": "238",
@@ -385,21 +881,40 @@
     "aliases": [
       "Malvinas"
     ],
-    "continent": "South America"
+    "continent": "South America",
+    "subregion": "South America",
+    "capital": "Stanley",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "242",
     "iso3": "FJI",
     "name": "Fiji",
     "aliases": [],
-    "continent": "Oceania"
+    "continent": "Oceania",
+    "subregion": "Melanesia",
+    "capital": "Suva",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "246",
     "iso3": "FIN",
     "name": "Finland",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Northern Europe",
+    "capital": "Helsinki",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "NOR",
+      "RUS",
+      "SWE"
+    ]
   },
   {
     "numeric": "250",
@@ -408,21 +923,47 @@
     "aliases": [
       "French Republic"
     ],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Western Europe",
+    "capital": "Paris",
+    "notabilityTier": 2,
+    "sizeTier": 2,
+    "neighbors": [
+      "BEL",
+      "CHE",
+      "DEU",
+      "ESP",
+      "ITA",
+      "LUX"
+    ]
   },
   {
     "numeric": "260",
     "iso3": "ATF",
     "name": "French Southern Territories",
     "aliases": [],
-    "continent": "Antarctica"
+    "continent": "Antarctica",
+    "subregion": "Antarctica",
+    "capital": null,
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "266",
     "iso3": "GAB",
     "name": "Gabon",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Middle Africa",
+    "capital": "Libreville",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "CMR",
+      "COG",
+      "GNQ"
+    ]
   },
   {
     "numeric": "270",
@@ -431,14 +972,31 @@
     "aliases": [
       "The Gambia"
     ],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Western Africa",
+    "capital": "Banjul",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": [
+      "SEN"
+    ]
   },
   {
     "numeric": "268",
     "iso3": "GEO",
     "name": "Georgia",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Tbilisi",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "ARM",
+      "AZE",
+      "RUS",
+      "TUR"
+    ]
   },
   {
     "numeric": "276",
@@ -447,14 +1005,38 @@
     "aliases": [
       "Deutschland"
     ],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Western Europe",
+    "capital": "Berlin",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "AUT",
+      "BEL",
+      "CHE",
+      "CZE",
+      "DNK",
+      "FRA",
+      "LUX",
+      "NLD",
+      "POL"
+    ]
   },
   {
     "numeric": "288",
     "iso3": "GHA",
     "name": "Ghana",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Western Africa",
+    "capital": "Accra",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "BFA",
+      "CIV",
+      "TGO"
+    ]
   },
   {
     "numeric": "300",
@@ -463,70 +1045,158 @@
     "aliases": [
       "Hellas"
     ],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Southern Europe",
+    "capital": "Athens",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "ALB",
+      "BGR",
+      "MKD",
+      "TUR"
+    ]
   },
   {
     "numeric": "304",
     "iso3": "GRL",
     "name": "Greenland",
     "aliases": [],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Northern America",
+    "capital": "Nuuk",
+    "notabilityTier": 1,
+    "sizeTier": 3,
+    "neighbors": []
   },
   {
     "numeric": "320",
     "iso3": "GTM",
     "name": "Guatemala",
     "aliases": [],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Central America",
+    "capital": "Guatemala City",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "BLZ",
+      "HND",
+      "MEX",
+      "SLV"
+    ]
   },
   {
     "numeric": "324",
     "iso3": "GIN",
     "name": "Guinea",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Western Africa",
+    "capital": "Conakry",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "CIV",
+      "GNB",
+      "LBR",
+      "MLI",
+      "SEN",
+      "SLE"
+    ]
   },
   {
     "numeric": "624",
     "iso3": "GNB",
     "name": "Guinea-Bissau",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Western Africa",
+    "capital": "Bissau",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": [
+      "GIN",
+      "SEN"
+    ]
   },
   {
     "numeric": "328",
     "iso3": "GUY",
     "name": "Guyana",
     "aliases": [],
-    "continent": "South America"
+    "continent": "South America",
+    "subregion": "South America",
+    "capital": "Georgetown",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "BRA",
+      "SUR",
+      "VEN"
+    ]
   },
   {
     "numeric": "332",
     "iso3": "HTI",
     "name": "Haiti",
     "aliases": [],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Caribbean",
+    "capital": "Port-au-Prince",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": [
+      "DOM"
+    ]
   },
   {
     "numeric": "340",
     "iso3": "HND",
     "name": "Honduras",
     "aliases": [],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Central America",
+    "capital": "Tegucigalpa",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "GTM",
+      "NIC",
+      "SLV"
+    ]
   },
   {
     "numeric": "348",
     "iso3": "HUN",
     "name": "Hungary",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Eastern Europe",
+    "capital": "Budapest",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "AUT",
+      "HRV",
+      "ROU",
+      "SRB",
+      "SVK",
+      "SVN",
+      "UKR"
+    ]
   },
   {
     "numeric": "352",
     "iso3": "ISL",
     "name": "Iceland",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Northern Europe",
+    "capital": "Reykjavík",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": []
   },
   {
     "numeric": "356",
@@ -535,14 +1205,35 @@
     "aliases": [
       "Bharat"
     ],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Southern Asia",
+    "capital": "New Delhi",
+    "notabilityTier": 2,
+    "sizeTier": 3,
+    "neighbors": [
+      "BGD",
+      "BTN",
+      "CHN",
+      "MMR",
+      "NPL",
+      "PAK"
+    ]
   },
   {
     "numeric": "360",
     "iso3": "IDN",
     "name": "Indonesia",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "South-eastern Asia",
+    "capital": "Jakarta",
+    "notabilityTier": 2,
+    "sizeTier": 2,
+    "neighbors": [
+      "MYS",
+      "PNG",
+      "TLS"
+    ]
   },
   {
     "numeric": "364",
@@ -551,14 +1242,39 @@
     "aliases": [
       "Persia"
     ],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Southern Asia",
+    "capital": "Tehran",
+    "notabilityTier": 2,
+    "sizeTier": 2,
+    "neighbors": [
+      "AFG",
+      "ARM",
+      "AZE",
+      "IRQ",
+      "PAK",
+      "TKM",
+      "TUR"
+    ]
   },
   {
     "numeric": "368",
     "iso3": "IRQ",
     "name": "Iraq",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Baghdad",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "IRN",
+      "JOR",
+      "KWT",
+      "SAU",
+      "SYR",
+      "TUR"
+    ]
   },
   {
     "numeric": "372",
@@ -568,28 +1284,61 @@
       "Republic of Ireland",
       "Eire"
     ],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Northern Europe",
+    "capital": "Dublin",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "GBR"
+    ]
   },
   {
     "numeric": "376",
     "iso3": "ISR",
     "name": "Israel",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Jerusalem",
+    "notabilityTier": 2,
+    "sizeTier": 0,
+    "neighbors": [
+      "EGY",
+      "JOR",
+      "LBN",
+      "PSE",
+      "SYR"
+    ]
   },
   {
     "numeric": "380",
     "iso3": "ITA",
     "name": "Italy",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Southern Europe",
+    "capital": "Rome",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "AUT",
+      "CHE",
+      "FRA",
+      "SVN"
+    ]
   },
   {
     "numeric": "388",
     "iso3": "JAM",
     "name": "Jamaica",
     "aliases": [],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Caribbean",
+    "capital": "Kingston",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "392",
@@ -599,28 +1348,66 @@
       "Nippon",
       "Nihon"
     ],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Eastern Asia",
+    "capital": "Tokyo",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": []
   },
   {
     "numeric": "400",
     "iso3": "JOR",
     "name": "Jordan",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Amman",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "IRQ",
+      "ISR",
+      "PSE",
+      "SAU",
+      "SYR"
+    ]
   },
   {
     "numeric": "398",
     "iso3": "KAZ",
     "name": "Kazakhstan",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Central Asia",
+    "capital": "Astana",
+    "notabilityTier": 1,
+    "sizeTier": 3,
+    "neighbors": [
+      "CHN",
+      "KGZ",
+      "RUS",
+      "TKM",
+      "UZB"
+    ]
   },
   {
     "numeric": "404",
     "iso3": "KEN",
     "name": "Kenya",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Nairobi",
+    "notabilityTier": 2,
+    "sizeTier": 2,
+    "neighbors": [
+      "ETH",
+      "SOM",
+      "SSD",
+      "TZA",
+      "UGA"
+    ]
   },
   {
     "numeric": "901",
@@ -630,154 +1417,360 @@
       "Republic of Kosovo"
     ],
     "continent": "Europe",
-    "topoName": "Kosovo"
+    "subregion": "Southern Europe",
+    "capital": "Pristina",
+    "notabilityTier": 1,
+    "topoName": "Kosovo",
+    "sizeTier": 0,
+    "neighbors": [
+      "ALB",
+      "MKD",
+      "MNE",
+      "SRB"
+    ]
   },
   {
     "numeric": "414",
     "iso3": "KWT",
     "name": "Kuwait",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Kuwait City",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": [
+      "IRQ",
+      "SAU"
+    ]
   },
   {
     "numeric": "417",
     "iso3": "KGZ",
     "name": "Kyrgyzstan",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Central Asia",
+    "capital": "Bishkek",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "CHN",
+      "KAZ",
+      "TJK",
+      "UZB"
+    ]
   },
   {
     "numeric": "418",
     "iso3": "LAO",
     "name": "Laos",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "South-eastern Asia",
+    "capital": "Vientiane",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "CHN",
+      "KHM",
+      "MMR",
+      "THA",
+      "VNM"
+    ]
   },
   {
     "numeric": "428",
     "iso3": "LVA",
     "name": "Latvia",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Northern Europe",
+    "capital": "Riga",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "BLR",
+      "EST",
+      "LTU",
+      "RUS"
+    ]
   },
   {
     "numeric": "422",
     "iso3": "LBN",
     "name": "Lebanon",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Beirut",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": [
+      "ISR",
+      "SYR"
+    ]
   },
   {
     "numeric": "426",
     "iso3": "LSO",
     "name": "Lesotho",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Southern Africa",
+    "capital": "Maseru",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": [
+      "ZAF"
+    ]
   },
   {
     "numeric": "430",
     "iso3": "LBR",
     "name": "Liberia",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Western Africa",
+    "capital": "Monrovia",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "CIV",
+      "GIN",
+      "SLE"
+    ]
   },
   {
     "numeric": "434",
     "iso3": "LBY",
     "name": "Libya",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Northern Africa",
+    "capital": "Tripoli",
+    "notabilityTier": 1,
+    "sizeTier": 2,
+    "neighbors": [
+      "DZA",
+      "EGY",
+      "NER",
+      "SDN",
+      "TCD",
+      "TUN"
+    ]
   },
   {
     "numeric": "440",
     "iso3": "LTU",
     "name": "Lithuania",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Northern Europe",
+    "capital": "Vilnius",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "BLR",
+      "LVA",
+      "POL",
+      "RUS"
+    ]
   },
   {
     "numeric": "442",
     "iso3": "LUX",
     "name": "Luxembourg",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Western Europe",
+    "capital": "Luxembourg",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": [
+      "BEL",
+      "DEU",
+      "FRA"
+    ]
   },
   {
     "numeric": "450",
     "iso3": "MDG",
     "name": "Madagascar",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Antananarivo",
+    "notabilityTier": 1,
+    "sizeTier": 2,
+    "neighbors": []
   },
   {
     "numeric": "454",
     "iso3": "MWI",
     "name": "Malawi",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Lilongwe",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "MOZ",
+      "TZA",
+      "ZMB"
+    ]
   },
   {
     "numeric": "458",
     "iso3": "MYS",
     "name": "Malaysia",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "South-eastern Asia",
+    "capital": "Kuala Lumpur",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "BRN",
+      "IDN",
+      "THA"
+    ]
   },
   {
     "numeric": "466",
     "iso3": "MLI",
     "name": "Mali",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Western Africa",
+    "capital": "Bamako",
+    "notabilityTier": 0,
+    "sizeTier": 2,
+    "neighbors": [
+      "BFA",
+      "CIV",
+      "DZA",
+      "GIN",
+      "MRT",
+      "NER",
+      "SEN"
+    ]
   },
   {
     "numeric": "478",
     "iso3": "MRT",
     "name": "Mauritania",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Western Africa",
+    "capital": "Nouakchott",
+    "notabilityTier": 0,
+    "sizeTier": 2,
+    "neighbors": [
+      "DZA",
+      "ESH",
+      "MLI",
+      "SEN"
+    ]
   },
   {
     "numeric": "484",
     "iso3": "MEX",
     "name": "Mexico",
     "aliases": [],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Central America",
+    "capital": "Mexico City",
+    "notabilityTier": 2,
+    "sizeTier": 2,
+    "neighbors": [
+      "BLZ",
+      "GTM",
+      "USA"
+    ]
   },
   {
     "numeric": "498",
     "iso3": "MDA",
     "name": "Moldova",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Eastern Europe",
+    "capital": "Chișinău",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": [
+      "ROU",
+      "UKR"
+    ]
   },
   {
     "numeric": "496",
     "iso3": "MNG",
     "name": "Mongolia",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Eastern Asia",
+    "capital": "Ulaanbaatar",
+    "notabilityTier": 1,
+    "sizeTier": 2,
+    "neighbors": [
+      "CHN",
+      "RUS"
+    ]
   },
   {
     "numeric": "499",
     "iso3": "MNE",
     "name": "Montenegro",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Southern Europe",
+    "capital": "Podgorica",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": [
+      "ALB",
+      "BIH",
+      "HRV",
+      "SRB",
+      "XKX"
+    ]
   },
   {
     "numeric": "504",
     "iso3": "MAR",
     "name": "Morocco",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Northern Africa",
+    "capital": "Rabat",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "DZA",
+      "ESH"
+    ]
   },
   {
     "numeric": "508",
     "iso3": "MOZ",
     "name": "Mozambique",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Maputo",
+    "notabilityTier": 1,
+    "sizeTier": 2,
+    "neighbors": [
+      "MWI",
+      "SWZ",
+      "TZA",
+      "ZAF",
+      "ZMB",
+      "ZWE"
+    ]
   },
   {
     "numeric": "104",
@@ -786,21 +1779,50 @@
     "aliases": [
       "Burma"
     ],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "South-eastern Asia",
+    "capital": "Naypyidaw",
+    "notabilityTier": 1,
+    "sizeTier": 2,
+    "neighbors": [
+      "BGD",
+      "CHN",
+      "IND",
+      "LAO",
+      "THA"
+    ]
   },
   {
     "numeric": "516",
     "iso3": "NAM",
     "name": "Namibia",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Southern Africa",
+    "capital": "Windhoek",
+    "notabilityTier": 1,
+    "sizeTier": 2,
+    "neighbors": [
+      "AGO",
+      "BWA",
+      "ZAF",
+      "ZMB"
+    ]
   },
   {
     "numeric": "524",
     "iso3": "NPL",
     "name": "Nepal",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Southern Asia",
+    "capital": "Kathmandu",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "CHN",
+      "IND"
+    ]
   },
   {
     "numeric": "528",
@@ -810,14 +1832,27 @@
       "The Netherlands",
       "Holland"
     ],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Western Europe",
+    "capital": "Amsterdam",
+    "notabilityTier": 2,
+    "sizeTier": 0,
+    "neighbors": [
+      "BEL",
+      "DEU"
+    ]
   },
   {
     "numeric": "540",
     "iso3": "NCL",
     "name": "New Caledonia",
     "aliases": [],
-    "continent": "Oceania"
+    "continent": "Oceania",
+    "subregion": "Melanesia",
+    "capital": "Nouméa",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "554",
@@ -826,28 +1861,64 @@
     "aliases": [
       "Aotearoa"
     ],
-    "continent": "Oceania"
+    "continent": "Oceania",
+    "subregion": "Australia and New Zealand",
+    "capital": "Wellington",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": []
   },
   {
     "numeric": "558",
     "iso3": "NIC",
     "name": "Nicaragua",
     "aliases": [],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Central America",
+    "capital": "Managua",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "CRI",
+      "HND"
+    ]
   },
   {
     "numeric": "562",
     "iso3": "NER",
     "name": "Niger",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Western Africa",
+    "capital": "Niamey",
+    "notabilityTier": 0,
+    "sizeTier": 2,
+    "neighbors": [
+      "BEN",
+      "BFA",
+      "CMR",
+      "DZA",
+      "LBY",
+      "MLI",
+      "NGA",
+      "TCD"
+    ]
   },
   {
     "numeric": "566",
     "iso3": "NGA",
     "name": "Nigeria",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Western Africa",
+    "capital": "Abuja",
+    "notabilityTier": 2,
+    "sizeTier": 2,
+    "neighbors": [
+      "BEN",
+      "CMR",
+      "NER"
+    ]
   },
   {
     "numeric": "408",
@@ -857,7 +1928,17 @@
       "Democratic People's Republic of Korea",
       "DPRK"
     ],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Eastern Asia",
+    "capital": "Pyongyang",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "CHN",
+      "KOR",
+      "PRK",
+      "RUS"
+    ]
   },
   {
     "numeric": "807",
@@ -867,7 +1948,18 @@
       "Macedonia",
       "FYROM"
     ],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Southern Europe",
+    "capital": "Skopje",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": [
+      "ALB",
+      "BGR",
+      "GRC",
+      "SRB",
+      "XKX"
+    ]
   },
   {
     "numeric": "902",
@@ -879,28 +1971,63 @@
       "TRNC"
     ],
     "continent": "Asia",
-    "topoName": "N. Cyprus"
+    "subregion": "Western Asia",
+    "capital": "North Nicosia",
+    "notabilityTier": 0,
+    "topoName": "N. Cyprus",
+    "sizeTier": 0,
+    "neighbors": [
+      "CYP"
+    ]
   },
   {
     "numeric": "578",
     "iso3": "NOR",
     "name": "Norway",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Northern Europe",
+    "capital": "Oslo",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "FIN",
+      "RUS",
+      "SWE"
+    ]
   },
   {
     "numeric": "512",
     "iso3": "OMN",
     "name": "Oman",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Muscat",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "ARE",
+      "SAU",
+      "YEM"
+    ]
   },
   {
     "numeric": "586",
     "iso3": "PAK",
     "name": "Pakistan",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Southern Asia",
+    "capital": "Islamabad",
+    "notabilityTier": 2,
+    "sizeTier": 2,
+    "neighbors": [
+      "AFG",
+      "CHN",
+      "IND",
+      "IRN"
+    ]
   },
   {
     "numeric": "275",
@@ -910,35 +2037,78 @@
       "Palestinian Territories",
       "State of Palestine"
     ],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Ramallah",
+    "notabilityTier": 2,
+    "sizeTier": 0,
+    "neighbors": [
+      "ISR",
+      "JOR"
+    ]
   },
   {
     "numeric": "591",
     "iso3": "PAN",
     "name": "Panama",
     "aliases": [],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Central America",
+    "capital": "Panama City",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "COL",
+      "CRI"
+    ]
   },
   {
     "numeric": "598",
     "iso3": "PNG",
     "name": "Papua New Guinea",
     "aliases": [],
-    "continent": "Oceania"
+    "continent": "Oceania",
+    "subregion": "Melanesia",
+    "capital": "Port Moresby",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "IDN"
+    ]
   },
   {
     "numeric": "600",
     "iso3": "PRY",
     "name": "Paraguay",
     "aliases": [],
-    "continent": "South America"
+    "continent": "South America",
+    "subregion": "South America",
+    "capital": "Asunción",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "ARG",
+      "BOL",
+      "BRA"
+    ]
   },
   {
     "numeric": "604",
     "iso3": "PER",
     "name": "Peru",
     "aliases": [],
-    "continent": "South America"
+    "continent": "South America",
+    "subregion": "South America",
+    "capital": "Lima",
+    "notabilityTier": 2,
+    "sizeTier": 2,
+    "neighbors": [
+      "BOL",
+      "BRA",
+      "CHL",
+      "COL",
+      "ECU"
+    ]
   },
   {
     "numeric": "608",
@@ -947,35 +2117,72 @@
     "aliases": [
       "The Philippines"
     ],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "South-eastern Asia",
+    "capital": "Manila",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": []
   },
   {
     "numeric": "616",
     "iso3": "POL",
     "name": "Poland",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Eastern Europe",
+    "capital": "Warsaw",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "BLR",
+      "CZE",
+      "DEU",
+      "LTU",
+      "RUS",
+      "SVK",
+      "UKR"
+    ]
   },
   {
     "numeric": "620",
     "iso3": "PRT",
     "name": "Portugal",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Southern Europe",
+    "capital": "Lisbon",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "ESP"
+    ]
   },
   {
     "numeric": "630",
     "iso3": "PRI",
     "name": "Puerto Rico",
     "aliases": [],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Caribbean",
+    "capital": "San Juan",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "634",
     "iso3": "QAT",
     "name": "Qatar",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Doha",
+    "notabilityTier": 2,
+    "sizeTier": 0,
+    "neighbors": [
+      "SAU"
+    ]
   },
   {
     "numeric": "178",
@@ -985,14 +2192,36 @@
       "Congo",
       "Congo-Brazzaville"
     ],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Middle Africa",
+    "capital": "Brazzaville",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "AGO",
+      "CAF",
+      "CMR",
+      "COD",
+      "GAB"
+    ]
   },
   {
     "numeric": "642",
     "iso3": "ROU",
     "name": "Romania",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Eastern Europe",
+    "capital": "Bucharest",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "BGR",
+      "HUN",
+      "MDA",
+      "SRB",
+      "UKR"
+    ]
   },
   {
     "numeric": "643",
@@ -1001,70 +2230,181 @@
     "aliases": [
       "Russian Federation"
     ],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Eastern Europe",
+    "capital": "Moscow",
+    "notabilityTier": 2,
+    "sizeTier": 3,
+    "neighbors": [
+      "AZE",
+      "BLR",
+      "CHN",
+      "EST",
+      "FIN",
+      "GEO",
+      "KAZ",
+      "LTU",
+      "LVA",
+      "MNG",
+      "NOR",
+      "POL",
+      "PRK",
+      "UKR"
+    ]
   },
   {
     "numeric": "646",
     "iso3": "RWA",
     "name": "Rwanda",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Kigali",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": [
+      "BDI",
+      "COD",
+      "TZA",
+      "UGA"
+    ]
   },
   {
     "numeric": "682",
     "iso3": "SAU",
     "name": "Saudi Arabia",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Riyadh",
+    "notabilityTier": 2,
+    "sizeTier": 3,
+    "neighbors": [
+      "ARE",
+      "IRQ",
+      "JOR",
+      "KWT",
+      "OMN",
+      "QAT",
+      "YEM"
+    ]
   },
   {
     "numeric": "686",
     "iso3": "SEN",
     "name": "Senegal",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Western Africa",
+    "capital": "Dakar",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "GIN",
+      "GMB",
+      "GNB",
+      "MLI",
+      "MRT"
+    ]
   },
   {
     "numeric": "688",
     "iso3": "SRB",
     "name": "Serbia",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Southern Europe",
+    "capital": "Belgrade",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "BGR",
+      "BIH",
+      "HRV",
+      "HUN",
+      "MKD",
+      "MNE",
+      "ROU",
+      "XKX"
+    ]
   },
   {
     "numeric": "694",
     "iso3": "SLE",
     "name": "Sierra Leone",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Western Africa",
+    "capital": "Freetown",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "GIN",
+      "LBR"
+    ]
   },
   {
     "numeric": "703",
     "iso3": "SVK",
     "name": "Slovakia",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Eastern Europe",
+    "capital": "Bratislava",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": [
+      "AUT",
+      "CZE",
+      "HUN",
+      "POL",
+      "UKR"
+    ]
   },
   {
     "numeric": "705",
     "iso3": "SVN",
     "name": "Slovenia",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Southern Europe",
+    "capital": "Ljubljana",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": [
+      "AUT",
+      "HRV",
+      "HUN",
+      "ITA"
+    ]
   },
   {
     "numeric": "090",
     "iso3": "SLB",
     "name": "Solomon Islands",
     "aliases": [],
-    "continent": "Oceania"
+    "continent": "Oceania",
+    "subregion": "Melanesia",
+    "capital": "Honiara",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "706",
     "iso3": "SOM",
     "name": "Somalia",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Mogadishu",
+    "notabilityTier": 1,
+    "sizeTier": 2,
+    "neighbors": [
+      "ETH",
+      "KEN",
+      "XSL"
+    ]
   },
   {
     "numeric": "903",
@@ -1074,7 +2414,16 @@
       "Republic of Somaliland"
     ],
     "continent": "Africa",
-    "topoName": "Somaliland"
+    "subregion": "Eastern Africa",
+    "capital": "Hargeisa",
+    "notabilityTier": 0,
+    "topoName": "Somaliland",
+    "sizeTier": 1,
+    "neighbors": [
+      "DJI",
+      "ETH",
+      "SOM"
+    ]
   },
   {
     "numeric": "710",
@@ -1083,7 +2432,19 @@
     "aliases": [
       "RSA"
     ],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Southern Africa",
+    "capital": "Pretoria",
+    "notabilityTier": 2,
+    "sizeTier": 2,
+    "neighbors": [
+      "BWA",
+      "LSO",
+      "MOZ",
+      "NAM",
+      "SWZ",
+      "ZWE"
+    ]
   },
   {
     "numeric": "410",
@@ -1093,14 +2454,33 @@
       "Republic of Korea",
       "ROK"
     ],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Eastern Asia",
+    "capital": "Seoul",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "PRK"
+    ]
   },
   {
     "numeric": "728",
     "iso3": "SSD",
     "name": "South Sudan",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Juba",
+    "notabilityTier": 1,
+    "sizeTier": 2,
+    "neighbors": [
+      "CAF",
+      "COD",
+      "ETH",
+      "KEN",
+      "SDN",
+      "UGA"
+    ]
   },
   {
     "numeric": "724",
@@ -1109,28 +2489,62 @@
     "aliases": [
       "España"
     ],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Southern Europe",
+    "capital": "Madrid",
+    "notabilityTier": 2,
+    "sizeTier": 2,
+    "neighbors": [
+      "FRA",
+      "PRT"
+    ]
   },
   {
     "numeric": "144",
     "iso3": "LKA",
     "name": "Sri Lanka",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Southern Asia",
+    "capital": "Colombo",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": []
   },
   {
     "numeric": "729",
     "iso3": "SDN",
     "name": "Sudan",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Northern Africa",
+    "capital": "Khartoum",
+    "notabilityTier": 1,
+    "sizeTier": 2,
+    "neighbors": [
+      "CAF",
+      "EGY",
+      "ERI",
+      "ETH",
+      "LBY",
+      "SSD",
+      "TCD"
+    ]
   },
   {
     "numeric": "740",
     "iso3": "SUR",
     "name": "Suriname",
     "aliases": [],
-    "continent": "South America"
+    "continent": "South America",
+    "subregion": "South America",
+    "capital": "Paramaribo",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "BRA",
+      "GUY"
+    ]
   },
   {
     "numeric": "752",
@@ -1139,14 +2553,32 @@
     "aliases": [
       "Sverige"
     ],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Northern Europe",
+    "capital": "Stockholm",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "FIN",
+      "NOR"
+    ]
   },
   {
     "numeric": "756",
     "iso3": "CHE",
     "name": "Switzerland",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Western Europe",
+    "capital": "Bern",
+    "notabilityTier": 2,
+    "sizeTier": 0,
+    "neighbors": [
+      "AUT",
+      "DEU",
+      "FRA",
+      "ITA"
+    ]
   },
   {
     "numeric": "760",
@@ -1155,7 +2587,18 @@
     "aliases": [
       "Syrian Arab Republic"
     ],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Damascus",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "IRQ",
+      "ISR",
+      "JOR",
+      "LBN",
+      "TUR"
+    ]
   },
   {
     "numeric": "158",
@@ -1165,28 +2608,67 @@
       "Republic of China",
       "ROC"
     ],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Eastern Asia",
+    "capital": "Taipei",
+    "notabilityTier": 2,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "762",
     "iso3": "TJK",
     "name": "Tajikistan",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Central Asia",
+    "capital": "Dushanbe",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "AFG",
+      "CHN",
+      "KGZ",
+      "UZB"
+    ]
   },
   {
     "numeric": "834",
     "iso3": "TZA",
     "name": "Tanzania",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Dodoma",
+    "notabilityTier": 1,
+    "sizeTier": 2,
+    "neighbors": [
+      "BDI",
+      "COD",
+      "KEN",
+      "MOZ",
+      "MWI",
+      "RWA",
+      "UGA",
+      "ZMB"
+    ]
   },
   {
     "numeric": "764",
     "iso3": "THA",
     "name": "Thailand",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "South-eastern Asia",
+    "capital": "Bangkok",
+    "notabilityTier": 2,
+    "sizeTier": 2,
+    "neighbors": [
+      "KHM",
+      "LAO",
+      "MMR",
+      "MYS"
+    ]
   },
   {
     "numeric": "626",
@@ -1195,28 +2677,57 @@
     "aliases": [
       "East Timor"
     ],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "South-eastern Asia",
+    "capital": "Dili",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": [
+      "IDN"
+    ]
   },
   {
     "numeric": "768",
     "iso3": "TGO",
     "name": "Togo",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Western Africa",
+    "capital": "Lomé",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "BEN",
+      "BFA",
+      "GHA"
+    ]
   },
   {
     "numeric": "780",
     "iso3": "TTO",
     "name": "Trinidad and Tobago",
     "aliases": [],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Caribbean",
+    "capital": "Port of Spain",
+    "notabilityTier": 1,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "788",
     "iso3": "TUN",
     "name": "Tunisia",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Northern Africa",
+    "capital": "Tunis",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "DZA",
+      "LBY"
+    ]
   },
   {
     "numeric": "792",
@@ -1225,28 +2736,75 @@
     "aliases": [
       "Türkiye"
     ],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Ankara",
+    "notabilityTier": 2,
+    "sizeTier": 2,
+    "neighbors": [
+      "ARM",
+      "BGR",
+      "GEO",
+      "GRC",
+      "IRN",
+      "IRQ",
+      "SYR"
+    ]
   },
   {
     "numeric": "795",
     "iso3": "TKM",
     "name": "Turkmenistan",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Central Asia",
+    "capital": "Ashgabat",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "AFG",
+      "IRN",
+      "KAZ",
+      "UZB"
+    ]
   },
   {
     "numeric": "800",
     "iso3": "UGA",
     "name": "Uganda",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Kampala",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "COD",
+      "KEN",
+      "RWA",
+      "SSD",
+      "TZA"
+    ]
   },
   {
     "numeric": "804",
     "iso3": "UKR",
     "name": "Ukraine",
     "aliases": [],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Eastern Europe",
+    "capital": "Kyiv",
+    "notabilityTier": 2,
+    "sizeTier": 2,
+    "neighbors": [
+      "BLR",
+      "HUN",
+      "MDA",
+      "POL",
+      "ROU",
+      "RUS",
+      "SVK"
+    ]
   },
   {
     "numeric": "784",
@@ -1256,7 +2814,15 @@
       "UAE",
       "Emirates"
     ],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Abu Dhabi",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "OMN",
+      "SAU"
+    ]
   },
   {
     "numeric": "826",
@@ -1268,7 +2834,14 @@
       "Great Britain",
       "England"
     ],
-    "continent": "Europe"
+    "continent": "Europe",
+    "subregion": "Northern Europe",
+    "capital": "London",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "IRL"
+    ]
   },
   {
     "numeric": "840",
@@ -1280,35 +2853,76 @@
       "America",
       "United States of America"
     ],
-    "continent": "North America"
+    "continent": "North America",
+    "subregion": "Northern America",
+    "capital": "Washington, D.C.",
+    "notabilityTier": 2,
+    "sizeTier": 3,
+    "neighbors": [
+      "CAN",
+      "MEX"
+    ]
   },
   {
     "numeric": "858",
     "iso3": "URY",
     "name": "Uruguay",
     "aliases": [],
-    "continent": "South America"
+    "continent": "South America",
+    "subregion": "South America",
+    "capital": "Montevideo",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "ARG",
+      "BRA"
+    ]
   },
   {
     "numeric": "860",
     "iso3": "UZB",
     "name": "Uzbekistan",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Central Asia",
+    "capital": "Tashkent",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "AFG",
+      "KAZ",
+      "KGZ",
+      "TJK",
+      "TKM"
+    ]
   },
   {
     "numeric": "548",
     "iso3": "VUT",
     "name": "Vanuatu",
     "aliases": [],
-    "continent": "Oceania"
+    "continent": "Oceania",
+    "subregion": "Melanesia",
+    "capital": "Port Vila",
+    "notabilityTier": 0,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "862",
     "iso3": "VEN",
     "name": "Venezuela",
     "aliases": [],
-    "continent": "South America"
+    "continent": "South America",
+    "subregion": "South America",
+    "capital": "Caracas",
+    "notabilityTier": 2,
+    "sizeTier": 2,
+    "neighbors": [
+      "BRA",
+      "COL",
+      "GUY"
+    ]
   },
   {
     "numeric": "704",
@@ -1317,34 +2931,84 @@
     "aliases": [
       "Viet Nam"
     ],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "South-eastern Asia",
+    "capital": "Hanoi",
+    "notabilityTier": 2,
+    "sizeTier": 1,
+    "neighbors": [
+      "CHN",
+      "KHM",
+      "LAO"
+    ]
   },
   {
     "numeric": "732",
     "iso3": "ESH",
     "name": "Western Sahara",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Northern Africa",
+    "capital": "El Aaiún",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "DZA",
+      "MAR",
+      "MRT"
+    ]
   },
   {
     "numeric": "887",
     "iso3": "YEM",
     "name": "Yemen",
     "aliases": [],
-    "continent": "Asia"
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Sana'a",
+    "notabilityTier": 1,
+    "sizeTier": 2,
+    "neighbors": [
+      "OMN",
+      "SAU"
+    ]
   },
   {
     "numeric": "894",
     "iso3": "ZMB",
     "name": "Zambia",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Lusaka",
+    "notabilityTier": 1,
+    "sizeTier": 2,
+    "neighbors": [
+      "AGO",
+      "BWA",
+      "COD",
+      "MOZ",
+      "MWI",
+      "NAM",
+      "TZA",
+      "ZWE"
+    ]
   },
   {
     "numeric": "716",
     "iso3": "ZWE",
     "name": "Zimbabwe",
     "aliases": [],
-    "continent": "Africa"
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Harare",
+    "notabilityTier": 1,
+    "sizeTier": 1,
+    "neighbors": [
+      "BWA",
+      "MOZ",
+      "ZAF",
+      "ZMB"
+    ]
   }
 ]
