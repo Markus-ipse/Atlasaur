@@ -1,9 +1,8 @@
 import { useEffect, useRef } from "react";
-import { ScorePanel } from "./ScorePanel";
 import { Prompt } from "./Prompt";
 import { AnswerInput } from "./AnswerInput";
-import { SettingsMenu } from "./SettingsMenu";
 import { RevealHero } from "./RevealHero";
+import { StatusBar } from "./StatusBar";
 import type { GameApi } from "../game/useGame";
 
 type Props = {
@@ -28,22 +27,7 @@ export function ControlZone({ game }: Props) {
 
   return (
     <aside className="flex flex-col shrink-0 bg-white border-slate-200 portrait:border-t portrait:p-3 portrait:gap-3 portrait:overflow-y-auto landscape:border-l landscape:p-4 landscape:gap-4 landscape:w-72 lg:landscape:w-80 landscape:h-full landscape:overflow-y-auto">
-      <header className="flex items-center justify-between gap-3 border-b border-slate-200 pb-1">
-        <ScorePanel
-          score={state.score}
-          streak={state.streak}
-          total={state.total}
-        />
-        <SettingsMenu
-          mode={state.mode}
-          onSetMode={game.setMode}
-          selectedContinents={state.selectedContinents}
-          onSetContinents={game.setContinents}
-          showLabelsOnReveal={game.showLabelsOnReveal}
-          onSetShowLabelsOnReveal={game.setShowLabelsOnReveal}
-          onEndSession={game.endSession}
-        />
-      </header>
+      <StatusBar game={game} className="flex portrait:hidden" />
 
       <div className="landscape:flex-1 landscape:flex landscape:items-center">
         {heroFeedback ? (
