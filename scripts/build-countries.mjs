@@ -82,7 +82,7 @@ const COUNTRIES = {
   "008": { iso3: "ALB", name: "Albania", aliases: [], continent: "Europe", subregion: "Southern Europe", capital: "Tirana", landAreaKm2: 28748, notabilityTier: 1 },
   "012": { iso3: "DZA", name: "Algeria", aliases: [], continent: "Africa", subregion: "Northern Africa", capital: "Algiers", landAreaKm2: 2381741, notabilityTier: 1 },
   "024": { iso3: "AGO", name: "Angola", aliases: [], continent: "Africa", subregion: "Middle Africa", capital: "Luanda", landAreaKm2: 1246700, notabilityTier: 1 },
-  "010": { iso3: "ATA", name: "Antarctica", aliases: [], continent: "Antarctica", subregion: "Antarctica", capital: "—", landAreaKm2: 14000000, notabilityTier: 2 },
+  "010": { iso3: "ATA", name: "Antarctica", aliases: [], continent: "Antarctica", subregion: "Antarctica", capital: null, landAreaKm2: 14000000, notabilityTier: 2 },
   "032": { iso3: "ARG", name: "Argentina", aliases: [], continent: "South America", subregion: "South America", capital: "Buenos Aires", landAreaKm2: 2780400, notabilityTier: 2 },
   "051": { iso3: "ARM", name: "Armenia", aliases: [], continent: "Asia", subregion: "Western Asia", capital: "Yerevan", landAreaKm2: 29743, notabilityTier: 0 },
   "036": { iso3: "AUS", name: "Australia", aliases: [], continent: "Oceania", subregion: "Australia and New Zealand", capital: "Canberra", landAreaKm2: 7692024, notabilityTier: 2 },
@@ -135,7 +135,7 @@ const COUNTRIES = {
   "242": { iso3: "FJI", name: "Fiji", aliases: [], continent: "Oceania", subregion: "Melanesia", capital: "Suva", landAreaKm2: 18272, notabilityTier: 1 },
   "246": { iso3: "FIN", name: "Finland", aliases: [], continent: "Europe", subregion: "Northern Europe", capital: "Helsinki", landAreaKm2: 338424, notabilityTier: 2 },
   "250": { iso3: "FRA", name: "France", aliases: ["French Republic"], continent: "Europe", subregion: "Western Europe", capital: "Paris", landAreaKm2: 551695, notabilityTier: 2, neighborsOverride: ["DEU", "BEL", "LUX", "CHE", "ITA", "ESP"] },
-  "260": { iso3: "ATF", name: "French Southern Territories", aliases: [], continent: "Antarctica", subregion: "Antarctica", capital: "Saint-Pierre", landAreaKm2: 7747, notabilityTier: 0 },
+  "260": { iso3: "ATF", name: "French Southern Territories", aliases: [], continent: "Antarctica", subregion: "Antarctica", capital: null, landAreaKm2: 7747, notabilityTier: 0 },
   "266": { iso3: "GAB", name: "Gabon", aliases: [], continent: "Africa", subregion: "Middle Africa", capital: "Libreville", landAreaKm2: 267668, notabilityTier: 0 },
   "270": { iso3: "GMB", name: "Gambia", aliases: ["The Gambia"], continent: "Africa", subregion: "Western Africa", capital: "Banjul", landAreaKm2: 10689, notabilityTier: 0 },
   "268": { iso3: "GEO", name: "Georgia", aliases: [], continent: "Asia", subregion: "Western Asia", capital: "Tbilisi", landAreaKm2: 69700, notabilityTier: 1 },
@@ -307,8 +307,8 @@ for (const [numeric, info] of Object.entries(COUNTRIES)) {
   }
   seenIso3.add(info.iso3);
 
-  if (typeof info.capital !== "string" || info.capital.length === 0) {
-    errors.push(`${tag}: capital must be a non-empty string.`);
+  if (info.capital !== null && (typeof info.capital !== "string" || info.capital.length === 0)) {
+    errors.push(`${tag}: capital must be a non-empty string or null.`);
   }
   if (!VALID_SUBREGIONS.has(info.subregion)) {
     errors.push(`${tag}: subregion ${JSON.stringify(info.subregion)} is not a valid UN M49 subregion.`);

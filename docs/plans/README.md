@@ -12,3 +12,4 @@ want to know *why* a change was made, not just *what*.
 ## Index
 
 - `m2-elaborative-encoding.md` — capitals + land neighbors on miss reveal.
+- `m2-followups.md` — open follow-ups from the M2 tech-lead review (manual QA, data review, deferred polish).

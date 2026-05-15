@@ -55,7 +55,9 @@ export function ControlZone({ game }: Props) {
             )}
             Correct answer: {state.current.name}
           </p>
-          <p className="text-slate-600">Capital: {state.current.capital}</p>
+          {state.current.capital !== null && (
+            <p className="text-slate-600">Capital: {state.current.capital}</p>
+          )}
           {state.current.neighbors.length > 0 && (
             <p className="text-slate-600">
               Bordered by: {state.current.neighbors.map(game.nameFromIso3).join(", ")}

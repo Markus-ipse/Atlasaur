@@ -79,7 +79,7 @@
     "aliases": [],
     "continent": "Antarctica",
     "subregion": "Antarctica",
-    "capital": "—",
+    "capital": null,
     "notabilityTier": 2,
     "sizeTier": 3,
     "neighbors": []
@@ -944,7 +944,7 @@
     "aliases": [],
     "continent": "Antarctica",
     "subregion": "Antarctica",
-    "capital": "Saint-Pierre",
+    "capital": null,
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": []

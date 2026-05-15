@@ -48,7 +48,10 @@ export type Country = {
   aliases: string[];
   continent: Continent;
   subregion: Subregion;
-  capital: string;
+  // null for territories without a meaningful capital (e.g. Antarctica).
+  // UI omits the "Capital:" line on null, mirroring how "Bordered by:" is
+  // omitted when `neighbors` is empty.
+  capital: string | null;
   // iso3 codes; land borders only, derived from topology at build time with
   // hand overrides for overseas-territory artefacts (e.g. France/Brazil).
   neighbors: string[];
