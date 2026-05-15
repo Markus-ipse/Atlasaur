@@ -344,14 +344,14 @@
     "sizeTier": 3,
     "neighbors": [
       "ARG",
-      "URY",
       "BOL",
-      "PER",
       "COL",
-      "VEN",
       "GUY",
+      "PER",
+      "PRY",
       "SUR",
-      "PRY"
+      "URY",
+      "VEN"
     ]
   },
   {
@@ -929,12 +929,12 @@
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
-      "DEU",
       "BEL",
-      "LUX",
       "CHE",
+      "DEU",
+      "ESP",
       "ITA",
-      "ESP"
+      "LUX"
     ]
   },
   {

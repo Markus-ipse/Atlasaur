@@ -60,7 +60,11 @@ export function ControlZone({ game }: Props) {
           )}
           {state.current.neighbors.length > 0 && (
             <p className="text-slate-600">
-              Bordered by: {state.current.neighbors.map(game.nameFromIso3).join(", ")}
+              Bordered by:{" "}
+              {state.current.neighbors
+                .map(game.nameFromIso3)
+                .sort((a, b) => a.localeCompare(b))
+                .join(", ")}
             </p>
           )}
         </div>

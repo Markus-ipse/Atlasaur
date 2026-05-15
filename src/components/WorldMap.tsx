@@ -429,8 +429,13 @@ export function WorldMap({
     const set = new Set<string>();
     if (revealCorrectIso3) set.add(revealCorrectIso3);
     if (revealWrongIso3) set.add(revealWrongIso3);
+    // M2: neighbors of the correct country bypass scope, fit-check, and
+    // obstacle rejection so the spatial-name binding completes — without
+    // labels the muted-blue fill alone doesn't tell you which country is
+    // which.
+    for (const iso3 of correctNeighborIso3s) set.add(iso3);
     return set;
-  }, [revealCorrectIso3, revealWrongIso3]);
+  }, [revealCorrectIso3, revealWrongIso3, correctNeighborIso3s]);
 
   // Ocean labels participate in the country-label collision graph as
   // fixed obstacles — country labels yield to oceans (reveal targets

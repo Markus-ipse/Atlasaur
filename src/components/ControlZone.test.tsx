@@ -180,7 +180,7 @@ describe("ControlZone", () => {
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("Capital: Paris");
     expect(status.textContent).toContain(
-      "Bordered by: Germany, Belgium, Luxembourg, Switzerland, Italy, Spain",
+      "Bordered by: Belgium, Germany, Italy, Luxembourg, Spain, Switzerland",
     );
   });
 

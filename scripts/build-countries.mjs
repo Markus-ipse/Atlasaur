@@ -419,7 +419,12 @@ for (let i = 0; i < geometries.length; i++) {
 const matchedIso3s = new Set(matched.map((m) => m.iso3));
 const neighborResolutionErrors = [];
 const finalEntries = matched.map((m) => {
-  const rawNeighbors = m.neighborsOverride ?? neighborsByIso3.get(m.iso3) ?? [];
+  // Always sorted (iso3-alphabetical) for stable JSON diffs regardless of
+  // whether neighbors came from the topology or a hand override. Display
+  // order in the UI is a separate concern handled at render time.
+  const rawNeighbors = m.neighborsOverride
+    ? [...m.neighborsOverride].sort()
+    : neighborsByIso3.get(m.iso3) ?? [];
   for (const n of rawNeighbors) {
     if (!matchedIso3s.has(n)) {
       neighborResolutionErrors.push(

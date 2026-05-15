@@ -37,6 +37,16 @@ merging M2 to `main`:
    Russia's 14 neighbors) should wrap cleanly inside that scroll area.
 9. **`prefers-reduced-motion`.** Reveal transitions should land instantly
    instead of animating; the cascade still applies.
+10. **Reveal labels on neighbors with `showLabelsOnReveal` enabled.** Miss
+    France with the labels toggle on — Germany / Italy / Spain / etc.
+    should render their names alongside the muted-blue fill. Verify label
+    collisions are tolerable when many neighbor labels render at once
+    (Russia is the stress test). With the toggle off, only the
+    answer-country label shows (existing behavior).
+11. **Out-of-scope neighbor labels.** Select Africa only, miss Egypt.
+    Israel and Palestine should paint blue **and** label, even though
+    they're not in scope — the elaborative cue teaches context
+    regardless of the active filter.
 
 If any of these fail, file as a separate issue rather than holding M2 — the
 underlying architecture is correct; visual fixes are localized to
