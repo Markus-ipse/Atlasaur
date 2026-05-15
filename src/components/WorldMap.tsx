@@ -230,6 +230,32 @@ for (const c of countriesData as Country[]) {
   else NUMERICS_BY_CONTINENT.set(c.continent, [c.numeric]);
 }
 
+// Resting-zoom frame: when the user has narrowed the pool with the
+// continent filter, fit the union of those continents' countries instead
+// of returning to the full world. Reuses `tryFitUnion` from the reveal-
+// zoom math so padding/MIN_ZOOM behaviour is identical. Pure (no hooks)
+// so the component can seed `transform` state on first render and avoid
+// a flicker of the "Reset" button before the mount effect syncs d3-zoom.
+function computeBaseTransform(
+  selectedContinents: readonly Continent[],
+): ZoomTransform {
+  if (selectedContinents.length === ALL_CONTINENTS.length) return zoomIdentity;
+  const bounds: Bounds[] = [];
+  for (const cont of selectedContinents) {
+    const numerics = NUMERICS_BY_CONTINENT.get(cont);
+    if (!numerics) continue;
+    for (const n of numerics) {
+      const lab = LABELS_BY_NUMERIC.get(n);
+      if (lab) bounds.push(lab);
+    }
+  }
+  const fit = tryFitUnion(bounds);
+  if (!fit) return zoomIdentity;
+  return zoomIdentity
+    .translate(W / 2 - fit.cx * fit.k, H / 2 - fit.cy * fit.k)
+    .scale(fit.k);
+}
+
 type Props = {
   mode: Mode;
   highlightedIso3: string | null;
@@ -299,7 +325,13 @@ export function WorldMap({
   );
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
-  const [transform, setTransform] = useState<ZoomTransform>(zoomIdentity);
+  // Seed from the resting frame so the first paint already matches what
+  // the mount effect will sync into d3-zoom — otherwise `isPanned` would
+  // briefly be true and flash the Reset button on load with a filtered
+  // continent set.
+  const [transform, setTransform] = useState<ZoomTransform>(() =>
+    computeBaseTransform(selectedContinents),
+  );
   // Rendered SVG dimensions in CSS pixels — used to scale label em so
   // the on-screen label size stays readable on mobile (~375px) without
   // ballooning on large desktops (~1920px+). Tracks both axes because
@@ -392,27 +424,10 @@ export function WorldMap({
       .call(zoomRef.current.transform, target);
   }, [revealCorrectIso3, revealWrongIso3, correctNeighborIso3s, numericFromIso3]);
 
-  // Resting-zoom frame: when the user has narrowed the pool with the
-  // continent filter, fit the union of those continents' countries instead
-  // of returning to the full world. Reuses `tryFitUnion` from the reveal-
-  // zoom math so padding/MIN_ZOOM behaviour is identical.
-  const baseTransform = useMemo<ZoomTransform>(() => {
-    if (selectedContinents.length === ALL_CONTINENTS.length) return zoomIdentity;
-    const bounds: Bounds[] = [];
-    for (const cont of selectedContinents) {
-      const numerics = NUMERICS_BY_CONTINENT.get(cont);
-      if (!numerics) continue;
-      for (const n of numerics) {
-        const lab = LABELS_BY_NUMERIC.get(n);
-        if (lab) bounds.push(lab);
-      }
-    }
-    const fit = tryFitUnion(bounds);
-    if (!fit) return zoomIdentity;
-    return zoomIdentity
-      .translate(W / 2 - fit.cx * fit.k, H / 2 - fit.cy * fit.k)
-      .scale(fit.k);
-  }, [selectedContinents]);
+  const baseTransform = useMemo<ZoomTransform>(
+    () => computeBaseTransform(selectedContinents),
+    [selectedContinents],
+  );
 
   const hasFeedback = feedback !== null;
   const prevHadFeedbackRef = useRef(false);
