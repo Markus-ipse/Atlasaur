@@ -13,7 +13,12 @@ type Props = {
 export function ControlZone({ game }: Props) {
   const { state } = game;
   const continueRef = useRef<HTMLButtonElement>(null);
-  const showHero = state.feedback !== null && state.feedback.kind !== "correct";
+  // Bind the narrowed feedback once so the JSX doesn't re-check truthiness
+  // for TypeScript's benefit. `showHero` stays a stable boolean for the
+  // focus useEffect's dep array.
+  const heroFeedback =
+    state.feedback && state.feedback.kind !== "correct" ? state.feedback : null;
+  const showHero = heroFeedback !== null;
 
   useEffect(() => {
     // preventScroll keeps a tall feedback panel from scrolling Continue
@@ -23,7 +28,7 @@ export function ControlZone({ game }: Props) {
 
   return (
     <aside className="flex flex-col shrink-0 bg-white border-slate-200 portrait:border-t portrait:p-3 portrait:gap-3 portrait:overflow-y-auto landscape:border-l landscape:p-4 landscape:gap-4 landscape:w-72 lg:landscape:w-80 landscape:h-full landscape:overflow-y-auto">
-      <header className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
+      <header className="flex items-center justify-between gap-3 border-b border-slate-200 pb-1">
         <ScorePanel
           score={state.score}
           streak={state.streak}
@@ -42,10 +47,10 @@ export function ControlZone({ game }: Props) {
       </header>
 
       <div className="landscape:flex-1 landscape:flex landscape:items-center">
-        {showHero && state.feedback ? (
+        {heroFeedback ? (
           <RevealHero
             current={state.current}
-            feedback={state.feedback}
+            feedback={heroFeedback}
             mode={state.mode}
             nameFromIso3={game.nameFromIso3}
           />

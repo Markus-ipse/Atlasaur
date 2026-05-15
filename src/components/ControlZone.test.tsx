@@ -140,7 +140,8 @@ describe("ControlZone", () => {
     render(<ControlZone game={game} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("You picked: Germany");
-    expect(status.textContent).toContain("France");
+    // Assert the label-name pairing — only the hero produces this sequence.
+    expect(status.textContent).toMatch(/You missed[\s\S]*France/);
   });
 
   it("shows only the correct answer when skipped (no You picked line)", () => {
@@ -152,7 +153,7 @@ describe("ControlZone", () => {
     const game = makeGame({ mode: "name-to-click", feedback: skipped });
     render(<ControlZone game={game} />);
     const status = screen.getByRole("status");
-    expect(status.textContent).toContain("France");
+    expect(status.textContent).toMatch(/Skipped[\s\S]*France/);
     expect(status.textContent).not.toContain("You picked");
   });
 
@@ -165,7 +166,7 @@ describe("ControlZone", () => {
     const game = makeGame({ mode: "shape-to-name", feedback: wrong });
     render(<ControlZone game={game} />);
     const status = screen.getByRole("status");
-    expect(status.textContent).toContain("France");
+    expect(status.textContent).toMatch(/You missed[\s\S]*France/);
     expect(status.textContent).not.toContain("You picked");
   });
 
@@ -241,7 +242,7 @@ describe("ControlZone", () => {
     const game = makeGame({ current: antarctica, feedback: wrong });
     render(<ControlZone game={game} />);
     const status = screen.getByRole("status");
-    expect(status.textContent).toContain("Antarctica");
+    expect(status.textContent).toMatch(/You missed[\s\S]*Antarctica/);
     expect(status.textContent).not.toContain("Capital");
   });
 
