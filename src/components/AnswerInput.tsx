@@ -19,11 +19,11 @@ export function AnswerInput({
 
   useEffect(() => {
     setValue("");
-    inputRef.current?.focus();
+    inputRef.current?.focus({ preventScroll: true });
   }, [current.iso3]);
 
   useEffect(() => {
-    if (!feedback) inputRef.current?.focus();
+    if (!feedback) inputRef.current?.focus({ preventScroll: true });
   }, [feedback]);
 
   const handleSubmit = (e: React.FormEvent) => {
