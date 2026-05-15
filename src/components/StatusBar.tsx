@@ -12,7 +12,7 @@ export function StatusBar({ game, className }: Props) {
   return (
     <header
       className={
-        "flex items-center justify-between gap-3 border-b border-slate-200 pb-1 " +
+        "items-center justify-between gap-3 border-b border-slate-200 pb-1 " +
         (className ?? "")
       }
     >

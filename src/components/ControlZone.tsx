@@ -27,7 +27,7 @@ export function ControlZone({ game }: Props) {
 
   return (
     <aside className="flex flex-col shrink-0 bg-white border-slate-200 portrait:border-t portrait:p-3 portrait:gap-3 portrait:overflow-y-auto landscape:border-l landscape:p-4 landscape:gap-4 landscape:w-72 lg:landscape:w-80 landscape:h-full landscape:overflow-y-auto">
-      <StatusBar game={game} className="portrait:hidden" />
+      <StatusBar game={game} className="flex portrait:hidden" />
 
       <div className="landscape:flex-1 landscape:flex landscape:items-center">
         {heroFeedback ? (
