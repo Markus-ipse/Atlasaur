@@ -34,6 +34,7 @@ export default function App() {
           feedback={state.feedback}
           showLabelsOnReveal={game.showLabelsOnReveal}
           correctNeighborIso3s={correctNeighborIso3s}
+          selectedContinents={state.selectedContinents}
           isoFromNumeric={game.isoFromNumeric}
           numericFromIso3={game.numericFromIso3}
           isInScope={game.isInScope}

@@ -14,13 +14,15 @@ import type { Feature, FeatureCollection, Geometry } from "geojson";
 import polylabel from "polylabel";
 import topology from "world-atlas/countries-110m.json";
 import countriesData from "../data/countries.json";
-import type { Country, Feedback, Mode } from "../types";
+import { ALL_CONTINENTS, type Continent, type Country, type Feedback, type Mode } from "../types";
 import {
   W,
   H,
   MIN_ZOOM,
   MAX_ZOOM,
   computeRevealTarget,
+  tryFitUnion,
+  type Bounds,
 } from "./revealZoom";
 import {
   COLLISION_PADDING,
@@ -218,6 +220,16 @@ const LABELS_BY_NUMERIC = new Map<string, Label>(
   LABELS.map((l) => [l.numericId, l]),
 );
 
+// Continent → numeric ids, used to compute the resting-zoom frame from
+// `selectedContinents`. Built once at module load; the continent assignment
+// is static per country.
+const NUMERICS_BY_CONTINENT = new Map<Continent, string[]>();
+for (const c of countriesData as Country[]) {
+  const list = NUMERICS_BY_CONTINENT.get(c.continent);
+  if (list) list.push(c.numeric);
+  else NUMERICS_BY_CONTINENT.set(c.continent, [c.numeric]);
+}
+
 type Props = {
   mode: Mode;
   highlightedIso3: string | null;
@@ -227,6 +239,10 @@ type Props = {
   // wrong/skipped reveal. Empty when feedback is null or the correct
   // country has no land neighbors (islands).
   correctNeighborIso3s: readonly string[];
+  // Active continent filter — drives the resting-zoom frame so a filtered
+  // pool (e.g. Europe only) lands the user near their selection instead of
+  // on the full world map.
+  selectedContinents: readonly Continent[];
   isoFromNumeric: (numeric: string) => string | undefined;
   numericFromIso3: (iso3: string) => string | undefined;
   isInScope: (iso3: string) => boolean;
@@ -271,6 +287,7 @@ export function WorldMap({
   feedback,
   showLabelsOnReveal,
   correctNeighborIso3s,
+  selectedContinents,
   isoFromNumeric,
   numericFromIso3,
   isInScope,
@@ -375,6 +392,28 @@ export function WorldMap({
       .call(zoomRef.current.transform, target);
   }, [revealCorrectIso3, revealWrongIso3, correctNeighborIso3s, numericFromIso3]);
 
+  // Resting-zoom frame: when the user has narrowed the pool with the
+  // continent filter, fit the union of those continents' countries instead
+  // of returning to the full world. Reuses `tryFitUnion` from the reveal-
+  // zoom math so padding/MIN_ZOOM behaviour is identical.
+  const baseTransform = useMemo<ZoomTransform>(() => {
+    if (selectedContinents.length === ALL_CONTINENTS.length) return zoomIdentity;
+    const bounds: Bounds[] = [];
+    for (const cont of selectedContinents) {
+      const numerics = NUMERICS_BY_CONTINENT.get(cont);
+      if (!numerics) continue;
+      for (const n of numerics) {
+        const lab = LABELS_BY_NUMERIC.get(n);
+        if (lab) bounds.push(lab);
+      }
+    }
+    const fit = tryFitUnion(bounds);
+    if (!fit) return zoomIdentity;
+    return zoomIdentity
+      .translate(W / 2 - fit.cx * fit.k, H / 2 - fit.cy * fit.k)
+      .scale(fit.k);
+  }, [selectedContinents]);
+
   const hasFeedback = feedback !== null;
   const prevHadFeedbackRef = useRef(false);
   useEffect(() => {
@@ -386,16 +425,37 @@ export function WorldMap({
     select(svgRef.current)
       .transition()
       .duration(duration)
-      .call(zoomRef.current.transform, zoomIdentity);
-  }, [hasFeedback]);
+      .call(zoomRef.current.transform, baseTransform);
+  }, [hasFeedback, baseTransform]);
+
+  // Apply the resting frame on first mount (instant, so the map appears
+  // already framed instead of gliding in) and on subsequent continent-
+  // filter changes (animated). Defers to the reveal-zoom effect while
+  // feedback is showing.
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    if (!svgRef.current || !zoomRef.current) return;
+    if (hasFeedback) return;
+    const sel = select(svgRef.current);
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      sel.call(zoomRef.current.transform, baseTransform);
+      return;
+    }
+    const duration = prefersReducedMotion() ? 0 : 450;
+    sel.transition().duration(duration).call(zoomRef.current.transform, baseTransform);
+    // hasFeedback intentionally excluded — when feedback clears the
+    // dedicated effect above handles the return-to-base animation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseTransform]);
 
   const resetView = () => {
     if (!svgRef.current || !zoomRef.current) return;
-    select(svgRef.current).call(zoomRef.current.transform, zoomIdentity);
+    select(svgRef.current).call(zoomRef.current.transform, baseTransform);
   };
 
   const isClickMode = mode === "name-to-click" && !feedback;
-  const isPanned = transform !== zoomIdentity;
+  const isPanned = transform !== baseTransform;
 
   // The effective projection-to-pixel scale matches preserveAspectRatio
   // ="xMidYMid meet": the smaller of the two axis ratios. Using width

@@ -15,13 +15,13 @@ export const MAX_ZOOM = 48;
 // the focus so neighboring countries are visible for context.
 const REVEAL_FIT_RATIO = 0.55;
 
-type Bounds = { x0: number; y0: number; x1: number; y1: number };
-type Target = { k: number; cx: number; cy: number };
+export type Bounds = { x0: number; y0: number; x1: number; y1: number };
+export type Target = { k: number; cx: number; cy: number };
 
 // Try to fit a union of bounds within the viewport at a meaningful zoom.
 // Returns null if the union is too wide (naturalK < MIN_ZOOM) so the caller
 // can fall back to a tighter frame.
-function tryFitUnion(bounds: readonly Bounds[]): Target | null {
+export function tryFitUnion(bounds: readonly Bounds[]): Target | null {
   if (bounds.length === 0) return null;
   let x0 = bounds[0].x0;
   let y0 = bounds[0].y0;

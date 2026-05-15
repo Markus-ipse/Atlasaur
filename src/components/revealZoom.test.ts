@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeRevealTarget } from "./revealZoom";
+import { computeRevealTarget, tryFitUnion } from "./revealZoom";
 
 const W = 800;
 const H = 400;
@@ -92,5 +92,37 @@ describe("computeRevealTarget", () => {
     expect(computeRevealTarget(primary, null, [])).toEqual(
       computeRevealTarget(primary, null),
     );
+  });
+});
+
+describe("tryFitUnion", () => {
+  it("returns null for an empty bounds list", () => {
+    expect(tryFitUnion([])).toBeNull();
+  });
+
+  it("fits a tight cluster at a meaningful zoom", () => {
+    const r = tryFitUnion([
+      { x0: 100, y0: 100, x1: 110, y1: 110 },
+      { x0: 130, y0: 100, x1: 140, y1: 110 },
+    ]);
+    expect(r).not.toBeNull();
+    expect(r!.cx).toBe(120);
+    expect(r!.cy).toBe(105);
+    // 0.55 * min(800/40, 400/10) = 0.55 * 20 = 11
+    expect(r!.k).toBeCloseTo(REVEAL_FIT_RATIO * 20);
+    expect(r!.k).toBeGreaterThan(MIN_ZOOM);
+  });
+
+  it("returns null when the union spans the whole map (would zoom below MIN_ZOOM)", () => {
+    // Antarctica-shape proxy: full-width, short-height strip.
+    expect(
+      tryFitUnion([{ x0: 0, y0: H - 20, x1: W, y1: H }]),
+    ).toBeNull();
+  });
+
+  it("clamps zoom at MAX_ZOOM for a tiny single bound", () => {
+    const r = tryFitUnion([{ x0: 400, y0: 200, x1: 401, y1: 201 }]);
+    expect(r).not.toBeNull();
+    expect(r!.k).toBe(MAX_ZOOM);
   });
 });
