@@ -3,9 +3,9 @@ import { createPortal } from "react-dom";
 import { ALL_CONTINENTS, type Continent, type Mode } from "../types";
 
 type PopupCoords = {
-  top?: number;
-  bottom?: number;
+  top: number;
   right: number;
+  maxHeight: number;
 };
 
 type Props = {
@@ -67,12 +67,14 @@ export function SettingsMenu({
       if (!trigger) return;
       const rect = trigger.getBoundingClientRect();
       const right = Math.max(8, window.innerWidth - rect.right);
-      const portrait = window.matchMedia("(orientation: portrait)").matches;
-      if (portrait) {
-        setCoords({ bottom: window.innerHeight - rect.top + 8, right });
-      } else {
-        setCoords({ top: rect.bottom + 8, right });
-      }
+      // Always open downward — the gear is now at the top of the viewport in
+      // portrait (under the status bar) and at the top of the sidebar in
+      // landscape, so down has space in both cases. Constrain max-height so
+      // the menu never extends past the viewport; let it scroll internally
+      // if its content doesn't fit (e.g. short landscape phones).
+      const top = rect.bottom + 8;
+      const maxHeight = Math.max(160, window.innerHeight - top - 8);
+      setCoords({ top, right, maxHeight });
     };
     update();
     window.addEventListener("resize", update);
@@ -124,10 +126,10 @@ export function SettingsMenu({
             style={{
               position: "fixed",
               top: coords.top,
-              bottom: coords.bottom,
               right: coords.right,
+              maxHeight: coords.maxHeight,
             }}
-            className="z-50 w-72 rounded-lg border border-slate-200 bg-white shadow-lg p-3 flex flex-col gap-3"
+            className="z-50 w-72 rounded-lg border border-slate-200 bg-white shadow-lg p-3 flex flex-col gap-3 overflow-y-auto"
           >
             <div>
               <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Mode</p>
