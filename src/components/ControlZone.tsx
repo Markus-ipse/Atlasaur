@@ -3,6 +3,7 @@ import { ScorePanel } from "./ScorePanel";
 import { Prompt } from "./Prompt";
 import { AnswerInput } from "./AnswerInput";
 import { SettingsMenu } from "./SettingsMenu";
+import { RevealHero } from "./RevealHero";
 import type { GameApi } from "../game/useGame";
 
 type Props = {
@@ -12,16 +13,27 @@ type Props = {
 export function ControlZone({ game }: Props) {
   const { state } = game;
   const continueRef = useRef<HTMLButtonElement>(null);
-  const showContinue = state.feedback !== null && state.feedback.kind !== "correct";
+  // Bind the narrowed feedback once so the JSX doesn't re-check truthiness
+  // for TypeScript's benefit. `showHero` stays a stable boolean for the
+  // focus useEffect's dep array.
+  const heroFeedback =
+    state.feedback && state.feedback.kind !== "correct" ? state.feedback : null;
+  const showHero = heroFeedback !== null;
 
   useEffect(() => {
-    if (showContinue) continueRef.current?.focus();
-  }, [showContinue]);
+    // preventScroll keeps a tall feedback panel from scrolling Continue
+    // into view and pushing the hero off the top.
+    if (showHero) continueRef.current?.focus({ preventScroll: true });
+  }, [showHero]);
 
   return (
-    <aside className="flex flex-col shrink-0 bg-white border-slate-200 portrait:border-t portrait:p-3 portrait:gap-3 portrait:max-h-[45dvh] portrait:overflow-y-auto landscape:border-l landscape:p-4 landscape:gap-4 landscape:w-72 lg:landscape:w-80 landscape:h-full landscape:overflow-y-auto">
-      <header className="flex items-center justify-between gap-3">
-        <h1 className="text-base font-semibold tracking-tight text-slate-900">Atlasaur</h1>
+    <aside className="flex flex-col shrink-0 bg-white border-slate-200 portrait:border-t portrait:p-3 portrait:gap-3 portrait:overflow-y-auto landscape:border-l landscape:p-4 landscape:gap-4 landscape:w-72 lg:landscape:w-80 landscape:h-full landscape:overflow-y-auto">
+      <header className="flex items-center justify-between gap-3 border-b border-slate-200 pb-1">
+        <ScorePanel
+          score={state.score}
+          streak={state.streak}
+          total={state.total}
+        />
         <SettingsMenu
           mode={state.mode}
           onSetMode={game.setMode}
@@ -33,42 +45,18 @@ export function ControlZone({ game }: Props) {
         />
       </header>
 
-      <ScorePanel
-        score={state.score}
-        streak={state.streak}
-        bestStreak={state.bestStreak}
-        total={state.total}
-      />
-
       <div className="landscape:flex-1 landscape:flex landscape:items-center">
-        <Prompt mode={state.mode} current={state.current} phase={state.phase} />
+        {heroFeedback ? (
+          <RevealHero
+            current={state.current}
+            feedback={heroFeedback}
+            mode={state.mode}
+            nameFromIso3={game.nameFromIso3}
+          />
+        ) : (
+          <Prompt mode={state.mode} current={state.current} phase={state.phase} />
+        )}
       </div>
-
-      {state.feedback && state.feedback.kind !== "correct" && (
-        <div role="status" className="space-y-1 text-sm">
-          <p className="text-red-600">
-            {state.mode === "name-to-click" && state.feedback.kind === "wrong" && (
-              <>
-                You selected: {game.nameFromIso3(state.feedback.answerIso3)}
-                <br />
-              </>
-            )}
-            Correct answer: {state.current.name}
-          </p>
-          {state.current.capital !== null && (
-            <p className="text-slate-600">Capital: {state.current.capital}</p>
-          )}
-          {state.current.neighbors.length > 0 && (
-            <p className="text-slate-600">
-              Bordered by:{" "}
-              {state.current.neighbors
-                .map(game.nameFromIso3)
-                .sort((a, b) => a.localeCompare(b))
-                .join(", ")}
-            </p>
-          )}
-        </div>
-      )}
 
       {state.mode === "shape-to-name" && (
         <AnswerInput
@@ -80,7 +68,7 @@ export function ControlZone({ game }: Props) {
       )}
 
       <div className="flex gap-2">
-        {showContinue ? (
+        {showHero ? (
           <button
             ref={continueRef}
             type="button"

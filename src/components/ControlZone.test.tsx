@@ -130,7 +130,7 @@ describe("ControlZone", () => {
     expect(game.dismiss).toHaveBeenCalledTimes(1);
   });
 
-  it("shows selected and correct country names on a wrong click", () => {
+  it("shows picked and correct country names on a wrong click", () => {
     const wrong: Feedback = {
       kind: "wrong",
       answerIso3: "DEU",
@@ -139,11 +139,12 @@ describe("ControlZone", () => {
     const game = makeGame({ mode: "name-to-click", feedback: wrong });
     render(<ControlZone game={game} />);
     const status = screen.getByRole("status");
-    expect(status.textContent).toContain("You selected: Germany");
-    expect(status.textContent).toContain("Correct answer: France");
+    expect(status.textContent).toContain("You picked: Germany");
+    // Assert the label-name pairing — only the hero produces this sequence.
+    expect(status.textContent).toMatch(/You missed[\s\S]*France/);
   });
 
-  it("shows only the correct answer when skipped (no You selected line)", () => {
+  it("shows only the correct answer when skipped (no You picked line)", () => {
     const skipped: Feedback = {
       kind: "skipped",
       answerIso3: "",
@@ -152,11 +153,11 @@ describe("ControlZone", () => {
     const game = makeGame({ mode: "name-to-click", feedback: skipped });
     render(<ControlZone game={game} />);
     const status = screen.getByRole("status");
-    expect(status.textContent).toContain("Correct answer: France");
-    expect(status.textContent).not.toContain("You selected");
+    expect(status.textContent).toMatch(/Skipped[\s\S]*France/);
+    expect(status.textContent).not.toContain("You picked");
   });
 
-  it("shows correct answer in shape-to-name mode without You selected line", () => {
+  it("shows correct answer in shape-to-name mode without You picked line", () => {
     const wrong: Feedback = {
       kind: "wrong",
       answerIso3: "DEU",
@@ -165,8 +166,8 @@ describe("ControlZone", () => {
     const game = makeGame({ mode: "shape-to-name", feedback: wrong });
     render(<ControlZone game={game} />);
     const status = screen.getByRole("status");
-    expect(status.textContent).toContain("Correct answer: France");
-    expect(status.textContent).not.toContain("You selected");
+    expect(status.textContent).toMatch(/You missed[\s\S]*France/);
+    expect(status.textContent).not.toContain("You picked");
   });
 
   it("shows capital and neighbors on a wrong answer", () => {
@@ -241,8 +242,30 @@ describe("ControlZone", () => {
     const game = makeGame({ current: antarctica, feedback: wrong });
     render(<ControlZone game={game} />);
     const status = screen.getByRole("status");
-    expect(status.textContent).toContain("Correct answer: Antarctica");
+    expect(status.textContent).toMatch(/You missed[\s\S]*Antarctica/);
     expect(status.textContent).not.toContain("Capital");
+  });
+
+  it("renders YOU MISSED label on wrong, SKIPPED label on skip", () => {
+    const wrong: Feedback = {
+      kind: "wrong",
+      answerIso3: "DEU",
+      correctIso3: "FRA",
+    };
+    const game1 = makeGame({ feedback: wrong });
+    const { rerender } = render(<ControlZone game={game1} />);
+    expect(screen.getByRole("status").textContent).toContain("You missed");
+    expect(screen.getByRole("status").textContent).not.toContain("Skipped");
+
+    const skipped: Feedback = {
+      kind: "skipped",
+      answerIso3: "",
+      correctIso3: "FRA",
+    };
+    const game2 = makeGame({ feedback: skipped });
+    rerender(<ControlZone game={game2} />);
+    expect(screen.getByRole("status").textContent).toContain("Skipped");
+    expect(screen.getByRole("status").textContent).not.toContain("You missed");
   });
 
   it("renders no feedback message on a correct answer", () => {

@@ -1,38 +1,23 @@
 type Props = {
   score: number;
   streak: number;
-  bestStreak: number;
   total: number;
 };
 
-export function ScorePanel({ score, streak, bestStreak, total }: Props) {
+export function ScorePanel({ score, streak, total }: Props) {
   return (
-    <div className="flex items-baseline justify-between gap-3 text-sm tabular-nums">
-      <Stat label="Score" value={score} />
-      <Stat label="Streak" value={streak} sub={`/${bestStreak}`} />
-      <Stat label="Round" value={total + 1} muted />
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  sub,
-  muted,
-}: {
-  label: string;
-  value: number;
-  sub?: string;
-  muted?: boolean;
-}) {
-  return (
-    <div className="flex items-baseline gap-1">
-      <span className="text-xs uppercase tracking-wide text-slate-500">{label}</span>
-      <span className={(muted ? "text-slate-600" : "text-slate-900") + " font-semibold"}>
-        {value}
+    <div className="flex items-baseline gap-2 text-xs text-slate-500 tabular-nums">
+      <span>
+        Score <span className="font-semibold text-slate-900">{score}</span>
       </span>
-      {sub && <span className="text-slate-500">{sub}</span>}
+      <span aria-hidden>·</span>
+      <span>
+        Streak <span className="font-semibold text-slate-900">{streak}</span>
+      </span>
+      <span aria-hidden>·</span>
+      <span>
+        Round <span className="font-semibold text-slate-900">{total + 1}</span>
+      </span>
     </div>
   );
 }
