@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { ScorePanel } from "./ScorePanel";
 import { SettingsMenu } from "./SettingsMenu";
+import { PracticeModeToggle } from "./PracticeModeToggle";
 import { TRAINING_NEW_CAP } from "../game/pickCountry";
 import {
   learnedCount as srsLearnedCount,
@@ -51,8 +52,11 @@ export function StatusBar({ game, className }: Props) {
         (className ?? "")
       }
     >
-      <div className="flex items-center gap-3 min-w-0 flex-wrap">
-        <ModePill mode={state.practiceMode} />
+      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+        <PracticeModeToggle
+          mode={state.practiceMode}
+          onChange={game.setPracticeMode}
+        />
         {isTraining ? (
           <TrainingChips
             due={game.dueCount}
@@ -72,7 +76,6 @@ export function StatusBar({ game, className }: Props) {
         mode={state.mode}
         onSetMode={game.setMode}
         practiceMode={state.practiceMode}
-        onSetPracticeMode={game.setPracticeMode}
         selectedContinents={state.selectedContinents}
         onSetContinents={game.setContinents}
         showLabelsOnReveal={game.showLabelsOnReveal}
@@ -86,25 +89,6 @@ export function StatusBar({ game, className }: Props) {
         onResetSrs={game.resetSrs}
       />
     </header>
-  );
-}
-
-function ModePill({ mode }: { mode: "exam" | "training" }) {
-  const label = mode === "training" ? "Training" : "Exam";
-  const styles =
-    mode === "training"
-      ? "bg-indigo-100 text-indigo-800"
-      : "bg-slate-100 text-slate-700";
-  return (
-    <span
-      className={
-        "shrink-0 inline-block px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide rounded-full " +
-        styles
-      }
-      aria-label={`${label} mode`}
-    >
-      {label}
-    </span>
   );
 }
 

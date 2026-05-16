@@ -17,7 +17,6 @@ type Props = {
   mode: QuestionMode;
   onSetMode: (mode: QuestionMode) => void;
   practiceMode: PracticeMode;
-  onSetPracticeMode: (mode: PracticeMode) => void;
   selectedContinents: readonly Continent[];
   onSetContinents: (continents: readonly Continent[]) => void;
   showLabelsOnReveal: boolean;
@@ -36,7 +35,6 @@ export function SettingsMenu({
   mode,
   onSetMode,
   practiceMode,
-  onSetPracticeMode,
   selectedContinents,
   onSetContinents,
   showLabelsOnReveal,
@@ -158,33 +156,6 @@ export function SettingsMenu({
             }}
             className="z-50 w-72 rounded-lg border border-slate-200 bg-white shadow-lg p-3 flex flex-col gap-3 overflow-y-auto"
           >
-            <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Practice</p>
-              <div
-                role="radiogroup"
-                aria-label="Practice mode"
-                className="flex gap-1 p-1 rounded-full border border-slate-200 bg-slate-50"
-              >
-                <ModeButton
-                  active={practiceMode === "exam"}
-                  onClick={() => {
-                    onSetPracticeMode("exam");
-                    close();
-                  }}
-                >
-                  Exam
-                </ModeButton>
-                <ModeButton
-                  active={practiceMode === "training"}
-                  onClick={() => {
-                    onSetPracticeMode("training");
-                    close();
-                  }}
-                >
-                  Training
-                </ModeButton>
-              </div>
-            </div>
             <div>
               <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Question</p>
               <div
