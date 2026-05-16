@@ -1,8 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Prompt } from "./Prompt";
 import { AnswerInput } from "./AnswerInput";
 import { RevealHero } from "./RevealHero";
 import { StatusBar } from "./StatusBar";
+import { EaseButtons } from "./EaseButtons";
+import { TrainingIntro } from "./TrainingIntro";
+import { CaughtUp } from "./CaughtUp";
+import { TRAINING_NEW_CAP } from "../game/pickCountry";
 import type { GameApi } from "../game/useGame";
 
 type Props = {
@@ -12,25 +16,52 @@ type Props = {
 export function ControlZone({ game }: Props) {
   const { state } = game;
   const continueRef = useRef<HTMLButtonElement>(null);
-  // Bind the narrowed feedback once so the JSX doesn't re-check truthiness
-  // for TypeScript's benefit. `showHero` stays a stable boolean for the
-  // focus useEffect's dep array.
+  const isTraining = state.practiceMode === "training";
   const heroFeedback =
     state.feedback && state.feedback.kind !== "correct" ? state.feedback : null;
   const showHero = heroFeedback !== null;
 
+  // "Caught up" is a transient banner shown when a Training stretch
+  // has nothing due and the soft cap is hit. The user can opt into the
+  // overdue/fallback stream via "Keep practicing anyway"; we then
+  // suppress the banner until conditions change.
+  const caughtUpEligible =
+    isTraining &&
+    !state.feedback &&
+    game.dueCount === 0 &&
+    state.newIntroducedThisStretch >= TRAINING_NEW_CAP;
+  const [caughtUpAck, setCaughtUpAck] = useState(false);
   useEffect(() => {
-    // preventScroll keeps a tall feedback panel from scrolling Continue
-    // into view and pushing the hero off the top.
-    if (showHero) continueRef.current?.focus({ preventScroll: true });
-  }, [showHero]);
+    // Reset acknowledgement whenever the user picks up new work
+    // (something becomes due, or they reset/flip practice mode).
+    if (!caughtUpEligible) setCaughtUpAck(false);
+  }, [caughtUpEligible]);
+  const showCaughtUp = caughtUpEligible && !caughtUpAck;
+
+  useEffect(() => {
+    if (showHero && !isTraining) {
+      // preventScroll keeps a tall feedback panel from scrolling Continue
+      // into view and pushing the hero off the top.
+      continueRef.current?.focus({ preventScroll: true });
+    }
+  }, [showHero, isTraining]);
+
+  // Show ease buttons during a Training miss reveal (pendingGrade) or
+  // during a Training correct/skip overlay (so users can override the
+  // auto-grade with Easy/Hard before dismissal).
+  const showEaseButtons = isTraining && state.feedback !== null;
+  const showTrainingIntro =
+    isTraining && state.feedback !== null && !game.seenSrsIntro;
+  const skipLabel = isTraining ? "Don't know" : "Skip";
 
   return (
     <aside className="flex flex-col shrink-0 bg-white border-slate-200 portrait:border-t portrait:p-3 portrait:gap-3 portrait:overflow-y-auto landscape:border-l landscape:p-4 landscape:gap-4 landscape:w-72 lg:landscape:w-80 landscape:h-full landscape:overflow-y-auto">
       <StatusBar game={game} className="flex portrait:hidden" />
 
       <div className="landscape:flex-1 landscape:flex landscape:items-center">
-        {heroFeedback ? (
+        {showCaughtUp ? (
+          <CaughtUp onKeepGoing={() => setCaughtUpAck(true)} />
+        ) : heroFeedback ? (
           <RevealHero
             current={state.current}
             feedback={heroFeedback}
@@ -42,7 +73,7 @@ export function ControlZone({ game }: Props) {
         )}
       </div>
 
-      {state.mode === "shape-to-name" && (
+      {state.mode === "shape-to-name" && !showCaughtUp && (
         <AnswerInput
           current={state.current}
           feedback={state.feedback}
@@ -51,27 +82,44 @@ export function ControlZone({ game }: Props) {
         />
       )}
 
-      <div className="flex gap-2">
-        {showHero ? (
-          <button
-            ref={continueRef}
-            type="button"
-            onClick={game.dismiss}
-            className="flex-1 min-h-11 px-4 rounded bg-slate-900 text-white font-medium hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-          >
-            Continue
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={game.skip}
-            disabled={state.feedback !== null}
-            className="flex-1 min-h-11 px-4 rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-          >
-            Skip
-          </button>
-        )}
-      </div>
+      {showTrainingIntro && (
+        <TrainingIntro onDismiss={game.markSrsIntroSeen} />
+      )}
+
+      {showEaseButtons && (
+        <EaseButtons
+          record={state.srsStore.records[state.current.iso3] ?? null}
+          onGrade={(ease) => {
+            if (!game.seenSrsIntro) game.markSrsIntroSeen();
+            game.grade(ease);
+          }}
+          keysActive
+        />
+      )}
+
+      {!showCaughtUp && (
+        <div className="flex gap-2">
+          {showHero && !isTraining ? (
+            <button
+              ref={continueRef}
+              type="button"
+              onClick={game.dismiss}
+              className="flex-1 min-h-11 px-4 rounded bg-slate-900 text-white font-medium hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            >
+              Continue
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={game.skip}
+              disabled={state.feedback !== null}
+              className="flex-1 min-h-11 px-4 rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            >
+              {skipLabel}
+            </button>
+          )}
+        </div>
+      )}
     </aside>
   );
 }

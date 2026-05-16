@@ -3,6 +3,7 @@ import {
   fsrs,
   Rating,
   type Card,
+  type Grade,
 } from "ts-fsrs";
 import type { Continent, Country, Ease, SrsRecord, SrsStore } from "../types";
 
@@ -12,7 +13,7 @@ const STORE_VERSION = 1;
 
 const scheduler = fsrs();
 
-const EASE_TO_RATING: Record<Ease, Rating> = {
+const EASE_TO_RATING: Record<Ease, Grade> = {
   Again: Rating.Again,
   Hard: Rating.Hard,
   Good: Rating.Good,

@@ -157,6 +157,7 @@ export type Action =
   | { type: "startReview" }
   | { type: "grade"; ease: Ease; now?: Date }
   | { type: "resetSrs" }
+  | { type: "closeSummary"; now?: Date }
   | { type: "reset" };
 
 function nowOf(action: Action): Date {
@@ -614,6 +615,13 @@ export function reducer(state: State, action: Action): State {
         newIntroducedThisStretch: 0,
       };
     }
+    case "closeSummary": {
+      // Clear the summary without nuking session state. Re-pick so the
+      // user lands on a fresh prompt (or the most-overdue fallback in
+      // Training when nothing's due).
+      const next: State = { ...state, sessionDone: false, feedback: null };
+      return { ...next, current: nextCurrent(next, now) };
+    }
     case "reset": {
       return initialState({
         mode: state.mode,
@@ -651,6 +659,7 @@ export type GameApi = {
   startReview: () => void;
   grade: (ease: Ease) => void;
   resetSrs: () => void;
+  closeSummary: () => void;
   reset: () => void;
 };
 
@@ -772,6 +781,7 @@ export function useGame(): GameApi {
     startReview: () => dispatch({ type: "startReview" }),
     grade: (ease) => dispatch({ type: "grade", ease, now: new Date() }),
     resetSrs: () => dispatch({ type: "resetSrs" }),
+    closeSummary: () => dispatch({ type: "closeSummary", now: new Date() }),
     reset: () => dispatch({ type: "reset" }),
   };
 }

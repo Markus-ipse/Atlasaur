@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import {
   ALL_CONTINENTS,
   type Continent,
+  type PracticeMode,
   type QuestionMode,
 } from "../types";
 
@@ -15,27 +16,49 @@ type PopupCoords = {
 type Props = {
   mode: QuestionMode;
   onSetMode: (mode: QuestionMode) => void;
+  practiceMode: PracticeMode;
+  onSetPracticeMode: (mode: PracticeMode) => void;
   selectedContinents: readonly Continent[];
   onSetContinents: (continents: readonly Continent[]) => void;
   showLabelsOnReveal: boolean;
   onSetShowLabelsOnReveal: (value: boolean) => void;
   onEndSession: () => void;
+  // SRS surface
+  dueCount: number;
+  newAvailableCount: number;
+  learnedCount: number;
+  totalReviews: number;
+  lifetimeAccuracy: number;
+  onResetSrs: () => void;
 };
 
 export function SettingsMenu({
   mode,
   onSetMode,
+  practiceMode,
+  onSetPracticeMode,
   selectedContinents,
   onSetContinents,
   showLabelsOnReveal,
   onSetShowLabelsOnReveal,
   onEndSession,
+  dueCount,
+  newAvailableCount,
+  learnedCount,
+  totalReviews,
+  lifetimeAccuracy,
+  onResetSrs,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<PopupCoords | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open && confirmReset) setConfirmReset(false);
+  }, [open, confirmReset]);
 
   const close = () => {
     setOpen(false);
@@ -136,10 +159,37 @@ export function SettingsMenu({
             className="z-50 w-72 rounded-lg border border-slate-200 bg-white shadow-lg p-3 flex flex-col gap-3 overflow-y-auto"
           >
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Mode</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Practice</p>
               <div
                 role="radiogroup"
-                aria-label="Game mode"
+                aria-label="Practice mode"
+                className="flex gap-1 p-1 rounded-full border border-slate-200 bg-slate-50"
+              >
+                <ModeButton
+                  active={practiceMode === "exam"}
+                  onClick={() => {
+                    onSetPracticeMode("exam");
+                    close();
+                  }}
+                >
+                  Exam
+                </ModeButton>
+                <ModeButton
+                  active={practiceMode === "training"}
+                  onClick={() => {
+                    onSetPracticeMode("training");
+                    close();
+                  }}
+                >
+                  Training
+                </ModeButton>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Question</p>
+              <div
+                role="radiogroup"
+                aria-label="Question mode"
                 className="flex gap-1 p-1 rounded-full border border-slate-200 bg-slate-50"
               >
                 <ModeButton
@@ -190,13 +240,76 @@ export function SettingsMenu({
                 Show country names after a wrong answer
               </label>
             </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Stats</p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-600 tabular-nums">
+                <span>Learned</span>
+                <span className="text-slate-900 font-medium text-right">
+                  {learnedCount}
+                </span>
+                <span>Due today</span>
+                <span className="text-slate-900 font-medium text-right">
+                  {dueCount}
+                </span>
+                <span>New available</span>
+                <span className="text-slate-900 font-medium text-right">
+                  {newAvailableCount}
+                </span>
+                <span>Reviews</span>
+                <span className="text-slate-900 font-medium text-right">
+                  {totalReviews}
+                </span>
+                <span>Accuracy</span>
+                <span className="text-slate-900 font-medium text-right">
+                  {totalReviews === 0
+                    ? "—"
+                    : `${Math.round(lifetimeAccuracy * 100)}%`}
+                </span>
+              </div>
+            </div>
             <button
               type="button"
               onClick={handleEndSession}
               className="min-h-11 px-3 rounded border border-slate-300 text-slate-700 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             >
-              End session
+              {practiceMode === "training" ? "Done for now" : "End session"}
             </button>
+            <div className="pt-2 mt-1 border-t border-slate-200">
+              {confirmReset ? (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-slate-600">
+                    This will erase all spaced-repetition progress.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onResetSrs();
+                        setConfirmReset(false);
+                      }}
+                      className="flex-1 min-h-11 px-3 rounded bg-red-600 text-white text-sm font-medium hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                    >
+                      Reset SRS
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmReset(false)}
+                      className="flex-1 min-h-11 px-3 rounded border border-slate-300 text-slate-700 text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmReset(true)}
+                  className="w-full min-h-11 px-3 rounded border border-red-200 text-red-700 text-sm hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                >
+                  Reset SRS data…
+                </button>
+              )}
+            </div>
           </div>,
           document.body,
         )}
