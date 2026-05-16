@@ -8,9 +8,9 @@ modes:
 - **Name → Click**: a country name is shown; click it on the map.
 - **Shape → Name**: a country is highlighted; type its name.
 
-Both modes track score and streak, support Skip, and show an end-of-session
-summary listing the countries you missed. Pan the map by dragging, zoom with
-the scroll wheel or pinch.
+Both modes track your progress through the country pool, support Skip, and
+show an end-of-session summary listing the countries you missed. Pan the map
+by dragging, zoom with the scroll wheel or pinch.
 
 ## Run it
 
@@ -30,7 +30,9 @@ Then open the URL Vite prints (usually `http://localhost:5173`).
 | `npm run preview`           | Serve the production build locally.            |
 | `npm run lint`              | Run ESLint over `src/` and config files.       |
 | `npm run typecheck`         | `tsc --noEmit` across the whole project.       |
-| `npm run build:countries`   | Regenerate `src/data/countries.json` from the world-atlas topology and the table in `scripts/build-countries.mjs`. |
+| `npm test`                  | Run the Vitest suite once (jsdom env).         |
+| `npm run build:topology`    | Regenerate `src/data/world-110m.json` from `world-atlas` (splits French Guiana out of France). |
+| `npm run build:countries`   | Regenerate `src/data/countries.json` from the topology and the table in `scripts/build-countries.mjs` (runs `build:topology` first). |
 
 ## Adding or refining countries / aliases
 
@@ -62,24 +64,34 @@ After editing, run `npm run build:countries` to regenerate
 
 ```
 .
-├── scripts/build-countries.mjs   # Country data generator (run via npm script)
+├── scripts/
+│   ├── build-countries.mjs       # Country data generator (run via npm script)
+│   └── build-topology.mjs        # Derives src/data/world-110m.json from world-atlas
 ├── src/
 │   ├── main.tsx                  # React entry
 │   ├── App.tsx                   # Top-level layout, owns useGame()
 │   ├── index.css                 # Tailwind v4 entry (@import "tailwindcss")
-│   ├── types.ts                  # Country, Mode, Feedback
+│   ├── types.ts                  # Country, Mode, Phase, Feedback, Subregion, tiers
 │   ├── data/
-│   │   ├── countries.json        # Generated: 174 entries
+│   │   ├── countries.json        # Generated: country metadata
+│   │   ├── world-110m.json       # Generated: derived topology
 │   │   └── normalize.ts          # String normalization for answer matching
 │   ├── game/
-│   │   ├── useGame.ts            # Game state machine (useReducer)
-│   │   └── pickCountry.ts        # Random pick excluding the previous country
+│   │   ├── useGame.ts            # Game state machine (useReducer + hook)
+│   │   └── pickCountry.ts        # Fresh-pool picker with retry-queue priority
 │   └── components/
 │       ├── WorldMap.tsx          # SVG world map with d3-geo + d3-zoom
-│       ├── PromptBar.tsx         # Mode toggle, prompt text, skip/end buttons
-│       ├── AnswerInput.tsx       # Mode 2 typed input
-│       ├── ScorePanel.tsx        # Score, streak, round counter
-│       └── SessionSummary.tsx    # End-of-session modal
+│       ├── ControlZone.tsx       # Prompt, AnswerInput, Reveal, Skip/Continue
+│       ├── StatusBar.tsx         # ScorePanel + SettingsMenu
+│       ├── ScorePanel.tsx        # Done x/y, misses, streak
+│       ├── SettingsMenu.tsx      # Mode, continents, reveal-labels, End session
+│       ├── Prompt.tsx            # Country prompt (name or highlighted shape)
+│       ├── AnswerInput.tsx       # Typed input for shape-to-name mode
+│       ├── RevealHero.tsx        # Wrong/skipped reveal panel with capital + neighbors
+│       ├── SessionSummary.tsx    # End-of-session modal
+│       ├── fillFor.ts            # Country color decision (default/highlight/reveal)
+│       ├── labelLayout.ts        # Country label placement on the map
+│       └── revealZoom.ts         # Auto-frame the correct country on reveal
 ├── index.html
 ├── vite.config.ts                # Vite + @tailwindcss/vite + @vitejs/plugin-react
 ├── eslint.config.js              # Flat config, typescript-eslint
@@ -106,4 +118,6 @@ subpath (here, `/Atlasaur/`) without hardcoding the repo name.
 - `d3-geo` + `d3-zoom` + `d3-selection` for the map
 - `topojson-client` + `world-atlas` for country shapes (`countries-110m.json`)
 
-No backend, no auth, no persistence — score and streak reset on reload.
+No backend, no auth. Selected continents and the reveal-labels preference
+persist in localStorage; in-session progress (Done count, streak, missed list)
+resets on reload.
