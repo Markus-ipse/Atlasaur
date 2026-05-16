@@ -37,14 +37,12 @@ function makeGame(overrides: {
   return {
     state: {
       mode: overrides.mode ?? "name-to-click",
-      sessionType: "freeplay",
       selectedContinents: ALL_CONTINENTS,
       current: overrides.current ?? SAMPLE,
       feedback: overrides.feedback ?? null,
       phase: "normal",
       score: 0,
       streak: 0,
-      bestStreak: 0,
       total: 0,
       missed: [],
       missedSet: new Set<string>(),
@@ -66,7 +64,6 @@ function makeGame(overrides: {
     skip: vi.fn(),
     dismiss: vi.fn(),
     setMode: vi.fn(),
-    setSessionType: vi.fn(),
     setContinents: vi.fn(),
     endSession: vi.fn(),
     startReview: vi.fn(),

@@ -27,7 +27,6 @@ describe("reducer — normal phase", () => {
     const s1 = reducer(s0, { type: "answer", iso3: "FRA" });
     expect(s1.score).toBe(1);
     expect(s1.streak).toBe(1);
-    expect(s1.bestStreak).toBe(1);
     expect(s1.total).toBe(1);
     expect(s1.feedback).toEqual({
       kind: "correct",
@@ -41,12 +40,11 @@ describe("reducer — normal phase", () => {
   it("answer-wrong: resets streak, appends missed, queues retry with future dueAt", () => {
     const s0 = withCurrent(initialState(), "FRA");
     const s1 = reducer(
-      { ...s0, streak: 3, bestStreak: 3 },
+      { ...s0, streak: 3 },
       { type: "answer", iso3: "DEU" },
     );
     expect(s1.score).toBe(0);
     expect(s1.streak).toBe(0);
-    expect(s1.bestStreak).toBe(3);
     expect(s1.total).toBe(1);
     expect(s1.missed.map((c) => c.iso3)).toEqual(["FRA"]);
     expect(s1.missedSet.has("FRA")).toBe(true);
@@ -144,7 +142,6 @@ describe("reducer — review phase", () => {
     const baseline = {
       score: before.score,
       streak: before.streak,
-      bestStreak: before.bestStreak,
       total: before.total,
       missed: before.missed,
     };
@@ -154,7 +151,6 @@ describe("reducer — review phase", () => {
     });
     expect(after.score).toBe(baseline.score);
     expect(after.streak).toBe(baseline.streak);
-    expect(after.bestStreak).toBe(baseline.bestStreak);
     expect(after.total).toBe(baseline.total);
     expect(after.missed).toBe(baseline.missed);
     expect(after.retryQueue.some((e) => e.iso3 === before.current.iso3)).toBe(
@@ -198,6 +194,7 @@ describe("reducer — lifecycle", () => {
     expect(s.total).toBe(0);
     expect(s.missed).toEqual([]);
     expect(s.retryQueue).toEqual([]);
+    expect(s.completedSet.size).toBe(0);
     expect(s.phase).toBe("normal");
   });
 
@@ -229,6 +226,7 @@ describe("reducer — lifecycle", () => {
     expect(s.score).toBe(0);
     expect(s.total).toBe(0);
     expect(s.retryQueue).toEqual([]);
+    expect(s.completedSet.size).toBe(0);
   });
 
   it("setMode preserves selectedContinents", () => {
@@ -244,37 +242,25 @@ describe("reducer — lifecycle", () => {
   });
 });
 
-describe("reducer — marathon", () => {
+describe("reducer — completion tracking", () => {
   it("correct answer adds the iso3 to completedSet (normal phase)", () => {
-    const s0 = withCurrent(
-      initialState("name-to-click", ALL_CONTINENTS, "marathon"),
-      "FRA",
-    );
+    const s0 = withCurrent(initialState(), "FRA");
     const s1 = reducer(s0, { type: "answer", iso3: "FRA" });
     expect(s1.completedSet.has("FRA")).toBe(true);
   });
 
   it("wrong answer does NOT add the iso3 to completedSet", () => {
-    const s0 = withCurrent(
-      initialState("name-to-click", ALL_CONTINENTS, "marathon"),
-      "FRA",
-    );
+    const s0 = withCurrent(initialState(), "FRA");
     const s1 = reducer(s0, { type: "answer", iso3: "DEU" });
     expect(s1.completedSet.has("FRA")).toBe(false);
     expect(s1.completedSet.size).toBe(0);
     expect(s1.retryQueue.map((e) => e.iso3)).toEqual(["FRA"]);
   });
 
-  it("freeplay does not populate completedSet on correct", () => {
-    const s0 = withCurrent(initialState("name-to-click", ALL_CONTINENTS), "FRA");
-    const s1 = reducer(s0, { type: "answer", iso3: "FRA" });
-    expect(s1.completedSet.size).toBe(0);
-  });
-
   it("dismiss auto-flips sessionDone when every in-scope country is completed", () => {
     // Scope to Antarctica only (small pool: ATA, ATF). Seed completedSet with both.
     const s0 = withCurrent(
-      initialState("name-to-click", ["Antarctica"], "marathon"),
+      initialState("name-to-click", ["Antarctica"]),
       "ATA",
     );
     const seeded: State = {
@@ -290,7 +276,7 @@ describe("reducer — marathon", () => {
 
   it("dismiss does not flip sessionDone while retryQueue is non-empty", () => {
     const s0 = withCurrent(
-      initialState("name-to-click", ["Antarctica"], "marathon"),
+      initialState("name-to-click", ["Antarctica"]),
       "ATA",
     );
     const seeded: State = {
@@ -303,11 +289,11 @@ describe("reducer — marathon", () => {
     expect(result.sessionDone).toBe(false);
   });
 
-  it("setContinents preserves completedSet across continent changes in marathon", () => {
+  it("setContinents preserves completedSet across continent changes", () => {
     // Out-of-scope entries are kept so widening later restores prior progress.
     // The displayed Done count is derived against the active scope at read time.
     const s: State = {
-      ...initialState("name-to-click", ALL_CONTINENTS, "marathon"),
+      ...initialState("name-to-click", ALL_CONTINENTS),
       completedSet: new Set(["FRA", "EGY", "DEU"]),
     };
     const result = reducer(s, {
@@ -320,7 +306,7 @@ describe("reducer — marathon", () => {
   it("setContinents auto-flips sessionDone when narrowed scope is fully completed", () => {
     const s: State = {
       ...withCurrent(
-        initialState("name-to-click", ALL_CONTINENTS, "marathon"),
+        initialState("name-to-click", ALL_CONTINENTS),
         "ATA",
       ),
       completedSet: new Set(["ATA", "ATF"]),
@@ -331,41 +317,6 @@ describe("reducer — marathon", () => {
       continents: ["Antarctica"],
     });
     expect(result.sessionDone).toBe(true);
-  });
-
-  it("setSessionType resets state but preserves mode + continents", () => {
-    let s = withCurrent(
-      initialState("shape-to-name", ["Europe"], "freeplay"),
-      "FRA",
-    );
-    s = reducer(s, { type: "skip" });
-    s = reducer(s, { type: "setSessionType", sessionType: "marathon" });
-    expect(s.sessionType).toBe("marathon");
-    expect(s.mode).toBe("shape-to-name");
-    expect(s.selectedContinents).toEqual(["Europe"]);
-    expect(s.score).toBe(0);
-    expect(s.total).toBe(0);
-    expect(s.missed).toEqual([]);
-    expect(s.retryQueue).toEqual([]);
-    expect(s.completedSet.size).toBe(0);
-  });
-
-  it("setSessionType to the same value is a no-op", () => {
-    const s0 = initialState("name-to-click", ALL_CONTINENTS, "marathon");
-    const s1 = reducer(s0, { type: "setSessionType", sessionType: "marathon" });
-    expect(s1).toBe(s0);
-  });
-
-  it("setMode preserves sessionType", () => {
-    let s = initialState("name-to-click", ALL_CONTINENTS, "marathon");
-    s = reducer(s, { type: "setMode", mode: "shape-to-name" });
-    expect(s.sessionType).toBe("marathon");
-  });
-
-  it("reset preserves sessionType", () => {
-    let s = initialState("name-to-click", ALL_CONTINENTS, "marathon");
-    s = reducer(s, { type: "reset" });
-    expect(s.sessionType).toBe("marathon");
   });
 });
 
@@ -393,7 +344,6 @@ describe("reducer — setContinents", () => {
       ...initialState("name-to-click", ALL_CONTINENTS),
       score: 5,
       streak: 3,
-      bestStreak: 5,
       total: 7,
       missed: [egypt],
       missedSet: new Set(["EGY"]),
@@ -404,7 +354,6 @@ describe("reducer — setContinents", () => {
     });
     expect(result.score).toBe(5);
     expect(result.streak).toBe(3);
-    expect(result.bestStreak).toBe(5);
     expect(result.total).toBe(7);
     expect(result.missed.map((c) => c.iso3)).toEqual(["EGY"]);
     expect(result.missedSet.has("EGY")).toBe(true);
