@@ -29,6 +29,33 @@ State has a `phase: "normal" | "review"` and a `retryQueue: { iso3, dueAt }[]`:
 
 `unlearnedCount` exposed on `GameApi` is just `retryQueue.length` — that's what drives the "Review N" affordance.
 
+### Two practice modes × two question modes (M4)
+
+State has two orthogonal axes:
+
+- **`practiceMode: "exam" | "training"`** — selects the scheduling regime.
+- **`mode: QuestionMode = "name-to-click" | "shape-to-name"`** — selects the prompt type.
+
+Both axes are persisted (`atlasaur:practiceMode` / `atlasaur:selectedContinents`). `Mode` was renamed to `QuestionMode` in M4 to avoid ambiguity with the new practice axis.
+
+**Exam mode** preserves the original loop verbatim: score, streak, `retryQueue`, `phase: "review"`, end-of-session summary. Every Exam `answer`/`skip` *also* writes through to the SRS store (`Correct → Good`, `Wrong → Again`, `Skip → Again`), but only in `phase === "normal"` — writing in review phase would double-count (the same miss is already tracked by `retryQueue`). No ease buttons.
+
+**Training mode** uses FSRS for picks and grading:
+
+- Pick precedence (in `pickNextTraining`, `src/game/pickCountry.ts`): oldest due record → new country (by `notabilityTier` then `sizeTier` then iso3) subject to a soft cap of `TRAINING_NEW_CAP = 10` new introductions per stretch → most-overdue fallback when the cap is hit.
+- Grading: on a miss, `pendingGrade = true`; the user picks Again/Hard/Good/Easy (keys 1/2/3/4) via `EaseButtons`. Skip and `dismiss` (without an ease pick) both default to Again. On a correct answer, grade auto-records as **Good** on the existing `CORRECT_DISMISS_MS` timer — keeps Training's pace close to Exam's. Ease buttons stay visible during the dismiss window as an optional override.
+- `newIntroducedThisStretch` is volatile in-memory; resets on `setPracticeMode("training")` and on reload.
+- `state.sessionDone` is never auto-set in Training; the user exits via "Done for now" (the existing End-session button, relabeled), which lands them on a Training-flavored `SessionSummary` (lifetime stats; "Keep training" disabled when due=0 and the soft cap is hit).
+
+**SRS store** is one record per country (`atlasaur:srs:v1`, shape: `{ version: 1, records: { iso3 → SrsRecord } }`). One record is **shared across both practice modes and both question modes** for v1 — a design choice noted in the roadmap follow-ups. `src/game/srs.ts` wraps `ts-fsrs@^5.3.3`: load/save with versioned schema and ISO↔Date hydration, `grade(record, ease, now)` mapping our `Ease` string union to the library's `Rating` enum, plus `dueCount` / `newAvailableCount` / `learnedCount` / `totalReviews` / `lifetimeAccuracy` aggregate helpers. `now: Date` is injected at every grade call site (action payloads carry it) so tests are deterministic.
+
+**Mode flips** behave differently by intent:
+
+- `setMode` (question mode) — preserves today's behavior of wiping in-session state (`retryQueue`, `completedSet`, `score`), because the queue entries refer to the old question type. `srsStore` and `practiceMode` are passed through `initialState`'s extended signature so they survive.
+- `setPracticeMode` (new) — resets only session counters (`score`/`streak`/`total`/`missed`/`pendingGrade`/`newIntroducedThisStretch`). `retryQueue` and `completedSet` survive so a Training detour doesn't nuke an Exam in-session review queue.
+
+**Continent filter** still prunes `retryQueue` but never deletes SRS records — out-of-scope due cards resurface when the user widens scope.
+
 ### Two ID spaces: numeric vs iso3
 
 - `numeric` (zero-padded ISO-3166-1 numeric, e.g. `"250"`) is what `world-atlas` topology uses as `feature.id`. The map renders against numeric.
