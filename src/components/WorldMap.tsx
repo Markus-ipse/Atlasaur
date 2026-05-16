@@ -12,7 +12,8 @@ import "d3-transition";
 import { feature } from "topojson-client";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import polylabel from "polylabel";
-import topology from "world-atlas/countries-110m.json";
+import type { Topology } from "topojson-specification";
+import topologyJson from "../data/world-110m.json";
 import countriesData from "../data/countries.json";
 import type { Country, Feedback, Mode } from "../types";
 import {
@@ -32,6 +33,8 @@ import {
   type Label,
   type Rect,
 } from "./labelLayout";
+
+const topology = topologyJson as unknown as Topology;
 
 // Identifier wiring only — for partially-recognized territories whose
 // topology features have no ISO numeric id, the build script assigns a

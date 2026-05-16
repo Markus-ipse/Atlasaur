@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "build:countries": "node scripts/build-countries.mjs"
+    "build:topology": "node scripts/build-topology.mjs",
+    "build:countries": "node scripts/build-topology.mjs && node scripts/build-countries.mjs"
   },
   "dependencies": {
     "@types/polylabel": "^1.1.3",
