@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, act } from "@testing-library/react";
 import { ControlZone } from "./ControlZone";
 import type { GameApi } from "../game/useGame";
-import { ALL_CONTINENTS, type Country, type Feedback, type Mode } from "../types";
+import { ALL_CONTINENTS, type Country, type Feedback, type QuestionMode } from "../types";
 
 const SAMPLE: Country = {
   numeric: "250",
@@ -30,7 +30,7 @@ const NAMES_BY_ISO3: Record<string, string> = {
 };
 
 function makeGame(overrides: {
-  mode?: Mode;
+  mode?: QuestionMode;
   feedback?: Feedback | null;
   current?: Country;
 }): GameApi {

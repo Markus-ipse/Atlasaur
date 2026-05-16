@@ -15,7 +15,7 @@ import polylabel from "polylabel";
 import type { Topology } from "topojson-specification";
 import topologyJson from "../data/world-110m.json";
 import countriesData from "../data/countries.json";
-import { ALL_CONTINENTS, type Continent, type Country, type Feedback, type Mode } from "../types";
+import { ALL_CONTINENTS, type Continent, type Country, type Feedback, type QuestionMode } from "../types";
 import {
   W,
   H,
@@ -250,7 +250,7 @@ function computeBaseTransform(
 }
 
 type Props = {
-  mode: Mode;
+  mode: QuestionMode;
   highlightedIso3: string | null;
   feedback: Feedback | null;
   showLabelsOnReveal: boolean;

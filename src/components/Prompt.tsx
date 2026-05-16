@@ -1,7 +1,7 @@
-import type { Country, Mode, Phase } from "../types";
+import type { Country, QuestionMode, Phase } from "../types";
 
 type Props = {
-  mode: Mode;
+  mode: QuestionMode;
   current: Country;
   phase: Phase;
 };

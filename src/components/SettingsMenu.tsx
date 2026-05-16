@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import {
   ALL_CONTINENTS,
   type Continent,
-  type Mode,
+  type QuestionMode,
 } from "../types";
 
 type PopupCoords = {
@@ -13,8 +13,8 @@ type PopupCoords = {
 };
 
 type Props = {
-  mode: Mode;
-  onSetMode: (mode: Mode) => void;
+  mode: QuestionMode;
+  onSetMode: (mode: QuestionMode) => void;
   selectedContinents: readonly Continent[];
   onSetContinents: (continents: readonly Continent[]) => void;
   showLabelsOnReveal: boolean;
@@ -89,7 +89,7 @@ export function SettingsMenu({
     };
   }, [open]);
 
-  const handleSetMode = (next: Mode) => {
+  const handleSetMode = (next: QuestionMode) => {
     onSetMode(next);
     close();
   };
