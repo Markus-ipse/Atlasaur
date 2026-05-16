@@ -26,7 +26,7 @@ function makePool(iso3s: string[]): {
   return { pool, byIso3 };
 }
 
-describe("pickNext — normal phase, freeplay", () => {
+describe("pickNext — normal phase", () => {
   it("returns a due retry when one is available", () => {
     const { pool, byIso3 } = makePool(["AAA", "BBB", "CCC"]);
     const retryQueue: RetryEntry[] = [{ iso3: "BBB", dueAt: 5 }];
@@ -37,26 +37,9 @@ describe("pickNext — normal phase, freeplay", () => {
       total: 5,
       retryQueue,
       phase: "normal",
-      sessionType: "freeplay",
       completedSet: new Set(),
     });
     expect(result.iso3).toBe("BBB");
-  });
-
-  it("skips a not-yet-due retry and picks fresh instead", () => {
-    const { pool, byIso3 } = makePool(["AAA", "BBB"]);
-    const retryQueue: RetryEntry[] = [{ iso3: "BBB", dueAt: 10 }];
-    const result = pickNext({
-      pool,
-      byIso3,
-      excludeIso3: "",
-      total: 3,
-      retryQueue,
-      phase: "normal",
-      sessionType: "freeplay",
-      completedSet: new Set(),
-    });
-    expect(["AAA", "BBB"]).toContain(result.iso3);
   });
 
   it("does not return excludeIso3 as the due retry", () => {
@@ -69,14 +52,11 @@ describe("pickNext — normal phase, freeplay", () => {
       total: 5,
       retryQueue,
       phase: "normal",
-      sessionType: "freeplay",
       completedSet: new Set(),
     });
     expect(result.iso3).toBe("BBB");
   });
-});
 
-describe("pickNext — normal phase, marathon", () => {
   it("excludes completed countries from the fresh pool", () => {
     const { pool, byIso3 } = makePool(["AAA", "BBB", "CCC"]);
     const result = pickNext({
@@ -86,7 +66,6 @@ describe("pickNext — normal phase, marathon", () => {
       total: 0,
       retryQueue: [],
       phase: "normal",
-      sessionType: "marathon",
       completedSet: new Set(["AAA", "BBB"]),
     });
     expect(result.iso3).toBe("CCC");
@@ -105,7 +84,6 @@ describe("pickNext — normal phase, marathon", () => {
       total: 0,
       retryQueue,
       phase: "normal",
-      sessionType: "marathon",
       completedSet: new Set(),
     });
     expect(result.iso3).toBe("CCC");
@@ -121,7 +99,6 @@ describe("pickNext — normal phase, marathon", () => {
       total: 0,
       retryQueue,
       phase: "normal",
-      sessionType: "marathon",
       completedSet: new Set(["AAA"]),
     });
     expect(result.iso3).toBe("BBB");
@@ -140,13 +117,12 @@ describe("pickNext — normal phase, marathon", () => {
       total: 0,
       retryQueue,
       phase: "normal",
-      sessionType: "marathon",
       completedSet: new Set(["AAA"]),
     });
     expect(result.iso3).toBe("CCC");
   });
 
-  it("due retry takes precedence over the marathon fresh pool", () => {
+  it("due retry takes precedence over the fresh pool", () => {
     const { pool, byIso3 } = makePool(["AAA", "BBB", "CCC"]);
     const retryQueue: RetryEntry[] = [{ iso3: "BBB", dueAt: 1 }];
     const result = pickNext({
@@ -156,7 +132,6 @@ describe("pickNext — normal phase, marathon", () => {
       total: 5,
       retryQueue,
       phase: "normal",
-      sessionType: "marathon",
       completedSet: new Set(),
     });
     expect(result.iso3).toBe("BBB");
@@ -177,7 +152,6 @@ describe("pickNext — review phase", () => {
       total: 0,
       retryQueue,
       phase: "review",
-      sessionType: "freeplay",
       completedSet: new Set(),
     });
     expect(result.iso3).toBe("BBB");
@@ -193,7 +167,6 @@ describe("pickNext — review phase", () => {
       total: 0,
       retryQueue,
       phase: "review",
-      sessionType: "freeplay",
       completedSet: new Set(),
     });
     expect(result.iso3).toBe("AAA");

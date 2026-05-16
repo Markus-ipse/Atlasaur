@@ -1,11 +1,9 @@
 import { useEffect, useRef } from "react";
-import type { Country, SessionType } from "../types";
+import type { Country } from "../types";
 
 type Props = {
-  sessionType: SessionType;
   score: number;
   total: number;
-  bestStreak: number;
   missed: Country[];
   unlearnedCount: number;
   completedCount: number;
@@ -15,10 +13,8 @@ type Props = {
 };
 
 export function SessionSummary({
-  sessionType,
   score,
   total,
-  bestStreak,
   missed,
   unlearnedCount,
   completedCount,
@@ -30,14 +26,8 @@ export function SessionSummary({
   const reviewRef = useRef<HTMLButtonElement>(null);
   const playAgainRef = useRef<HTMLButtonElement>(null);
   const showReview = unlearnedCount > 0;
-  const isMarathon = sessionType === "marathon";
-  const marathonCleared =
-    isMarathon && unlearnedCount === 0 && completedCount === totalInScope;
-  const title = isMarathon
-    ? marathonCleared
-      ? "Marathon complete"
-      : "Marathon finished"
-    : "Session complete";
+  const cleared = unlearnedCount === 0 && completedCount === totalInScope;
+  const title = cleared ? "Complete!" : "Session ended";
 
   useEffect(() => {
     (showReview ? reviewRef : playAgainRef).current?.focus();
@@ -59,19 +49,9 @@ export function SessionSummary({
           {title}
         </h2>
         <div className="grid grid-cols-3 gap-4 text-center">
-          {isMarathon ? (
-            <>
-              <Summary label="Done" value={`${completedCount}/${totalInScope}`} />
-              <Summary label="Accuracy" value={`${accuracy}%`} />
-              <Summary label="Misses" value={String(missed.length)} />
-            </>
-          ) : (
-            <>
-              <Summary label="Score" value={`${score}/${total}`} />
-              <Summary label="Accuracy" value={`${accuracy}%`} />
-              <Summary label="Best streak" value={String(bestStreak)} />
-            </>
-          )}
+          <Summary label="Done" value={`${completedCount}/${totalInScope}`} />
+          <Summary label="Accuracy" value={`${accuracy}%`} />
+          <Summary label="Misses" value={String(missed.length)} />
         </div>
         {missed.length > 0 ? (
           <div>
