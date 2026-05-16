@@ -346,6 +346,7 @@
       "ARG",
       "BOL",
       "COL",
+      "GUF",
       "GUY",
       "PER",
       "PRY",
@@ -935,6 +936,25 @@
       "ESP",
       "ITA",
       "LUX"
+    ]
+  },
+  {
+    "numeric": "254",
+    "iso3": "GUF",
+    "name": "French Guiana",
+    "aliases": [
+      "Guyane",
+      "Guyane française",
+      "French Guyana"
+    ],
+    "continent": "South America",
+    "subregion": "South America",
+    "capital": "Cayenne",
+    "notabilityTier": 0,
+    "sizeTier": 1,
+    "neighbors": [
+      "BRA",
+      "SUR"
     ]
   },
   {
@@ -2543,6 +2563,7 @@
     "sizeTier": 1,
     "neighbors": [
       "BRA",
+      "GUF",
       "GUY"
     ]
   },

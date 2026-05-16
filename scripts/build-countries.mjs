@@ -27,10 +27,9 @@
 // `neighbors` is computed from the topology at build time (shared-arc
 // adjacency via topojson-client). Override with `neighborsOverride: iso3[]`
 // only when the topology's adjacency doesn't match what learners expect.
-// Current overrides:
-//   - France, Brazil, Suriname: drop the France↔Brazil and France↔Suriname
-//     adjacencies the topology infers via French Guiana. Legally correct,
-//     pedagogically confusing — learners cluster France with Europe.
+// No entries currently use it — French Guiana used to drag France↔Brazil
+// and France↔Suriname adjacencies into the result, but that's fixed
+// upstream now (build-topology.mjs splits GUF out of France's MultiPolygon).
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -99,7 +98,7 @@ const COUNTRIES = {
   "068": { iso3: "BOL", name: "Bolivia", aliases: [], continent: "South America", subregion: "South America", capital: "Sucre", landAreaKm2: 1098581, notabilityTier: 1 },
   "070": { iso3: "BIH", name: "Bosnia and Herzegovina", aliases: ["Bosnia"], continent: "Europe", subregion: "Southern Europe", capital: "Sarajevo", landAreaKm2: 51209, notabilityTier: 1 },
   "072": { iso3: "BWA", name: "Botswana", aliases: [], continent: "Africa", subregion: "Southern Africa", capital: "Gaborone", landAreaKm2: 581730, notabilityTier: 1 },
-  "076": { iso3: "BRA", name: "Brazil", aliases: [], continent: "South America", subregion: "South America", capital: "Brasília", landAreaKm2: 8515767, notabilityTier: 2, neighborsOverride: ["ARG", "URY", "BOL", "PER", "COL", "VEN", "GUY", "SUR", "PRY"] },
+  "076": { iso3: "BRA", name: "Brazil", aliases: [], continent: "South America", subregion: "South America", capital: "Brasília", landAreaKm2: 8515767, notabilityTier: 2 },
   "096": { iso3: "BRN", name: "Brunei", aliases: ["Brunei Darussalam"], continent: "Asia", subregion: "South-eastern Asia", capital: "Bandar Seri Begawan", landAreaKm2: 5765, notabilityTier: 0 },
   "100": { iso3: "BGR", name: "Bulgaria", aliases: [], continent: "Europe", subregion: "Eastern Europe", capital: "Sofia", landAreaKm2: 110879, notabilityTier: 1 },
   "854": { iso3: "BFA", name: "Burkina Faso", aliases: [], continent: "Africa", subregion: "Western Africa", capital: "Ouagadougou", landAreaKm2: 272967, notabilityTier: 0 },
@@ -134,7 +133,8 @@ const COUNTRIES = {
   "238": { iso3: "FLK", name: "Falkland Islands", aliases: ["Malvinas"], continent: "South America", subregion: "South America", capital: "Stanley", landAreaKm2: 12173, notabilityTier: 0 },
   "242": { iso3: "FJI", name: "Fiji", aliases: [], continent: "Oceania", subregion: "Melanesia", capital: "Suva", landAreaKm2: 18272, notabilityTier: 1 },
   "246": { iso3: "FIN", name: "Finland", aliases: [], continent: "Europe", subregion: "Northern Europe", capital: "Helsinki", landAreaKm2: 338424, notabilityTier: 2 },
-  "250": { iso3: "FRA", name: "France", aliases: ["French Republic"], continent: "Europe", subregion: "Western Europe", capital: "Paris", landAreaKm2: 551695, notabilityTier: 2, neighborsOverride: ["DEU", "BEL", "LUX", "CHE", "ITA", "ESP"] },
+  "250": { iso3: "FRA", name: "France", aliases: ["French Republic"], continent: "Europe", subregion: "Western Europe", capital: "Paris", landAreaKm2: 551695, notabilityTier: 2 },
+  "254": { iso3: "GUF", name: "French Guiana", aliases: ["Guyane", "Guyane française", "French Guyana"], continent: "South America", subregion: "South America", capital: "Cayenne", landAreaKm2: 83534, notabilityTier: 0 },
   "260": { iso3: "ATF", name: "French Southern Territories", aliases: [], continent: "Antarctica", subregion: "Antarctica", capital: null, landAreaKm2: 7747, notabilityTier: 0 },
   "266": { iso3: "GAB", name: "Gabon", aliases: [], continent: "Africa", subregion: "Middle Africa", capital: "Libreville", landAreaKm2: 267668, notabilityTier: 0 },
   "270": { iso3: "GMB", name: "Gambia", aliases: ["The Gambia"], continent: "Africa", subregion: "Western Africa", capital: "Banjul", landAreaKm2: 10689, notabilityTier: 0 },
@@ -225,7 +225,7 @@ const COUNTRIES = {
   "724": { iso3: "ESP", name: "Spain", aliases: ["España"], continent: "Europe", subregion: "Southern Europe", capital: "Madrid", landAreaKm2: 505990, notabilityTier: 2 },
   "144": { iso3: "LKA", name: "Sri Lanka", aliases: [], continent: "Asia", subregion: "Southern Asia", capital: "Colombo", landAreaKm2: 65610, notabilityTier: 1 },
   "729": { iso3: "SDN", name: "Sudan", aliases: [], continent: "Africa", subregion: "Northern Africa", capital: "Khartoum", landAreaKm2: 1861484, notabilityTier: 1 },
-  "740": { iso3: "SUR", name: "Suriname", aliases: [], continent: "South America", subregion: "South America", capital: "Paramaribo", landAreaKm2: 163820, notabilityTier: 0, neighborsOverride: ["BRA", "GUY"] },
+  "740": { iso3: "SUR", name: "Suriname", aliases: [], continent: "South America", subregion: "South America", capital: "Paramaribo", landAreaKm2: 163820, notabilityTier: 0 },
   "752": { iso3: "SWE", name: "Sweden", aliases: ["Sverige"], continent: "Europe", subregion: "Northern Europe", capital: "Stockholm", landAreaKm2: 450295, notabilityTier: 2 },
   "756": { iso3: "CHE", name: "Switzerland", aliases: [], continent: "Europe", subregion: "Western Europe", capital: "Bern", landAreaKm2: 41277, notabilityTier: 2 },
   "760": { iso3: "SYR", name: "Syria", aliases: ["Syrian Arab Republic"], continent: "Asia", subregion: "Western Asia", capital: "Damascus", landAreaKm2: 185180, notabilityTier: 2 },
@@ -274,7 +274,7 @@ function bucketSizeTier(landAreaKm2) {
 }
 
 const topology = JSON.parse(
-  await readFile(resolve(root, "node_modules/world-atlas/countries-110m.json"), "utf8"),
+  await readFile(resolve(root, "src/data/world-110m.json"), "utf8"),
 );
 
 const geometries = topology.objects.countries.geometries;
