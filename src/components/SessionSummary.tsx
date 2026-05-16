@@ -32,7 +32,7 @@ export function SessionSummary({
   const showReview = unlearnedCount > 0;
   const isMarathon = sessionType === "marathon";
   const marathonCleared =
-    isMarathon && missed.length === 0 && completedCount === totalInScope;
+    isMarathon && unlearnedCount === 0 && completedCount === totalInScope;
   const title = isMarathon
     ? marathonCleared
       ? "Marathon complete"

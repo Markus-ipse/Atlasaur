@@ -321,21 +321,19 @@ export function reducer(state: State, action: Action): State {
       const current = inScope.has(state.current.iso3)
         ? state.current
         : pickRandom(pool, null);
-      const completedSet =
-        state.sessionType === "marathon"
-          ? new Set([...state.completedSet].filter((iso3) => inScope.has(iso3)))
-          : state.completedSet;
+      // completedSet is preserved across continent changes — out-of-scope
+      // entries don't affect marathonComplete (which only checks pool ∩ set)
+      // and the displayed count is derived against the active scope.
       const reviewEmpty = state.phase === "review" && retryQueue.length === 0;
       const marathonDone =
         state.sessionType === "marathon" &&
         state.phase === "normal" &&
-        marathonComplete(pool, completedSet, retryQueue);
+        marathonComplete(pool, state.completedSet, retryQueue);
       return {
         ...state,
         selectedContinents: action.continents,
         current,
         retryQueue,
-        completedSet,
         feedback: null,
         phase: reviewEmpty ? "normal" : state.phase,
         sessionDone: reviewEmpty || marathonDone ? true : state.sessionDone,
@@ -366,6 +364,7 @@ export type GameApi = {
   state: State;
   unlearnedCount: number;
   totalInScope: number;
+  completedInScopeCount: number;
   showLabelsOnReveal: boolean;
   setShowLabelsOnReveal: (value: boolean) => void;
   isoFromNumeric: (numeric: string) => string | undefined;
@@ -422,10 +421,19 @@ export function useGame(): GameApi {
     };
   }, [state.selectedContinents]);
 
+  const completedInScopeCount = useMemo(() => {
+    let n = 0;
+    state.completedSet.forEach((iso3) => {
+      if (isInScope(iso3)) n++;
+    });
+    return n;
+  }, [state.completedSet, isInScope]);
+
   return {
     state,
     unlearnedCount: state.retryQueue.length,
     totalInScope,
+    completedInScopeCount,
     showLabelsOnReveal,
     setShowLabelsOnReveal,
     isoFromNumeric,

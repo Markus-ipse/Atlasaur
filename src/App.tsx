@@ -50,7 +50,7 @@ export default function App() {
           bestStreak={state.bestStreak}
           missed={state.missed}
           unlearnedCount={game.unlearnedCount}
-          completedCount={state.completedSet.size}
+          completedCount={game.completedInScopeCount}
           totalInScope={game.totalInScope}
           onReview={game.startReview}
           onPlayAgain={game.reset}

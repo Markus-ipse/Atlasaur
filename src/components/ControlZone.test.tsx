@@ -54,6 +54,7 @@ function makeGame(overrides: {
     },
     unlearnedCount: 0,
     totalInScope: 0,
+    completedInScopeCount: 0,
     showLabelsOnReveal: true,
     setShowLabelsOnReveal: vi.fn(),
     isoFromNumeric: () => undefined,

@@ -303,7 +303,9 @@ describe("reducer — marathon", () => {
     expect(result.sessionDone).toBe(false);
   });
 
-  it("setContinents prunes completedSet to in-scope iso3s in marathon", () => {
+  it("setContinents preserves completedSet across continent changes in marathon", () => {
+    // Out-of-scope entries are kept so widening later restores prior progress.
+    // The displayed Done count is derived against the active scope at read time.
     const s: State = {
       ...initialState("name-to-click", ALL_CONTINENTS, "marathon"),
       completedSet: new Set(["FRA", "EGY", "DEU"]),
@@ -312,7 +314,7 @@ describe("reducer — marathon", () => {
       type: "setContinents",
       continents: ["Europe"],
     });
-    expect([...result.completedSet].sort()).toEqual(["DEU", "FRA"]);
+    expect([...result.completedSet].sort()).toEqual(["DEU", "EGY", "FRA"]);
   });
 
   it("setContinents auto-flips sessionDone when narrowed scope is fully completed", () => {

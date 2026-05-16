@@ -18,7 +18,7 @@ export function StatusBar({ game, className }: Props) {
     >
       {state.sessionType === "marathon" ? (
         <MarathonScorePanel
-          completedCount={state.completedSet.size}
+          completedCount={game.completedInScopeCount}
           totalInScope={game.totalInScope}
           missedCount={state.missed.length}
           streak={state.streak}
