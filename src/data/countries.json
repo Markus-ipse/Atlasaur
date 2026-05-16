@@ -262,6 +262,9 @@
       "NER",
       "NGA",
       "TGO"
+    ],
+    "capitalAlternates": [
+      "Cotonou"
     ]
   },
   {
@@ -295,6 +298,9 @@
       "CHL",
       "PER",
       "PRY"
+    ],
+    "capitalAlternates": [
+      "La Paz"
     ]
   },
   {
@@ -610,6 +616,9 @@
       "GIN",
       "LBR",
       "MLI"
+    ],
+    "capitalAlternates": [
+      "Abidjan"
     ]
   },
   {
@@ -853,6 +862,9 @@
     "neighbors": [
       "MOZ",
       "ZAF"
+    ],
+    "capitalAlternates": [
+      "Lobamba"
     ]
   },
   {
@@ -1621,7 +1633,7 @@
     "continent": "Africa",
     "subregion": "Eastern Africa",
     "capital": "Antananarivo",
-    "notabilityTier": 1,
+    "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": []
   },
@@ -1860,6 +1872,9 @@
     "neighbors": [
       "BEL",
       "DEU"
+    ],
+    "capitalAlternates": [
+      "The Hague"
     ]
   },
   {
@@ -2464,6 +2479,10 @@
       "NAM",
       "SWZ",
       "ZWE"
+    ],
+    "capitalAlternates": [
+      "Cape Town",
+      "Bloemfontein"
     ]
   },
   {
@@ -2529,7 +2548,10 @@
     "capital": "Colombo",
     "notabilityTier": 1,
     "sizeTier": 1,
-    "neighbors": []
+    "neighbors": [],
+    "capitalAlternates": [
+      "Sri Jayawardenepura Kotte"
+    ]
   },
   {
     "numeric": "729",

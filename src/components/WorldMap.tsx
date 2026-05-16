@@ -35,6 +35,7 @@ import {
   type Label,
   type Rect,
 } from "./labelLayout";
+import { COLOR_BORDER, fillFor } from "./fillFor";
 
 const topology = topologyJson as unknown as Topology;
 
@@ -63,17 +64,6 @@ function prefersReducedMotion(): boolean {
   );
 }
 
-const COLOR_DEFAULT = "#cbd5e1";
-const COLOR_INERT = "#e2e8f0";
-const COLOR_HIGHLIGHT = "#3b82f6";
-const COLOR_CORRECT = "#22c55e";
-const COLOR_WRONG = "#ef4444";
-const COLOR_SKIPPED = "#eab308";
-// Muted tone for the correct country's land neighbors at miss-reveal —
-// elaborative spatial cue, never the primary signal. Sits visually under
-// the correct/wrong fills so it doesn't compete with them.
-const COLOR_NEIGHBOR = "#bfdbfe";
-const COLOR_BORDER = "#475569";
 const COLOR_OCEAN_LABEL = "#0369a1";
 // Ocean labels: target on-screen size scales linearly with rendered SVG
 // width between these caps. Min keeps mobile legible; max stops them
@@ -277,38 +267,6 @@ type Props = {
   isInScope: (iso3: string) => boolean;
   onCountryClick: (iso3: string) => void;
 };
-
-function fillFor(args: {
-  iso3: string | undefined;
-  highlightedIso3: string | null;
-  feedback: Feedback | null;
-  inScope: boolean;
-  neighborSet: ReadonlySet<string>;
-}): string {
-  const { iso3, highlightedIso3, feedback, inScope, neighborSet } = args;
-  if (!iso3) return COLOR_INERT;
-  if (feedback) {
-    // The correct country always lights up — green when answered (right or
-    // wrong, since "wrong" reveals the answer too) and yellow when skipped.
-    if (feedback.correctIso3 === iso3) {
-      return feedback.kind === "skipped" ? COLOR_SKIPPED : COLOR_CORRECT;
-    }
-    if (
-      feedback.kind === "wrong" &&
-      feedback.answerIso3 === iso3 &&
-      feedback.answerIso3 !== feedback.correctIso3
-    ) {
-      return COLOR_WRONG;
-    }
-    // Elaborative-encoding cue: paint land neighbors of the correct country.
-    // Wrong-clicked country is handled above so it stays red if it happens
-    // to also be a neighbor.
-    if (neighborSet.has(iso3)) return COLOR_NEIGHBOR;
-  }
-  if (highlightedIso3 === iso3) return COLOR_HIGHLIGHT;
-  if (!inScope) return COLOR_INERT;
-  return COLOR_DEFAULT;
-}
 
 export function WorldMap({
   mode,
