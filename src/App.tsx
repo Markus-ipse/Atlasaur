@@ -44,11 +44,14 @@ export default function App() {
       <ControlZone game={game} />
       {state.sessionDone && (
         <SessionSummary
+          sessionType={state.sessionType}
           score={state.score}
           total={state.total}
           bestStreak={state.bestStreak}
           missed={state.missed}
           unlearnedCount={game.unlearnedCount}
+          completedCount={state.completedSet.size}
+          totalInScope={game.totalInScope}
           onReview={game.startReview}
           onPlayAgain={game.reset}
         />

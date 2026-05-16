@@ -1,22 +1,28 @@
 import { useEffect, useRef } from "react";
-import type { Country } from "../types";
+import type { Country, SessionType } from "../types";
 
 type Props = {
+  sessionType: SessionType;
   score: number;
   total: number;
   bestStreak: number;
   missed: Country[];
   unlearnedCount: number;
+  completedCount: number;
+  totalInScope: number;
   onReview: () => void;
   onPlayAgain: () => void;
 };
 
 export function SessionSummary({
+  sessionType,
   score,
   total,
   bestStreak,
   missed,
   unlearnedCount,
+  completedCount,
+  totalInScope,
   onReview,
   onPlayAgain,
 }: Props) {
@@ -24,6 +30,14 @@ export function SessionSummary({
   const reviewRef = useRef<HTMLButtonElement>(null);
   const playAgainRef = useRef<HTMLButtonElement>(null);
   const showReview = unlearnedCount > 0;
+  const isMarathon = sessionType === "marathon";
+  const marathonCleared =
+    isMarathon && missed.length === 0 && completedCount === totalInScope;
+  const title = isMarathon
+    ? marathonCleared
+      ? "Marathon complete"
+      : "Marathon finished"
+    : "Session complete";
 
   useEffect(() => {
     (showReview ? reviewRef : playAgainRef).current?.focus();
@@ -42,12 +56,22 @@ export function SessionSummary({
         className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-white rounded-lg shadow-lg p-6 flex flex-col gap-4"
       >
         <h2 id="session-summary-title" className="text-2xl font-bold">
-          Session complete
+          {title}
         </h2>
         <div className="grid grid-cols-3 gap-4 text-center">
-          <Summary label="Score" value={`${score}/${total}`} />
-          <Summary label="Accuracy" value={`${accuracy}%`} />
-          <Summary label="Best streak" value={String(bestStreak)} />
+          {isMarathon ? (
+            <>
+              <Summary label="Done" value={`${completedCount}/${totalInScope}`} />
+              <Summary label="Accuracy" value={`${accuracy}%`} />
+              <Summary label="Misses" value={String(missed.length)} />
+            </>
+          ) : (
+            <>
+              <Summary label="Score" value={`${score}/${total}`} />
+              <Summary label="Accuracy" value={`${accuracy}%`} />
+              <Summary label="Best streak" value={String(bestStreak)} />
+            </>
+          )}
         </div>
         {missed.length > 0 ? (
           <div>

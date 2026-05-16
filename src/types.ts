@@ -64,6 +64,8 @@ export type Country = {
 
 export type Mode = "name-to-click" | "shape-to-name";
 
+export type SessionType = "freeplay" | "marathon";
+
 export type FeedbackKind = "correct" | "wrong" | "skipped";
 
 export type Feedback = {

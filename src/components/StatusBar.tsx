@@ -17,13 +17,19 @@ export function StatusBar({ game, className }: Props) {
       }
     >
       <ScorePanel
+        sessionType={state.sessionType}
         score={state.score}
         streak={state.streak}
         total={state.total}
+        completedCount={state.completedSet.size}
+        totalInScope={game.totalInScope}
+        missedCount={state.missed.length}
       />
       <SettingsMenu
         mode={state.mode}
         onSetMode={game.setMode}
+        sessionType={state.sessionType}
+        onSetSessionType={game.setSessionType}
         selectedContinents={state.selectedContinents}
         onSetContinents={game.setContinents}
         showLabelsOnReveal={game.showLabelsOnReveal}

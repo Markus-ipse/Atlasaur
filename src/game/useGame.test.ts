@@ -244,6 +244,129 @@ describe("reducer — lifecycle", () => {
   });
 });
 
+describe("reducer — marathon", () => {
+  it("correct answer adds the iso3 to completedSet (normal phase)", () => {
+    const s0 = withCurrent(
+      initialState("name-to-click", ALL_CONTINENTS, "marathon"),
+      "FRA",
+    );
+    const s1 = reducer(s0, { type: "answer", iso3: "FRA" });
+    expect(s1.completedSet.has("FRA")).toBe(true);
+  });
+
+  it("wrong answer does NOT add the iso3 to completedSet", () => {
+    const s0 = withCurrent(
+      initialState("name-to-click", ALL_CONTINENTS, "marathon"),
+      "FRA",
+    );
+    const s1 = reducer(s0, { type: "answer", iso3: "DEU" });
+    expect(s1.completedSet.has("FRA")).toBe(false);
+    expect(s1.completedSet.size).toBe(0);
+    expect(s1.retryQueue.map((e) => e.iso3)).toEqual(["FRA"]);
+  });
+
+  it("freeplay does not populate completedSet on correct", () => {
+    const s0 = withCurrent(initialState("name-to-click", ALL_CONTINENTS), "FRA");
+    const s1 = reducer(s0, { type: "answer", iso3: "FRA" });
+    expect(s1.completedSet.size).toBe(0);
+  });
+
+  it("dismiss auto-flips sessionDone when every in-scope country is completed", () => {
+    // Scope to Antarctica only (small pool: ATA, ATF). Seed completedSet with both.
+    const s0 = withCurrent(
+      initialState("name-to-click", ["Antarctica"], "marathon"),
+      "ATA",
+    );
+    const seeded: State = {
+      ...s0,
+      completedSet: new Set(["ATA", "ATF"]),
+      retryQueue: [],
+      feedback: { kind: "correct", answerIso3: "ATA", correctIso3: "ATA" },
+    };
+    const result = reducer(seeded, { type: "dismiss" });
+    expect(result.sessionDone).toBe(true);
+    expect(result.feedback).toBeNull();
+  });
+
+  it("dismiss does not flip sessionDone while retryQueue is non-empty", () => {
+    const s0 = withCurrent(
+      initialState("name-to-click", ["Antarctica"], "marathon"),
+      "ATA",
+    );
+    const seeded: State = {
+      ...s0,
+      completedSet: new Set(["ATA"]),
+      retryQueue: [{ iso3: "ATF", dueAt: 1 }],
+      feedback: { kind: "correct", answerIso3: "ATA", correctIso3: "ATA" },
+    };
+    const result = reducer(seeded, { type: "dismiss" });
+    expect(result.sessionDone).toBe(false);
+  });
+
+  it("setContinents prunes completedSet to in-scope iso3s in marathon", () => {
+    const s: State = {
+      ...initialState("name-to-click", ALL_CONTINENTS, "marathon"),
+      completedSet: new Set(["FRA", "EGY", "DEU"]),
+    };
+    const result = reducer(s, {
+      type: "setContinents",
+      continents: ["Europe"],
+    });
+    expect([...result.completedSet].sort()).toEqual(["DEU", "FRA"]);
+  });
+
+  it("setContinents auto-flips sessionDone when narrowed scope is fully completed", () => {
+    const s: State = {
+      ...withCurrent(
+        initialState("name-to-click", ALL_CONTINENTS, "marathon"),
+        "ATA",
+      ),
+      completedSet: new Set(["ATA", "ATF"]),
+      retryQueue: [],
+    };
+    const result = reducer(s, {
+      type: "setContinents",
+      continents: ["Antarctica"],
+    });
+    expect(result.sessionDone).toBe(true);
+  });
+
+  it("setSessionType resets state but preserves mode + continents", () => {
+    let s = withCurrent(
+      initialState("shape-to-name", ["Europe"], "freeplay"),
+      "FRA",
+    );
+    s = reducer(s, { type: "skip" });
+    s = reducer(s, { type: "setSessionType", sessionType: "marathon" });
+    expect(s.sessionType).toBe("marathon");
+    expect(s.mode).toBe("shape-to-name");
+    expect(s.selectedContinents).toEqual(["Europe"]);
+    expect(s.score).toBe(0);
+    expect(s.total).toBe(0);
+    expect(s.missed).toEqual([]);
+    expect(s.retryQueue).toEqual([]);
+    expect(s.completedSet.size).toBe(0);
+  });
+
+  it("setSessionType to the same value is a no-op", () => {
+    const s0 = initialState("name-to-click", ALL_CONTINENTS, "marathon");
+    const s1 = reducer(s0, { type: "setSessionType", sessionType: "marathon" });
+    expect(s1).toBe(s0);
+  });
+
+  it("setMode preserves sessionType", () => {
+    let s = initialState("name-to-click", ALL_CONTINENTS, "marathon");
+    s = reducer(s, { type: "setMode", mode: "shape-to-name" });
+    expect(s.sessionType).toBe("marathon");
+  });
+
+  it("reset preserves sessionType", () => {
+    let s = initialState("name-to-click", ALL_CONTINENTS, "marathon");
+    s = reducer(s, { type: "reset" });
+    expect(s.sessionType).toBe("marathon");
+  });
+});
+
 describe("reducer — setContinents", () => {
   it("empty array is a no-op", () => {
     const s0 = initialState("name-to-click", ["Europe"]);
