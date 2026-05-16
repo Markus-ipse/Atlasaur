@@ -1,4 +1,4 @@
-import { ScorePanel } from "./ScorePanel";
+import { FreeplayScorePanel, MarathonScorePanel } from "./ScorePanel";
 import { SettingsMenu } from "./SettingsMenu";
 import type { GameApi } from "../game/useGame";
 
@@ -16,15 +16,20 @@ export function StatusBar({ game, className }: Props) {
         (className ?? "")
       }
     >
-      <ScorePanel
-        sessionType={state.sessionType}
-        score={state.score}
-        streak={state.streak}
-        total={state.total}
-        completedCount={state.completedSet.size}
-        totalInScope={game.totalInScope}
-        missedCount={state.missed.length}
-      />
+      {state.sessionType === "marathon" ? (
+        <MarathonScorePanel
+          completedCount={state.completedSet.size}
+          totalInScope={game.totalInScope}
+          missedCount={state.missed.length}
+          streak={state.streak}
+        />
+      ) : (
+        <FreeplayScorePanel
+          score={state.score}
+          streak={state.streak}
+          total={state.total}
+        />
+      )}
       <SettingsMenu
         mode={state.mode}
         onSetMode={game.setMode}
