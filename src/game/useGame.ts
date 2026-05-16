@@ -20,7 +20,6 @@ const COUNTRY_BY_ISO3 = new Map(COUNTRIES.map((c) => [c.iso3, c]));
 
 const CONTINENTS_STORAGE_KEY = "atlasaur:selectedContinents";
 const SHOW_LABELS_STORAGE_KEY = "atlasaur:showLabelsOnReveal";
-const LEGACY_SESSION_TYPE_STORAGE_KEY = "atlasaur:sessionType";
 
 function filterPool(continents: readonly Continent[]): Country[] {
   const set = new Set(continents);
@@ -352,14 +351,6 @@ export function useGame(): GameApi {
     initialState("name-to-click", loadContinents()),
   );
   const [showLabelsOnReveal, setShowLabelsOnReveal] = useState(loadShowLabels);
-
-  useEffect(() => {
-    try {
-      window.localStorage.removeItem(LEGACY_SESSION_TYPE_STORAGE_KEY);
-    } catch {
-      // localStorage may be unavailable (private mode, SSR); ignore.
-    }
-  }, []);
 
   useEffect(() => {
     if (!state.feedback || state.feedback.kind !== "correct") return;
