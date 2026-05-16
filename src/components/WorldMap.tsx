@@ -15,8 +15,6 @@ import polylabel from "polylabel";
 import type { Topology } from "topojson-specification";
 import topologyJson from "../data/world-110m.json";
 import countriesData from "../data/countries.json";
-
-const topology = topologyJson as unknown as Topology;
 import type { Country, Feedback, Mode } from "../types";
 import {
   W,
@@ -35,6 +33,8 @@ import {
   type Label,
   type Rect,
 } from "./labelLayout";
+
+const topology = topologyJson as unknown as Topology;
 
 // Identifier wiring only — for partially-recognized territories whose
 // topology features have no ISO numeric id, the build script assigns a
