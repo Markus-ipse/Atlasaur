@@ -40,7 +40,11 @@ export function RevealHero({ current, feedback, mode, nameFromIso3 }: Props) {
         </span>
       </p>
       {current.capital !== null && (
-        <p className="text-sm text-slate-600">Capital: {current.capital}</p>
+        <p className="text-sm text-slate-600">
+          {current.capitalAlternates && current.capitalAlternates.length > 0
+            ? `Capitals: ${[current.capital, ...current.capitalAlternates].join(", ")}`
+            : `Capital: ${current.capital}`}
+        </p>
       )}
       {current.neighbors.length > 0 && (
         <p className="text-sm text-slate-600">

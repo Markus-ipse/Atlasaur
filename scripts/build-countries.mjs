@@ -93,9 +93,9 @@ const COUNTRIES = {
   "112": { iso3: "BLR", name: "Belarus", aliases: [], continent: "Europe", subregion: "Eastern Europe", capital: "Minsk", landAreaKm2: 207600, notabilityTier: 1 },
   "056": { iso3: "BEL", name: "Belgium", aliases: [], continent: "Europe", subregion: "Western Europe", capital: "Brussels", landAreaKm2: 30528, notabilityTier: 2 },
   "084": { iso3: "BLZ", name: "Belize", aliases: [], continent: "North America", subregion: "Central America", capital: "Belmopan", landAreaKm2: 22966, notabilityTier: 0 },
-  "204": { iso3: "BEN", name: "Benin", aliases: [], continent: "Africa", subregion: "Western Africa", capital: "Porto-Novo", landAreaKm2: 114763, notabilityTier: 0 },
+  "204": { iso3: "BEN", name: "Benin", aliases: [], continent: "Africa", subregion: "Western Africa", capital: "Porto-Novo", capitalAlternates: ["Cotonou"], landAreaKm2: 114763, notabilityTier: 0 },
   "064": { iso3: "BTN", name: "Bhutan", aliases: [], continent: "Asia", subregion: "Southern Asia", capital: "Thimphu", landAreaKm2: 38394, notabilityTier: 1 },
-  "068": { iso3: "BOL", name: "Bolivia", aliases: [], continent: "South America", subregion: "South America", capital: "Sucre", landAreaKm2: 1098581, notabilityTier: 1 },
+  "068": { iso3: "BOL", name: "Bolivia", aliases: [], continent: "South America", subregion: "South America", capital: "Sucre", capitalAlternates: ["La Paz"], landAreaKm2: 1098581, notabilityTier: 1 },
   "070": { iso3: "BIH", name: "Bosnia and Herzegovina", aliases: ["Bosnia"], continent: "Europe", subregion: "Southern Europe", capital: "Sarajevo", landAreaKm2: 51209, notabilityTier: 1 },
   "072": { iso3: "BWA", name: "Botswana", aliases: [], continent: "Africa", subregion: "Southern Africa", capital: "Gaborone", landAreaKm2: 581730, notabilityTier: 1 },
   "076": { iso3: "BRA", name: "Brazil", aliases: [], continent: "South America", subregion: "South America", capital: "Brasília", landAreaKm2: 8515767, notabilityTier: 2 },
@@ -114,7 +114,7 @@ const COUNTRIES = {
   "178": { iso3: "COG", name: "Republic of the Congo", aliases: ["Congo", "Congo-Brazzaville"], continent: "Africa", subregion: "Middle Africa", capital: "Brazzaville", landAreaKm2: 342000, notabilityTier: 0 },
   "180": { iso3: "COD", name: "Democratic Republic of the Congo", aliases: ["DRC", "DR Congo", "Congo-Kinshasa", "Zaire"], continent: "Africa", subregion: "Middle Africa", capital: "Kinshasa", landAreaKm2: 2344858, notabilityTier: 1 },
   "188": { iso3: "CRI", name: "Costa Rica", aliases: [], continent: "North America", subregion: "Central America", capital: "San José", landAreaKm2: 51100, notabilityTier: 1 },
-  "384": { iso3: "CIV", name: "Côte d'Ivoire", aliases: ["Ivory Coast"], continent: "Africa", subregion: "Western Africa", capital: "Yamoussoukro", landAreaKm2: 322463, notabilityTier: 1 },
+  "384": { iso3: "CIV", name: "Côte d'Ivoire", aliases: ["Ivory Coast"], continent: "Africa", subregion: "Western Africa", capital: "Yamoussoukro", capitalAlternates: ["Abidjan"], landAreaKm2: 322463, notabilityTier: 1 },
   "191": { iso3: "HRV", name: "Croatia", aliases: [], continent: "Europe", subregion: "Southern Europe", capital: "Zagreb", landAreaKm2: 56594, notabilityTier: 1 },
   "192": { iso3: "CUB", name: "Cuba", aliases: [], continent: "North America", subregion: "Caribbean", capital: "Havana", landAreaKm2: 109884, notabilityTier: 2 },
   "196": { iso3: "CYP", name: "Cyprus", aliases: [], continent: "Asia", subregion: "Western Asia", capital: "Nicosia", landAreaKm2: 9251, notabilityTier: 1 },
@@ -128,7 +128,7 @@ const COUNTRIES = {
   "226": { iso3: "GNQ", name: "Equatorial Guinea", aliases: [], continent: "Africa", subregion: "Middle Africa", capital: "Malabo", landAreaKm2: 28051, notabilityTier: 0 },
   "232": { iso3: "ERI", name: "Eritrea", aliases: [], continent: "Africa", subregion: "Eastern Africa", capital: "Asmara", landAreaKm2: 117600, notabilityTier: 0 },
   "233": { iso3: "EST", name: "Estonia", aliases: [], continent: "Europe", subregion: "Northern Europe", capital: "Tallinn", landAreaKm2: 45227, notabilityTier: 1 },
-  "748": { iso3: "SWZ", name: "Eswatini", aliases: ["Swaziland"], continent: "Africa", subregion: "Southern Africa", capital: "Mbabane", landAreaKm2: 17364, notabilityTier: 0 },
+  "748": { iso3: "SWZ", name: "Eswatini", aliases: ["Swaziland"], continent: "Africa", subregion: "Southern Africa", capital: "Mbabane", capitalAlternates: ["Lobamba"], landAreaKm2: 17364, notabilityTier: 0 },
   "231": { iso3: "ETH", name: "Ethiopia", aliases: [], continent: "Africa", subregion: "Eastern Africa", capital: "Addis Ababa", landAreaKm2: 1104300, notabilityTier: 1 },
   "238": { iso3: "FLK", name: "Falkland Islands", aliases: ["Malvinas"], continent: "South America", subregion: "South America", capital: "Stanley", landAreaKm2: 12173, notabilityTier: 0 },
   "242": { iso3: "FJI", name: "Fiji", aliases: [], continent: "Oceania", subregion: "Melanesia", capital: "Suva", landAreaKm2: 18272, notabilityTier: 1 },
@@ -173,7 +173,7 @@ const COUNTRIES = {
   "434": { iso3: "LBY", name: "Libya", aliases: [], continent: "Africa", subregion: "Northern Africa", capital: "Tripoli", landAreaKm2: 1759540, notabilityTier: 1 },
   "440": { iso3: "LTU", name: "Lithuania", aliases: [], continent: "Europe", subregion: "Northern Europe", capital: "Vilnius", landAreaKm2: 65300, notabilityTier: 1 },
   "442": { iso3: "LUX", name: "Luxembourg", aliases: [], continent: "Europe", subregion: "Western Europe", capital: "Luxembourg", landAreaKm2: 2586, notabilityTier: 1 },
-  "450": { iso3: "MDG", name: "Madagascar", aliases: [], continent: "Africa", subregion: "Eastern Africa", capital: "Antananarivo", landAreaKm2: 587041, notabilityTier: 1 },
+  "450": { iso3: "MDG", name: "Madagascar", aliases: [], continent: "Africa", subregion: "Eastern Africa", capital: "Antananarivo", landAreaKm2: 587041, notabilityTier: 2 },
   "454": { iso3: "MWI", name: "Malawi", aliases: [], continent: "Africa", subregion: "Eastern Africa", capital: "Lilongwe", landAreaKm2: 118484, notabilityTier: 0 },
   "458": { iso3: "MYS", name: "Malaysia", aliases: [], continent: "Asia", subregion: "South-eastern Asia", capital: "Kuala Lumpur", landAreaKm2: 330803, notabilityTier: 1 },
   "466": { iso3: "MLI", name: "Mali", aliases: [], continent: "Africa", subregion: "Western Africa", capital: "Bamako", landAreaKm2: 1240192, notabilityTier: 0 },
@@ -187,7 +187,7 @@ const COUNTRIES = {
   "104": { iso3: "MMR", name: "Myanmar", aliases: ["Burma"], continent: "Asia", subregion: "South-eastern Asia", capital: "Naypyidaw", landAreaKm2: 676578, notabilityTier: 1 },
   "516": { iso3: "NAM", name: "Namibia", aliases: [], continent: "Africa", subregion: "Southern Africa", capital: "Windhoek", landAreaKm2: 825615, notabilityTier: 1 },
   "524": { iso3: "NPL", name: "Nepal", aliases: [], continent: "Asia", subregion: "Southern Asia", capital: "Kathmandu", landAreaKm2: 147181, notabilityTier: 1 },
-  "528": { iso3: "NLD", name: "Netherlands", aliases: ["The Netherlands", "Holland"], continent: "Europe", subregion: "Western Europe", capital: "Amsterdam", landAreaKm2: 41850, notabilityTier: 2 },
+  "528": { iso3: "NLD", name: "Netherlands", aliases: ["The Netherlands", "Holland"], continent: "Europe", subregion: "Western Europe", capital: "Amsterdam", capitalAlternates: ["The Hague"], landAreaKm2: 41850, notabilityTier: 2 },
   "540": { iso3: "NCL", name: "New Caledonia", aliases: [], continent: "Oceania", subregion: "Melanesia", capital: "Nouméa", landAreaKm2: 18575, notabilityTier: 0 },
   "554": { iso3: "NZL", name: "New Zealand", aliases: ["Aotearoa"], continent: "Oceania", subregion: "Australia and New Zealand", capital: "Wellington", landAreaKm2: 268021, notabilityTier: 2 },
   "558": { iso3: "NIC", name: "Nicaragua", aliases: [], continent: "North America", subregion: "Central America", capital: "Managua", landAreaKm2: 130373, notabilityTier: 1 },
@@ -219,11 +219,11 @@ const COUNTRIES = {
   "705": { iso3: "SVN", name: "Slovenia", aliases: [], continent: "Europe", subregion: "Southern Europe", capital: "Ljubljana", landAreaKm2: 20273, notabilityTier: 1 },
   "090": { iso3: "SLB", name: "Solomon Islands", aliases: [], continent: "Oceania", subregion: "Melanesia", capital: "Honiara", landAreaKm2: 28896, notabilityTier: 0 },
   "706": { iso3: "SOM", name: "Somalia", aliases: [], continent: "Africa", subregion: "Eastern Africa", capital: "Mogadishu", landAreaKm2: 637657, notabilityTier: 1 },
-  "710": { iso3: "ZAF", name: "South Africa", aliases: ["RSA"], continent: "Africa", subregion: "Southern Africa", capital: "Pretoria", landAreaKm2: 1221037, notabilityTier: 2 },
+  "710": { iso3: "ZAF", name: "South Africa", aliases: ["RSA"], continent: "Africa", subregion: "Southern Africa", capital: "Pretoria", capitalAlternates: ["Cape Town", "Bloemfontein"], landAreaKm2: 1221037, notabilityTier: 2 },
   "410": { iso3: "KOR", name: "South Korea", aliases: ["Republic of Korea", "ROK"], continent: "Asia", subregion: "Eastern Asia", capital: "Seoul", landAreaKm2: 100210, notabilityTier: 2 },
   "728": { iso3: "SSD", name: "South Sudan", aliases: [], continent: "Africa", subregion: "Eastern Africa", capital: "Juba", landAreaKm2: 644329, notabilityTier: 1 },
   "724": { iso3: "ESP", name: "Spain", aliases: ["España"], continent: "Europe", subregion: "Southern Europe", capital: "Madrid", landAreaKm2: 505990, notabilityTier: 2 },
-  "144": { iso3: "LKA", name: "Sri Lanka", aliases: [], continent: "Asia", subregion: "Southern Asia", capital: "Colombo", landAreaKm2: 65610, notabilityTier: 1 },
+  "144": { iso3: "LKA", name: "Sri Lanka", aliases: [], continent: "Asia", subregion: "Southern Asia", capital: "Colombo", capitalAlternates: ["Sri Jayawardenepura Kotte"], landAreaKm2: 65610, notabilityTier: 1 },
   "729": { iso3: "SDN", name: "Sudan", aliases: [], continent: "Africa", subregion: "Northern Africa", capital: "Khartoum", landAreaKm2: 1861484, notabilityTier: 1 },
   "740": { iso3: "SUR", name: "Suriname", aliases: [], continent: "South America", subregion: "South America", capital: "Paramaribo", landAreaKm2: 163820, notabilityTier: 0 },
   "752": { iso3: "SWE", name: "Sweden", aliases: ["Sverige"], continent: "Europe", subregion: "Northern Europe", capital: "Stockholm", landAreaKm2: 450295, notabilityTier: 2 },
@@ -309,6 +309,29 @@ for (const [numeric, info] of Object.entries(COUNTRIES)) {
 
   if (info.capital !== null && (typeof info.capital !== "string" || info.capital.length === 0)) {
     errors.push(`${tag}: capital must be a non-empty string or null.`);
+  }
+  if (info.capitalAlternates !== undefined) {
+    if (!Array.isArray(info.capitalAlternates)) {
+      errors.push(`${tag}: capitalAlternates must be an array of strings.`);
+    } else {
+      if (info.capital === null) {
+        errors.push(`${tag}: capitalAlternates makes no sense when capital is null.`);
+      }
+      const seen = new Set();
+      for (const alt of info.capitalAlternates) {
+        if (typeof alt !== "string" || alt.length === 0) {
+          errors.push(`${tag}: each capitalAlternates entry must be a non-empty string.`);
+          continue;
+        }
+        if (alt === info.capital) {
+          errors.push(`${tag}: capitalAlternates duplicates the primary capital ${JSON.stringify(alt)}.`);
+        }
+        if (seen.has(alt)) {
+          errors.push(`${tag}: capitalAlternates has duplicate ${JSON.stringify(alt)}.`);
+        }
+        seen.add(alt);
+      }
+    }
   }
   if (!VALID_SUBREGIONS.has(info.subregion)) {
     errors.push(`${tag}: subregion ${JSON.stringify(info.subregion)} is not a valid UN M49 subregion.`);
@@ -433,12 +456,16 @@ const finalEntries = matched.map((m) => {
     }
   }
   // Strip build-only fields. `landAreaKm2` is bucketed; `neighborsOverride`
-  // is consumed above.
-  const { landAreaKm2, neighborsOverride: _override, ...rest } = m;
+  // is consumed above. `capitalAlternates` is only emitted when non-empty
+  // so the 190+ single-capital rows don't carry a noisy `[]`.
+  const { landAreaKm2, neighborsOverride: _override, capitalAlternates, ...rest } = m;
   return {
     ...rest,
     sizeTier: bucketSizeTier(landAreaKm2),
     neighbors: rawNeighbors,
+    ...(capitalAlternates && capitalAlternates.length > 0
+      ? { capitalAlternates }
+      : {}),
   };
 });
 if (neighborResolutionErrors.length > 0) {

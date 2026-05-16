@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeRevealTarget, tryFitUnion } from "./revealZoom";
+import { computeRevealTarget, tryFitUnion, type Bounds } from "./revealZoom";
 
 const W = 800;
 const H = 400;
@@ -90,6 +90,25 @@ describe("computeRevealTarget", () => {
   it("empty neighbor list behaves identically to no neighbors", () => {
     const primary = { x0: 395, y0: 195, x1: 405, y1: 205 };
     expect(computeRevealTarget(primary, null, [])).toEqual(
+      computeRevealTarget(primary, null),
+    );
+  });
+
+  // Case 5 from docs/plans/m2-followups.md: Russia has 14 land neighbors
+  // sprawling across the northern hemisphere. The neighbor union spans the
+  // whole map, so the cascade should drop it and frame Russia alone at a
+  // readable scale. (prefers-reduced-motion is enforced at the WorldMap
+  // effect layer, not in computeRevealTarget — out of scope here.)
+  it("many wide-spread neighbors fall through to bare-primary framing (Russia)", () => {
+    const primary = { x0: 350, y0: 80, x1: 600, y1: 180 };
+    const wideSpread: Bounds[] = [];
+    // 14 neighbors spread across the full map width and most of its height.
+    for (let i = 0; i < 14; i++) {
+      const x0 = (i * W) / 14;
+      const x1 = x0 + 40;
+      wideSpread.push({ x0, y0: 50, x1, y1: H - 50 });
+    }
+    expect(computeRevealTarget(primary, null, wideSpread)).toEqual(
       computeRevealTarget(primary, null),
     );
   });

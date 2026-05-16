@@ -52,6 +52,11 @@ export type Country = {
   // UI omits the "Capital:" line on null, mirroring how "Bordered by:" is
   // omitted when `neighbors` is empty.
   capital: string | null;
+  // Additional capitals for countries with administrative splits (e.g.
+  // South Africa, Bolivia, Sri Lanka). Absent when there's only one. The
+  // reveal renders `Capitals: primary, ...alternates` when present;
+  // see docs/plans/m2-capital-decisions.md for the per-row rationale.
+  capitalAlternates?: string[];
   // iso3 codes; land borders only, derived from topology at build time with
   // hand overrides for overseas-territory artefacts (e.g. France/Brazil).
   neighbors: string[];
