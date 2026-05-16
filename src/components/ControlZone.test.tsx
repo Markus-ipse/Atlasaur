@@ -37,6 +37,7 @@ function makeGame(overrides: {
   return {
     state: {
       mode: overrides.mode ?? "name-to-click",
+      sessionType: "freeplay",
       selectedContinents: ALL_CONTINENTS,
       current: overrides.current ?? SAMPLE,
       feedback: overrides.feedback ?? null,
@@ -48,9 +49,12 @@ function makeGame(overrides: {
       missed: [],
       missedSet: new Set<string>(),
       retryQueue: [],
+      completedSet: new Set<string>(),
       sessionDone: false,
     },
     unlearnedCount: 0,
+    totalInScope: 0,
+    completedInScopeCount: 0,
     showLabelsOnReveal: true,
     setShowLabelsOnReveal: vi.fn(),
     isoFromNumeric: () => undefined,
@@ -62,6 +66,7 @@ function makeGame(overrides: {
     skip: vi.fn(),
     dismiss: vi.fn(),
     setMode: vi.fn(),
+    setSessionType: vi.fn(),
     setContinents: vi.fn(),
     endSession: vi.fn(),
     startReview: vi.fn(),

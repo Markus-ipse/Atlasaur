@@ -1,6 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ALL_CONTINENTS, type Continent, type Mode } from "../types";
+import {
+  ALL_CONTINENTS,
+  type Continent,
+  type Mode,
+  type SessionType,
+} from "../types";
 
 type PopupCoords = {
   top: number;
@@ -11,6 +16,8 @@ type PopupCoords = {
 type Props = {
   mode: Mode;
   onSetMode: (mode: Mode) => void;
+  sessionType: SessionType;
+  onSetSessionType: (sessionType: SessionType) => void;
   selectedContinents: readonly Continent[];
   onSetContinents: (continents: readonly Continent[]) => void;
   showLabelsOnReveal: boolean;
@@ -21,6 +28,8 @@ type Props = {
 export function SettingsMenu({
   mode,
   onSetMode,
+  sessionType,
+  onSetSessionType,
   selectedContinents,
   onSetContinents,
   showLabelsOnReveal,
@@ -90,6 +99,11 @@ export function SettingsMenu({
     close();
   };
 
+  const handleSetSessionType = (next: SessionType) => {
+    onSetSessionType(next);
+    close();
+  };
+
   const handleEndSession = () => {
     onEndSession();
     setOpen(false);
@@ -151,6 +165,32 @@ export function SettingsMenu({
                   Shape → Name
                 </ModeButton>
               </div>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Session</p>
+              <div
+                role="radiogroup"
+                aria-label="Session type"
+                className="flex gap-1 p-1 rounded-full border border-slate-200 bg-slate-50"
+              >
+                <ModeButton
+                  active={sessionType === "freeplay"}
+                  onClick={() => handleSetSessionType("freeplay")}
+                >
+                  Freeplay
+                </ModeButton>
+                <ModeButton
+                  active={sessionType === "marathon"}
+                  onClick={() => handleSetSessionType("marathon")}
+                >
+                  Marathon
+                </ModeButton>
+              </div>
+              {sessionType === "marathon" && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Every country once. Misses come back.
+                </p>
+              )}
             </div>
             <div>
               <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Continents</p>

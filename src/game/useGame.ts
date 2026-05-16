@@ -11,6 +11,7 @@ import {
   type Mode,
   type Phase,
   type RetryEntry,
+  type SessionType,
 } from "../types";
 
 const COUNTRIES = countriesData as Country[];
@@ -20,6 +21,7 @@ const COUNTRY_BY_ISO3 = new Map(COUNTRIES.map((c) => [c.iso3, c]));
 
 const CONTINENTS_STORAGE_KEY = "atlasaur:selectedContinents";
 const SHOW_LABELS_STORAGE_KEY = "atlasaur:showLabelsOnReveal";
+const SESSION_TYPE_STORAGE_KEY = "atlasaur:sessionType";
 
 function filterPool(continents: readonly Continent[]): Country[] {
   const set = new Set(continents);
@@ -71,6 +73,24 @@ function saveShowLabels(value: boolean): void {
   }
 }
 
+function loadSessionType(): SessionType {
+  try {
+    const raw = window.localStorage.getItem(SESSION_TYPE_STORAGE_KEY);
+    if (raw === "marathon") return "marathon";
+    return "freeplay";
+  } catch {
+    return "freeplay";
+  }
+}
+
+function saveSessionType(value: SessionType): void {
+  try {
+    window.localStorage.setItem(SESSION_TYPE_STORAGE_KEY, value);
+  } catch {
+    // localStorage may be unavailable (private mode, SSR); ignore.
+  }
+}
+
 const FEEDBACK_DURATION = { correct: 600 } as const;
 const RETRY_GAP_MIN = 3;
 const RETRY_GAP_MAX = 5;
@@ -96,6 +116,7 @@ function matchTypedAnswer(input: string): string {
 
 export type State = {
   mode: Mode;
+  sessionType: SessionType;
   selectedContinents: readonly Continent[];
   current: Country;
   score: number;
@@ -105,6 +126,7 @@ export type State = {
   missed: Country[];
   missedSet: Set<string>;
   retryQueue: RetryEntry[];
+  completedSet: Set<string>;
   phase: Phase;
   feedback: Feedback | null;
   sessionDone: boolean;
@@ -115,6 +137,7 @@ export type Action =
   | { type: "skip" }
   | { type: "dismiss" }
   | { type: "setMode"; mode: Mode }
+  | { type: "setSessionType"; sessionType: SessionType }
   | { type: "setContinents"; continents: readonly Continent[] }
   | { type: "endSession" }
   | { type: "startReview" }
@@ -123,10 +146,12 @@ export type Action =
 export function initialState(
   mode: Mode = "name-to-click",
   selectedContinents: readonly Continent[] = ALL_CONTINENTS,
+  sessionType: SessionType = "freeplay",
 ): State {
   const pool = filterPool(selectedContinents);
   return {
     mode,
+    sessionType,
     selectedContinents,
     current: pickRandom(pool, null),
     score: 0,
@@ -136,6 +161,7 @@ export function initialState(
     missed: [],
     missedSet: new Set(),
     retryQueue: [],
+    completedSet: new Set(),
     phase: "normal",
     feedback: null,
     sessionDone: false,
@@ -150,7 +176,18 @@ function nextCurrent(state: State): Country {
     total: state.total,
     retryQueue: state.retryQueue,
     phase: state.phase,
+    sessionType: state.sessionType,
+    completedSet: state.completedSet,
   });
+}
+
+function marathonComplete(
+  pool: readonly Country[],
+  completedSet: ReadonlySet<string>,
+  retryQueue: readonly RetryEntry[],
+): boolean {
+  if (retryQueue.length > 0) return false;
+  return pool.every((c) => completedSet.has(c.iso3));
 }
 
 function withoutIso3(queue: readonly RetryEntry[], iso3: string): RetryEntry[] {
@@ -203,10 +240,16 @@ function applyCorrect(state: State, correctIso3: string): State {
     correctIso3,
   };
 
+  const completedSet =
+    state.sessionType === "marathon" && !state.completedSet.has(correctIso3)
+      ? new Set(state.completedSet).add(correctIso3)
+      : state.completedSet;
+
   if (state.phase === "review") {
     return {
       ...state,
       retryQueue: withoutIso3(state.retryQueue, correctIso3),
+      completedSet,
       feedback,
     };
   }
@@ -222,6 +265,7 @@ function applyCorrect(state: State, correctIso3: string): State {
     retryQueue: inRetry
       ? withoutIso3(state.retryQueue, correctIso3)
       : state.retryQueue,
+    completedSet,
     feedback,
   };
 }
@@ -229,6 +273,17 @@ function applyCorrect(state: State, correctIso3: string): State {
 function dismissFeedback(state: State): State {
   if (state.phase === "review" && state.retryQueue.length === 0) {
     return { ...state, feedback: null, phase: "normal", sessionDone: true };
+  }
+  if (
+    state.sessionType === "marathon" &&
+    state.phase === "normal" &&
+    marathonComplete(
+      filterPool(state.selectedContinents),
+      state.completedSet,
+      state.retryQueue,
+    )
+  ) {
+    return { ...state, feedback: null, sessionDone: true };
   }
   return { ...state, current: nextCurrent(state), feedback: null };
 }
@@ -252,7 +307,11 @@ export function reducer(state: State, action: Action): State {
     }
     case "setMode": {
       if (state.mode === action.mode) return state;
-      return initialState(action.mode, state.selectedContinents);
+      return initialState(action.mode, state.selectedContinents, state.sessionType);
+    }
+    case "setSessionType": {
+      if (state.sessionType === action.sessionType) return state;
+      return initialState(state.mode, state.selectedContinents, action.sessionType);
     }
     case "setContinents": {
       if (action.continents.length === 0) return state;
@@ -262,7 +321,14 @@ export function reducer(state: State, action: Action): State {
       const current = inScope.has(state.current.iso3)
         ? state.current
         : pickRandom(pool, null);
+      // completedSet is preserved across continent changes — out-of-scope
+      // entries don't affect marathonComplete (which only checks pool ∩ set)
+      // and the displayed count is derived against the active scope.
       const reviewEmpty = state.phase === "review" && retryQueue.length === 0;
+      const marathonDone =
+        state.sessionType === "marathon" &&
+        state.phase === "normal" &&
+        marathonComplete(pool, state.completedSet, retryQueue);
       return {
         ...state,
         selectedContinents: action.continents,
@@ -270,7 +336,7 @@ export function reducer(state: State, action: Action): State {
         retryQueue,
         feedback: null,
         phase: reviewEmpty ? "normal" : state.phase,
-        sessionDone: reviewEmpty ? true : state.sessionDone,
+        sessionDone: reviewEmpty || marathonDone ? true : state.sessionDone,
       };
     }
     case "endSession": {
@@ -289,7 +355,7 @@ export function reducer(state: State, action: Action): State {
       };
     }
     case "reset": {
-      return initialState(state.mode, state.selectedContinents);
+      return initialState(state.mode, state.selectedContinents, state.sessionType);
     }
   }
 }
@@ -297,6 +363,8 @@ export function reducer(state: State, action: Action): State {
 export type GameApi = {
   state: State;
   unlearnedCount: number;
+  totalInScope: number;
+  completedInScopeCount: number;
   showLabelsOnReveal: boolean;
   setShowLabelsOnReveal: (value: boolean) => void;
   isoFromNumeric: (numeric: string) => string | undefined;
@@ -308,6 +376,7 @@ export type GameApi = {
   skip: () => void;
   dismiss: () => void;
   setMode: (mode: Mode) => void;
+  setSessionType: (sessionType: SessionType) => void;
   setContinents: (continents: readonly Continent[]) => void;
   endSession: () => void;
   startReview: () => void;
@@ -316,7 +385,7 @@ export type GameApi = {
 
 export function useGame(): GameApi {
   const [state, dispatch] = useReducer(reducer, undefined, () =>
-    initialState("name-to-click", loadContinents()),
+    initialState("name-to-click", loadContinents(), loadSessionType()),
   );
   const [showLabelsOnReveal, setShowLabelsOnReveal] = useState(loadShowLabels);
 
@@ -337,17 +406,34 @@ export function useGame(): GameApi {
     saveShowLabels(showLabelsOnReveal);
   }, [showLabelsOnReveal]);
 
-  const isInScope = useMemo(() => {
+  useEffect(() => {
+    saveSessionType(state.sessionType);
+  }, [state.sessionType]);
+
+  const { isInScope, totalInScope } = useMemo(() => {
     const continents = new Set(state.selectedContinents);
-    const inScope = new Set(
+    const inScopeSet = new Set(
       COUNTRIES.filter((c) => continents.has(c.continent)).map((c) => c.iso3),
     );
-    return (iso3: string) => inScope.has(iso3);
+    return {
+      isInScope: (iso3: string) => inScopeSet.has(iso3),
+      totalInScope: inScopeSet.size,
+    };
   }, [state.selectedContinents]);
+
+  const completedInScopeCount = useMemo(() => {
+    let n = 0;
+    state.completedSet.forEach((iso3) => {
+      if (isInScope(iso3)) n++;
+    });
+    return n;
+  }, [state.completedSet, isInScope]);
 
   return {
     state,
     unlearnedCount: state.retryQueue.length,
+    totalInScope,
+    completedInScopeCount,
     showLabelsOnReveal,
     setShowLabelsOnReveal,
     isoFromNumeric,
@@ -359,6 +445,8 @@ export function useGame(): GameApi {
     skip: () => dispatch({ type: "skip" }),
     dismiss: () => dispatch({ type: "dismiss" }),
     setMode: (mode) => dispatch({ type: "setMode", mode }),
+    setSessionType: (sessionType) =>
+      dispatch({ type: "setSessionType", sessionType }),
     setContinents: (continents) =>
       dispatch({ type: "setContinents", continents }),
     endSession: () => dispatch({ type: "endSession" }),
