@@ -62,6 +62,9 @@ export function pickNext(args: {
     if (fresh.length > 0) {
       return fresh[Math.floor(Math.random() * fresh.length)];
     }
+    // Fresh exhausted but retryQueue non-empty: surface the head regardless of
+    // dueAt. The 3–5 turn gap is best-effort; once the fresh pool is empty the
+    // only remaining work is the queue, so the user always gets something.
     const head =
       retryQueue.find((e) => e.iso3 !== excludeIso3) ?? retryQueue[0];
     const country = head ? byIso3.get(head.iso3) : undefined;

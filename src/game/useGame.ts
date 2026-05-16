@@ -240,20 +240,22 @@ function applyCorrect(state: State, correctIso3: string): State {
     correctIso3,
   };
 
+  const completedSet =
+    state.sessionType === "marathon" && !state.completedSet.has(correctIso3)
+      ? new Set(state.completedSet).add(correctIso3)
+      : state.completedSet;
+
   if (state.phase === "review") {
     return {
       ...state,
       retryQueue: withoutIso3(state.retryQueue, correctIso3),
+      completedSet,
       feedback,
     };
   }
 
   const inRetry = state.retryQueue.some((e) => e.iso3 === correctIso3);
   const nextStreak = state.streak + 1;
-  const completedSet =
-    state.sessionType === "marathon" && !state.completedSet.has(correctIso3)
-      ? new Set(state.completedSet).add(correctIso3)
-      : state.completedSet;
   return {
     ...state,
     score: state.score + 1,
