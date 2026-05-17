@@ -18,11 +18,10 @@ type Props = {
   newAvailableCount: number;
   srsStore: SrsStore;
   scopeIso3s: ReadonlySet<string>;
-  canKeepTraining: boolean;
   onReview: () => void;
   onPlayAgain: () => void;
+  onStartExam: () => void;
   onKeepTraining: () => void;
-  onBackToMap: () => void;
 };
 
 export function SessionSummary(props: Props) {
@@ -123,33 +122,57 @@ function ExamSummary({
 function TrainingSummary({
   dueCount,
   newAvailableCount,
+  totalInScope,
   srsStore,
   scopeIso3s,
-  canKeepTraining,
+  onStartExam,
   onKeepTraining,
-  onBackToMap,
 }: Props) {
   const learned = srsLearnedCount(srsStore, scopeIso3s);
   const reviews = srsTotalReviews(srsStore);
   const accuracy = srsLifetimeAccuracy(srsStore);
-  const keepRef = useRef<HTMLButtonElement>(null);
-  const backRef = useRef<HTMLButtonElement>(null);
+  const examRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    (canKeepTraining ? keepRef : backRef).current?.focus();
-  }, [canKeepTraining]);
+    examRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onKeepTraining();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onKeepTraining]);
 
   const primaryClass =
-    "min-h-11 px-5 rounded bg-slate-900 text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed";
+    "min-h-11 px-5 rounded bg-slate-900 text-white font-medium flex flex-col items-center justify-center leading-tight";
   const secondaryClass =
     "min-h-11 px-5 rounded border border-slate-300 text-slate-700 font-medium hover:bg-slate-100";
 
+  const hint =
+    dueCount > 0
+      ? `You have ${dueCount} due — keep going, or test yourself.`
+      : newAvailableCount > 0
+      ? `You can introduce ${newAvailableCount} more ${
+          newAvailableCount === 1 ? "country" : "countries"
+        }, or switch to exam.`
+      : "All caught up for now — try an exam, or take a break and come back later.";
+
+  const scopeLabel = `${totalInScope} ${totalInScope === 1 ? "country" : "countries"}`;
+
   return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-slate-900/50 p-4">
+    <div
+      className="fixed inset-0 z-10 flex items-center justify-center bg-slate-900/50 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onKeepTraining();
+      }}
+    >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="training-summary-title"
+        aria-describedby="training-summary-hint"
         className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-white rounded-lg shadow-lg p-6 flex flex-col gap-4"
       >
         <h2 id="training-summary-title" className="text-2xl font-bold">
@@ -165,27 +188,30 @@ function TrainingSummary({
             value={reviews === 0 ? "—" : `${Math.round(accuracy * 100)}%`}
           />
         </div>
-        <p className="text-xs text-slate-500 text-center">
-          Atlasaur scheduled each country to come back when it'll do you
-          the most good.
+        <p
+          id="training-summary-hint"
+          className="text-sm text-slate-600 text-center"
+        >
+          {hint}
         </p>
         <div className="flex flex-col gap-2">
           <button
-            ref={keepRef}
+            ref={examRef}
             type="button"
-            disabled={!canKeepTraining}
-            onClick={onKeepTraining}
+            onClick={onStartExam}
             className={primaryClass}
           >
-            Keep training
+            <span>Start exam</span>
+            <span className="text-xs font-normal text-white/70">
+              {scopeLabel}
+            </span>
           </button>
           <button
-            ref={backRef}
             type="button"
-            onClick={onBackToMap}
+            onClick={onKeepTraining}
             className={secondaryClass}
           >
-            Back to map
+            Keep training
           </button>
         </div>
       </div>
