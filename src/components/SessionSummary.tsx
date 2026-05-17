@@ -18,10 +18,9 @@ type Props = {
   newAvailableCount: number;
   srsStore: SrsStore;
   scopeIso3s: ReadonlySet<string>;
-  canKeepTraining: boolean;
   onReview: () => void;
   onPlayAgain: () => void;
-  onKeepTraining: () => void;
+  onStartExam: () => void;
   onBackToMap: () => void;
 };
 
@@ -125,22 +124,20 @@ function TrainingSummary({
   newAvailableCount,
   srsStore,
   scopeIso3s,
-  canKeepTraining,
-  onKeepTraining,
+  onStartExam,
   onBackToMap,
 }: Props) {
   const learned = srsLearnedCount(srsStore, scopeIso3s);
   const reviews = srsTotalReviews(srsStore);
   const accuracy = srsLifetimeAccuracy(srsStore);
-  const keepRef = useRef<HTMLButtonElement>(null);
-  const backRef = useRef<HTMLButtonElement>(null);
+  const examRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    (canKeepTraining ? keepRef : backRef).current?.focus();
-  }, [canKeepTraining]);
+    examRef.current?.focus();
+  }, []);
 
   const primaryClass =
-    "min-h-11 px-5 rounded bg-slate-900 text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed";
+    "min-h-11 px-5 rounded bg-slate-900 text-white font-medium";
   const secondaryClass =
     "min-h-11 px-5 rounded border border-slate-300 text-slate-700 font-medium hover:bg-slate-100";
 
@@ -171,16 +168,14 @@ function TrainingSummary({
         </p>
         <div className="flex flex-col gap-2">
           <button
-            ref={keepRef}
+            ref={examRef}
             type="button"
-            disabled={!canKeepTraining}
-            onClick={onKeepTraining}
+            onClick={onStartExam}
             className={primaryClass}
           >
-            Keep training
+            Start exam
           </button>
           <button
-            ref={backRef}
             type="button"
             onClick={onBackToMap}
             className={secondaryClass}

@@ -35,9 +35,6 @@ export default function App() {
     return out;
   }, [state.selectedContinents]);
 
-  const canKeepTraining =
-    game.dueCount > 0 || state.newIntroducedThisStretch < TRAINING_NEW_CAP;
-
   // CaughtUp banner state — lifted so the map can also gate clicks
   // while it's showing. Auto-clears once the user picks up work
   // (something becomes due, or they flip practice mode).
@@ -95,10 +92,9 @@ export default function App() {
           newAvailableCount={game.newAvailableCount}
           srsStore={state.srsStore}
           scopeIso3s={scopeIso3s}
-          canKeepTraining={canKeepTraining}
           onReview={game.startReview}
           onPlayAgain={game.reset}
-          onKeepTraining={game.closeSummary}
+          onStartExam={() => game.setPracticeMode("exam")}
           onBackToMap={game.reset}
         />
       )}
