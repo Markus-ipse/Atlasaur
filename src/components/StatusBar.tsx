@@ -64,12 +64,25 @@ export function StatusBar({ game, className }: Props) {
             newIntroduced={state.newIntroducedThisStretch}
           />
         ) : (
-          <ScorePanel
-            completedCount={game.completedInScopeCount}
-            totalInScope={game.totalInScope}
-            missedCount={state.missed.length}
-            streak={state.streak}
-          />
+          <>
+            <ScorePanel
+              completedCount={game.completedInScopeCount}
+              totalInScope={game.totalInScope}
+              missedCount={state.missed.length}
+              streak={state.streak}
+            />
+            {game.dueCount > 0 && (
+              <button
+                type="button"
+                onClick={() => game.setPracticeMode("training")}
+                title="Switch to Training mode to review"
+                className="shrink-0 text-xs text-slate-500 tabular-nums px-1.5 py-0.5 rounded hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
+                <span className="font-semibold text-slate-900">{game.dueCount}</span>{" "}
+                due
+              </button>
+            )}
+          </>
         )}
       </div>
       <SettingsMenu

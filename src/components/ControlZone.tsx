@@ -22,7 +22,6 @@ export function ControlZone({ game, showCaughtUp, onAckCaughtUp }: Props) {
   const isTraining = state.practiceMode === "training";
   const heroFeedback =
     state.feedback && state.feedback.kind !== "correct" ? state.feedback : null;
-  const showHero = heroFeedback !== null;
 
   // Continue dismisses any feedback that isn't waiting on an explicit
   // ease press (Training wrong = pendingGrade). Correct feedback gets
@@ -34,22 +33,23 @@ export function ControlZone({ game, showCaughtUp, onAckCaughtUp }: Props) {
     state.feedback.kind !== "correct";
 
   useEffect(() => {
-    if (showHero && !isTraining) {
-      // preventScroll keeps a tall feedback panel from scrolling Continue
-      // into view and pushing the hero off the top.
-      continueRef.current?.focus({ preventScroll: true });
-    }
-  }, [showHero, isTraining]);
+    // preventScroll keeps a tall feedback panel from scrolling Continue
+    // into view and pushing the hero off the top. Focus whenever the
+    // Continue button is shown — including Training-skip, so Enter
+    // commits the queued Again like users expect.
+    if (showContinue) continueRef.current?.focus({ preventScroll: true });
+  }, [showContinue]);
 
   // Show ease buttons during a Training miss reveal (pendingGrade) or
   // during a Training correct/skip overlay (so users can override the
   // auto-grade with Easy/Hard before dismissal).
   const showEaseButtons = isTraining && state.feedback !== null;
-  // The intro is a teach moment. Only show it when the user actually
-  // has to pick an ease (a real miss); a 600ms auto-dismiss on a
-  // correct answer doesn't give them time to read.
+  // Intro shows whenever the user is paused on a reveal (wrong or
+  // skip). The 600ms correct flash is too short to read — pendingGrade
+  // alone would also miss the skip case where the user's first action
+  // is "Don't know" and they've never seen the ease buttons before.
   const showTrainingIntro =
-    isTraining && state.pendingGrade && !game.seenSrsIntro;
+    isTraining && heroFeedback !== null && !game.seenSrsIntro;
   const skipLabel = isTraining ? "Don't know" : "Skip";
 
   return (
@@ -99,7 +99,7 @@ export function ControlZone({ game, showCaughtUp, onAckCaughtUp }: Props) {
         <div className="flex gap-2">
           {showContinue ? (
             <button
-              ref={showHero ? continueRef : undefined}
+              ref={continueRef}
               type="button"
               onClick={game.dismiss}
               className="flex-1 min-h-11 px-4 rounded bg-slate-900 text-white font-medium hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
