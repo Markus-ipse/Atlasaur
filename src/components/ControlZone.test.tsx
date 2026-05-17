@@ -53,6 +53,7 @@ function makeGame(overrides: {
       srsStore: { version: 1, records: {} },
       newIntroducedThisStretch: 0,
       pendingGrade: false,
+      autoGradePending: null,
     },
     unlearnedCount: 0,
     totalInScope: 0,

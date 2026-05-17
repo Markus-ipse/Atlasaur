@@ -43,7 +43,7 @@ Both axes are persisted (`atlasaur:practiceMode` / `atlasaur:selectedContinents`
 **Training mode** uses FSRS for picks and grading:
 
 - Pick precedence (in `pickNextTraining`, `src/game/pickCountry.ts`): oldest due record → new country (by `notabilityTier` then `sizeTier` then iso3) subject to a soft cap of `TRAINING_NEW_CAP = 10` new introductions per stretch → most-overdue fallback when the cap is hit.
-- Grading: on a miss, `pendingGrade = true`; the user picks Again/Hard/Good/Easy (keys 1/2/3/4) via `EaseButtons`. Skip and `dismiss` (without an ease pick) both default to Again. On a correct answer, grade auto-records as **Good** on the existing `CORRECT_DISMISS_MS` timer — keeps Training's pace close to Exam's. Ease buttons stay visible during the dismiss window as an optional override.
+- Grading: on a miss, `pendingGrade = true`; the user picks Again/Hard/Good/Easy (keys 1/2/3/4) via `EaseButtons`. Correct answers and skips don't write to the SRS store immediately — they set `autoGradePending` (`Good` and `Again` respectively) and `dismissFeedback` commits that grade when the feedback panel clears. If the user presses an ease before dismiss fires, the `grade` action writes their pick and clears `autoGradePending`, so an Easy override after a correct answer is a *single* Easy grade rather than Good-then-Easy compounded. `CORRECT_DISMISS_MS` drives the auto-dismiss for correct only; skip/wrong require an ease press (or Continue → defaults to Again) to advance.
 - `newIntroducedThisStretch` is volatile in-memory; resets on `setPracticeMode("training")` and on reload.
 - `state.sessionDone` is never auto-set in Training; the user exits via "Done for now" (the existing End-session button, relabeled), which lands them on a Training-flavored `SessionSummary` (lifetime stats; "Keep training" disabled when due=0 and the soft cap is hit).
 
@@ -52,7 +52,7 @@ Both axes are persisted (`atlasaur:practiceMode` / `atlasaur:selectedContinents`
 **Mode flips** behave differently by intent:
 
 - `setMode` (question mode) — preserves today's behavior of wiping in-session state (`retryQueue`, `completedSet`, `score`), because the queue entries refer to the old question type. `srsStore` and `practiceMode` are passed through `initialState`'s extended signature so they survive.
-- `setPracticeMode` (new) — resets only session counters (`score`/`streak`/`total`/`missed`/`pendingGrade`/`newIntroducedThisStretch`). `retryQueue` and `completedSet` survive so a Training detour doesn't nuke an Exam in-session review queue.
+- `setPracticeMode` (new) — resets only session counters (`score`/`streak`/`total`/`missed`/`pendingGrade`/`autoGradePending`/`newIntroducedThisStretch`). `retryQueue` and `completedSet` survive so a Training detour doesn't nuke an Exam in-session review queue.
 
 **Continent filter** still prunes `retryQueue` but never deletes SRS records — out-of-scope due cards resurface when the user widens scope.
 

@@ -144,6 +144,11 @@ export type State = {
   srsStore: SrsStore;
   newIntroducedThisStretch: number;
   pendingGrade: boolean;
+  // Training-only: a grade scheduled to commit when feedback dismisses
+  // (auto-Good on correct, auto-Again on skip). User-initiated grade
+  // clears this and writes its own ease instead, so override after a
+  // correct answer means "Easy", not "Good then Easy".
+  autoGradePending: Ease | null;
 };
 
 export type Action =
@@ -220,6 +225,7 @@ export function initialState(
     srsStore,
     newIntroducedThisStretch: 0,
     pendingGrade: false,
+    autoGradePending: null,
   };
 }
 
@@ -309,29 +315,13 @@ function applyMiss(
 
   if (state.practiceMode === "training") {
     // Training doesn't touch session counters or retryQueue.
-    // Wrong → user must grade (pendingGrade). Skip → auto-grade Again
-    // immediately so the user can dismiss without a button press.
+    // Wrong → user must grade (pendingGrade=true, no auto-grade).
+    // Skip → auto-Again scheduled for dismiss-time, so an Easy/Hard
+    // override doesn't compound on top of an already-written Again.
     if (kind === "skipped") {
-      const isNew = !state.srsStore.records[correctIso3];
-      const nextRecord = srsGrade(
-        state.srsStore.records[correctIso3] ?? null,
-        "Again",
-        now,
-      );
-      return {
-        ...state,
-        srsStore: {
-          ...state.srsStore,
-          records: { ...state.srsStore.records, [correctIso3]: nextRecord },
-        },
-        newIntroducedThisStretch: isNew
-          ? state.newIntroducedThisStretch + 1
-          : state.newIntroducedThisStretch,
-        feedback,
-        pendingGrade: false,
-      };
+      return { ...state, feedback, pendingGrade: false, autoGradePending: "Again" };
     }
-    return { ...state, feedback, pendingGrade: true };
+    return { ...state, feedback, pendingGrade: true, autoGradePending: null };
   }
 
   // Exam mode.
@@ -386,26 +376,15 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
     : new Set(state.completedSet).add(correctIso3);
 
   if (state.practiceMode === "training") {
-    // Auto-Good; the existing CORRECT_DISMISS_MS timer dismisses.
-    // Ease buttons may appear during the window for an override.
-    const isNew = !state.srsStore.records[correctIso3];
-    const nextRecord = srsGrade(
-      state.srsStore.records[correctIso3] ?? null,
-      "Good",
-      now,
-    );
+    // Auto-Good is *scheduled* for dismiss-time; not committed yet.
+    // If the user presses an ease before the timer fires, the grade
+    // action writes their pick instead.
     return {
       ...state,
-      srsStore: {
-        ...state.srsStore,
-        records: { ...state.srsStore.records, [correctIso3]: nextRecord },
-      },
-      newIntroducedThisStretch: isNew
-        ? state.newIntroducedThisStretch + 1
-        : state.newIntroducedThisStretch,
       completedSet,
       feedback,
       pendingGrade: false,
+      autoGradePending: "Good",
     };
   }
 
@@ -438,14 +417,30 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
 
 function dismissFeedback(state: State, now: Date): State {
   if (state.practiceMode === "training") {
-    // Training never reaches review-phase exit or poolComplete branches;
-    // every dismiss simply re-picks.
-    return {
+    // Commit a deferred auto-grade (Good on correct, Again on skip) if
+    // the user didn't override. Picking the next country runs against
+    // the post-grade store so we don't re-surface the same iso3.
+    let srsStore = state.srsStore;
+    let newIntroducedThisStretch = state.newIntroducedThisStretch;
+    if (state.autoGradePending) {
+      const iso3 = state.current.iso3;
+      const isNew = !srsStore.records[iso3];
+      const next = srsGrade(srsStore.records[iso3] ?? null, state.autoGradePending, now);
+      srsStore = {
+        ...srsStore,
+        records: { ...srsStore.records, [iso3]: next },
+      };
+      if (isNew) newIntroducedThisStretch += 1;
+    }
+    const updated: State = {
       ...state,
-      current: nextCurrent(state, now),
+      srsStore,
+      newIntroducedThisStretch,
       feedback: null,
       pendingGrade: false,
+      autoGradePending: null,
     };
+    return { ...updated, current: nextCurrent(updated, now) };
   }
   if (state.phase === "review" && state.retryQueue.length === 0) {
     return { ...state, feedback: null, phase: "normal", sessionDone: true };
@@ -479,29 +474,13 @@ export function reducer(state: State, action: Action): State {
     }
     case "dismiss": {
       if (!state.feedback) return state;
-      // Training: if a miss hasn't been graded yet, treat dismiss as
-      // pressing the default ease (Again) — keeps Enter/Continue
-      // working without explicitly picking a button.
+      // Training: if a miss hasn't been graded yet, dismiss falls back
+      // to Again — queue it for dismissFeedback to commit.
       if (state.practiceMode === "training" && state.pendingGrade) {
-        const iso3 = state.current.iso3;
-        const isNew = !state.srsStore.records[iso3];
-        const next = srsGrade(
-          state.srsStore.records[iso3] ?? null,
-          "Again",
+        return dismissFeedback(
+          { ...state, pendingGrade: false, autoGradePending: "Again" },
           now,
         );
-        const graded: State = {
-          ...state,
-          srsStore: {
-            ...state.srsStore,
-            records: { ...state.srsStore.records, [iso3]: next },
-          },
-          newIntroducedThisStretch: isNew
-            ? state.newIntroducedThisStretch + 1
-            : state.newIntroducedThisStretch,
-          pendingGrade: false,
-        };
-        return dismissFeedback(graded, now);
       }
       return dismissFeedback(state, now);
     }
@@ -535,6 +514,7 @@ export function reducer(state: State, action: Action): State {
         sessionDone: false,
         newIntroducedThisStretch: 0,
         pendingGrade: false,
+        autoGradePending: null,
       };
       return { ...next, current: nextCurrent(next, now) };
     }
@@ -594,15 +574,13 @@ export function reducer(state: State, action: Action): State {
           ...state.srsStore,
           records: { ...state.srsStore.records, [iso3]: next },
         },
-        newIntroducedThisStretch:
-          isNew && !state.pendingGrade
-            ? state.newIntroducedThisStretch + 1
-            : state.newIntroducedThisStretch,
+        newIntroducedThisStretch: isNew
+          ? state.newIntroducedThisStretch + 1
+          : state.newIntroducedThisStretch,
         pendingGrade: false,
+        // The user's ease supersedes any auto-grade that was queued.
+        autoGradePending: null,
       };
-      // If feedback is currently shown (miss path), dismiss it and
-      // advance. If it's a correct/skip overlay where grade was already
-      // applied, the override just re-records — still advance.
       if (state.feedback) {
         return dismissFeedback(graded, now);
       }

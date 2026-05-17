@@ -564,20 +564,50 @@ describe("reducer — Training mode grade flow", () => {
     expect(s.feedback).toBeNull();
   });
 
-  it("answer-correct in Training writes Good immediately (no pendingGrade)", () => {
+  it("answer-correct in Training defers auto-Good until dismiss", () => {
     const s0 = trainingState();
     const s1 = reducer(s0, { type: "answer", iso3: "FRA", now: NOW });
     expect(s1.pendingGrade).toBe(false);
-    expect(s1.srsStore.records["FRA"]).toBeDefined();
+    expect(s1.autoGradePending).toBe("Good");
+    expect(s1.srsStore.records["FRA"]).toBeUndefined();
     expect(s1.feedback?.kind).toBe("correct");
+
+    const s2 = reducer(s1, { type: "dismiss", now: NOW });
+    expect(s2.srsStore.records["FRA"]).toBeDefined();
+    expect(s2.autoGradePending).toBeNull();
   });
 
-  it("skip in Training writes Again immediately (no pendingGrade)", () => {
+  it("override after correct uses the user's ease, not Good-then-ease", () => {
+    let s = trainingState();
+    s = reducer(s, { type: "answer", iso3: "FRA", now: NOW });
+    expect(s.autoGradePending).toBe("Good");
+    // User overrides with Easy while feedback is showing.
+    s = reducer(s, { type: "grade", ease: "Easy", now: NOW });
+    const overridden = s.srsStore.records["FRA"];
+    expect(overridden).toBeDefined();
+    expect(overridden.reps).toBe(1); // single grade, not two
+    expect(s.autoGradePending).toBeNull();
+    // Compare against a single-Easy baseline on a fresh card.
+    const baseline = trainingState();
+    const baselineSingleEasy = reducer(baseline, {
+      type: "grade",
+      ease: "Easy",
+      now: NOW,
+    });
+    expect(overridden).toEqual(baselineSingleEasy.srsStore.records["FRA"]);
+  });
+
+  it("skip in Training defers auto-Again until dismiss", () => {
     const s0 = trainingState();
     const s1 = reducer(s0, { type: "skip", now: NOW });
     expect(s1.pendingGrade).toBe(false);
-    expect(s1.srsStore.records["FRA"]).toBeDefined();
+    expect(s1.autoGradePending).toBe("Again");
+    expect(s1.srsStore.records["FRA"]).toBeUndefined();
     expect(s1.feedback?.kind).toBe("skipped");
+
+    const s2 = reducer(s1, { type: "dismiss", now: NOW });
+    expect(s2.srsStore.records["FRA"]).toBeDefined();
+    expect(s2.autoGradePending).toBeNull();
   });
 
   it("dismiss after a wrong with pendingGrade defaults to Again", () => {
@@ -593,11 +623,24 @@ describe("reducer — Training mode grade flow", () => {
   it("increments newIntroducedThisStretch only on first-time grades", () => {
     let s = trainingState();
     s = reducer(s, { type: "answer", iso3: "FRA", now: NOW });
+    // Auto-Good is deferred; introduction is counted when the record
+    // is actually written at dismiss time.
+    expect(s.newIntroducedThisStretch).toBe(0);
+    s = reducer(s, { type: "dismiss", now: NOW });
     expect(s.newIntroducedThisStretch).toBe(1);
     // Second grade on same iso3 doesn't bump the stretch count.
-    s = reducer(s, { type: "dismiss", now: NOW });
     s = withCurrent(s, "FRA");
     s = reducer(s, { type: "answer", iso3: "FRA", now: NOW });
+    s = reducer(s, { type: "dismiss", now: NOW });
+    expect(s.newIntroducedThisStretch).toBe(1);
+  });
+
+  it("introduction count rises when a wrong-then-grade creates a new record", () => {
+    let s = trainingState();
+    s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
+    expect(s.pendingGrade).toBe(true);
+    expect(s.newIntroducedThisStretch).toBe(0);
+    s = reducer(s, { type: "grade", ease: "Again", now: NOW });
     expect(s.newIntroducedThisStretch).toBe(1);
   });
 });
