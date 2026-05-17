@@ -266,6 +266,9 @@ type Props = {
   numericFromIso3: (iso3: string) => string | undefined;
   isInScope: (iso3: string) => boolean;
   onCountryClick: (iso3: string) => void;
+  // When false, country clicks are suppressed. Used by the Training
+  // CaughtUp banner so a stray click doesn't bypass it.
+  interactive?: boolean;
 };
 
 export function WorldMap({
@@ -279,6 +282,7 @@ export function WorldMap({
   numericFromIso3,
   isInScope,
   onCountryClick,
+  interactive = true,
 }: Props) {
   const neighborSet = useMemo(
     () => new Set(correctNeighborIso3s),
@@ -430,7 +434,7 @@ export function WorldMap({
     select(svgRef.current).call(zoomRef.current.transform, baseTransform);
   };
 
-  const isClickMode = mode === "name-to-click" && !feedback;
+  const isClickMode = interactive && mode === "name-to-click" && !feedback;
   const isPanned = transform !== baseTransform;
 
   // The effective projection-to-pixel scale matches preserveAspectRatio

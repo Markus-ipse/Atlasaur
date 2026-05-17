@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useGame } from "./game/useGame";
 import { WorldMap } from "./components/WorldMap";
 import { ControlZone } from "./components/ControlZone";
@@ -38,6 +38,20 @@ export default function App() {
   const canKeepTraining =
     game.dueCount > 0 || state.newIntroducedThisStretch < TRAINING_NEW_CAP;
 
+  // CaughtUp banner state — lifted so the map can also gate clicks
+  // while it's showing. Auto-clears once the user picks up work
+  // (something becomes due, or they flip practice mode).
+  const caughtUpEligible =
+    state.practiceMode === "training" &&
+    !state.feedback &&
+    game.dueCount === 0 &&
+    state.newIntroducedThisStretch >= TRAINING_NEW_CAP;
+  const [caughtUpAck, setCaughtUpAck] = useState(false);
+  useEffect(() => {
+    if (!caughtUpEligible) setCaughtUpAck(false);
+  }, [caughtUpEligible]);
+  const showCaughtUp = caughtUpEligible && !caughtUpAck;
+
   return (
     <div className="h-dvh w-full flex overflow-hidden bg-slate-50 text-slate-900 portrait:flex-col landscape:flex-row pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       <h1 className="sr-only">Atlasaur</h1>
@@ -60,9 +74,14 @@ export default function App() {
           numericFromIso3={game.numericFromIso3}
           isInScope={game.isInScope}
           onCountryClick={game.answer}
+          interactive={!showCaughtUp}
         />
       </div>
-      <ControlZone game={game} />
+      <ControlZone
+        game={game}
+        showCaughtUp={showCaughtUp}
+        onAckCaughtUp={() => setCaughtUpAck(true)}
+      />
       {state.sessionDone && (
         <SessionSummary
           practiceMode={state.practiceMode}

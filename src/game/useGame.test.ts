@@ -658,6 +658,40 @@ describe("reducer — resetSrs / closeSummary", () => {
     expect(next.selectedContinents).toBe(s.selectedContinents);
   });
 
+  it("endSession in Training commits a pending auto-grade", () => {
+    function trainingState(): State {
+      return withCurrent(
+        { ...initialState(), practiceMode: "training" as const },
+        "FRA",
+      );
+    }
+    let s = trainingState();
+    s = reducer(s, { type: "answer", iso3: "FRA", now: NOW });
+    expect(s.autoGradePending).toBe("Good");
+    expect(s.srsStore.records["FRA"]).toBeUndefined();
+    s = reducer(s, { type: "endSession" });
+    expect(s.sessionDone).toBe(true);
+    expect(s.autoGradePending).toBeNull();
+    expect(s.srsStore.records["FRA"]).toBeDefined();
+  });
+
+  it("setContinents clears in-flight Training grade flags", () => {
+    function trainingState(): State {
+      return withCurrent(
+        { ...initialState(), practiceMode: "training" as const },
+        "FRA",
+      );
+    }
+    let s = trainingState();
+    // A wrong answer leaves pendingGrade=true.
+    s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
+    expect(s.pendingGrade).toBe(true);
+    s = reducer(s, { type: "setContinents", continents: ALL_CONTINENTS });
+    expect(s.pendingGrade).toBe(false);
+    expect(s.autoGradePending).toBeNull();
+    expect(s.feedback).toBeNull();
+  });
+
   it("closeSummary clears sessionDone without nuking session state", () => {
     let s = withCurrent(initialState(), "FRA");
     s = { ...s, sessionDone: true, score: 7 };

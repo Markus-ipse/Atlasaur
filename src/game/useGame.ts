@@ -540,11 +540,42 @@ export function reducer(state: State, action: Action): State {
         current,
         retryQueue,
         feedback: null,
+        // Wipe in-flight Training grade state: feedback is gone and
+        // `current` may have changed, so leftover pendingGrade /
+        // autoGradePending would target a country the user can no
+        // longer see.
+        pendingGrade: false,
+        autoGradePending: null,
         phase: reviewEmpty ? "normal" : state.phase,
         sessionDone: reviewEmpty || poolDone ? true : state.sessionDone,
       };
     }
     case "endSession": {
+      // If Training has an auto-grade in flight (correct-flash or skip
+      // waiting on dismiss), commit it before bowing out — otherwise
+      // the user's last interaction silently produces no SRS record.
+      if (state.practiceMode === "training" && state.autoGradePending) {
+        const iso3 = state.current.iso3;
+        const isNew = !state.srsStore.records[iso3];
+        const next = srsGrade(
+          state.srsStore.records[iso3] ?? null,
+          state.autoGradePending,
+          now,
+        );
+        return {
+          ...state,
+          srsStore: {
+            ...state.srsStore,
+            records: { ...state.srsStore.records, [iso3]: next },
+          },
+          newIntroducedThisStretch: isNew
+            ? state.newIntroducedThisStretch + 1
+            : state.newIntroducedThisStretch,
+          autoGradePending: null,
+          sessionDone: true,
+          feedback: null,
+        };
+      }
       return { ...state, sessionDone: true, feedback: null };
     }
     case "startReview": {

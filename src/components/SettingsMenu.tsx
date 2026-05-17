@@ -199,18 +199,20 @@ export function SettingsMenu({
                 })}
               </div>
             </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Reveal</p>
-              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showLabelsOnReveal}
-                  onChange={(e) => onSetShowLabelsOnReveal(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                />
-                Show country names after a wrong answer
-              </label>
-            </div>
+            {practiceMode !== "training" && (
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Reveal</p>
+                <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showLabelsOnReveal}
+                    onChange={(e) => onSetShowLabelsOnReveal(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  />
+                  Show country names after a wrong answer
+                </label>
+              </div>
+            )}
             <div>
               <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Stats</p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-600 tabular-nums">
