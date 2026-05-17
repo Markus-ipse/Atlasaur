@@ -95,7 +95,7 @@ export default function App() {
           onReview={game.startReview}
           onPlayAgain={game.reset}
           onStartExam={() => game.setPracticeMode("exam")}
-          onBackToMap={game.reset}
+          onKeepTraining={game.closeSummary}
         />
       )}
     </div>
