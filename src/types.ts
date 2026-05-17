@@ -67,7 +67,11 @@ export type Country = {
   topoName?: string;
 };
 
-export type Mode = "name-to-click" | "shape-to-name";
+export type QuestionMode = "name-to-click" | "shape-to-name";
+
+export type PracticeMode = "exam" | "training";
+
+export type Ease = "Again" | "Hard" | "Good" | "Easy";
 
 export type FeedbackKind = "correct" | "wrong" | "skipped";
 
@@ -80,3 +84,24 @@ export type Feedback = {
 export type Phase = "normal" | "review";
 
 export type RetryEntry = { iso3: string; dueAt: number };
+
+// Serialized FSRS card. Mirrors ts-fsrs `Card` but with Date → ISO
+// string so the blob is JSON-friendly. `srs.ts` converts at the
+// persistence boundary.
+export type SrsRecord = {
+  due: string;
+  stability: number;
+  difficulty: number;
+  elapsed_days: number;
+  scheduled_days: number;
+  learning_steps: number;
+  reps: number;
+  lapses: number;
+  state: 0 | 1 | 2 | 3;
+  last_review?: string;
+};
+
+export type SrsStore = {
+  version: 1;
+  records: Record<string, SrsRecord>;
+};

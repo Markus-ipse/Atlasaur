@@ -62,8 +62,17 @@ Once M2 metadata exists, three new modes are cheap.
 
 **Files:** `src/types.ts` (Mode union), `src/game/useGame.ts` (mode handling), `src/components/Prompt.tsx`, `src/components/ControlZone.tsx`, `src/components/SettingsMenu.tsx`, new `src/components/MultipleChoice.tsx`.
 
-### M4 — Cross-session persistence with FSRS (the big one)
-**Effort: L · Impact: High**
+### M4 — Cross-session persistence with FSRS (the big one) — *shipped*
+**Effort: L · Impact: High · Status: implemented (see `docs/plans/m4-dual-mode.md`)**
+
+> **Note:** The original spec below replaced the existing loop with
+> FSRS. The shipped implementation instead introduces a new
+> **Training** practice mode alongside a preserved **Exam** mode (the
+> current loop). Both modes write to a single shared SRS store keyed
+> by iso3, so Exam answers contribute to the learning algorithm without
+> requiring users to opt in to Training. See `src/game/srs.ts` and the
+> `practiceMode` axis in `src/game/useGame.ts`. The historical spec
+> stays here for context.
 
 The retention payoff. Make every visit pick up where the last one left off, with intervals that scale to days/weeks for well-known items.
 

@@ -446,3 +446,257 @@ describe("reducer — setContinents", () => {
     expect(result.retryQueue.map((e) => e.iso3)).toEqual(["FRA"]);
   });
 });
+
+describe("reducer — SRS write-through (Exam normal phase)", () => {
+  const NOW = new Date("2026-05-16T12:00:00Z");
+
+  it("answer-correct in Exam writes a Good grade to srsStore", () => {
+    const s0 = withCurrent(initialState(), "FRA");
+    const s1 = reducer(s0, { type: "answer", iso3: "FRA", now: NOW });
+    expect(s1.srsStore.records["FRA"]).toBeDefined();
+    expect(s1.srsStore.records["FRA"].reps).toBe(1);
+  });
+
+  it("answer-wrong in Exam writes an Again grade to srsStore", () => {
+    const s0 = withCurrent(initialState(), "FRA");
+    const s1 = reducer(s0, { type: "answer", iso3: "DEU", now: NOW });
+    expect(s1.srsStore.records["FRA"]).toBeDefined();
+    expect(s1.srsStore.records["FRA"].reps).toBe(1);
+  });
+
+  it("skip in Exam writes an Again grade", () => {
+    const s0 = withCurrent(initialState(), "FRA");
+    const s1 = reducer(s0, { type: "skip", now: NOW });
+    expect(s1.srsStore.records["FRA"]).toBeDefined();
+  });
+
+  it("review-phase grades do NOT write to srsStore (no double-count)", () => {
+    let s = withCurrent(initialState(), "FRA");
+    // Force into review phase with a queued miss
+    s = {
+      ...s,
+      phase: "review",
+      retryQueue: [{ iso3: "FRA", dueAt: 0 }],
+    };
+    const s1 = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
+    expect(s1.srsStore.records["FRA"]).toBeUndefined();
+  });
+});
+
+describe("reducer — setPracticeMode", () => {
+  const NOW = new Date("2026-05-16T12:00:00Z");
+
+  it("flips to Training and resets session counters", () => {
+    const s0 = withCurrent(initialState(), "FRA");
+    const seeded: State = {
+      ...s0,
+      score: 5,
+      streak: 3,
+      total: 8,
+      missed: [s0.current],
+      missedSet: new Set(["FRA"]),
+    };
+    const next = reducer(seeded, {
+      type: "setPracticeMode",
+      mode: "training",
+      now: NOW,
+    });
+    expect(next.practiceMode).toBe("training");
+    expect(next.score).toBe(0);
+    expect(next.streak).toBe(0);
+    expect(next.total).toBe(0);
+    expect(next.missed).toHaveLength(0);
+  });
+
+  it("preserves retryQueue and completedSet across the flip", () => {
+    const s0 = withCurrent(initialState(), "FRA");
+    const seeded: State = {
+      ...s0,
+      retryQueue: [{ iso3: "FRA", dueAt: 5 }],
+      completedSet: new Set(["DEU", "ITA"]),
+    };
+    const next = reducer(seeded, {
+      type: "setPracticeMode",
+      mode: "training",
+      now: NOW,
+    });
+    expect(next.retryQueue.map((e) => e.iso3)).toEqual(["FRA"]);
+    expect(Array.from(next.completedSet).sort()).toEqual(["DEU", "ITA"]);
+  });
+
+  it("preserves srsStore across the flip", () => {
+    const s0 = withCurrent(initialState(), "FRA");
+    const s1 = reducer(s0, { type: "answer", iso3: "FRA", now: NOW });
+    const next = reducer(s1, {
+      type: "setPracticeMode",
+      mode: "training",
+      now: NOW,
+    });
+    expect(next.srsStore.records["FRA"]).toEqual(s1.srsStore.records["FRA"]);
+  });
+});
+
+describe("reducer — Training mode grade flow", () => {
+  const NOW = new Date("2026-05-16T12:00:00Z");
+
+  function trainingState(): State {
+    return withCurrent(
+      { ...initialState(), practiceMode: "training" as const },
+      "FRA",
+    );
+  }
+
+  it("answer-wrong sets pendingGrade and shows feedback (no auto-grade)", () => {
+    const s0 = trainingState();
+    const s1 = reducer(s0, { type: "answer", iso3: "DEU", now: NOW });
+    expect(s1.feedback?.kind).toBe("wrong");
+    expect(s1.pendingGrade).toBe(true);
+    expect(s1.srsStore.records["FRA"]).toBeUndefined();
+  });
+
+  it("grade(Good) after a wrong answer writes Good and clears pendingGrade", () => {
+    let s = trainingState();
+    s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
+    s = reducer(s, { type: "grade", ease: "Good", now: NOW });
+    expect(s.pendingGrade).toBe(false);
+    expect(s.srsStore.records["FRA"]).toBeDefined();
+    expect(s.srsStore.records["FRA"].reps).toBe(1);
+    expect(s.feedback).toBeNull();
+  });
+
+  it("answer-correct in Training defers auto-Good until dismiss", () => {
+    const s0 = trainingState();
+    const s1 = reducer(s0, { type: "answer", iso3: "FRA", now: NOW });
+    expect(s1.pendingGrade).toBe(false);
+    expect(s1.autoGradePending).toBe("Good");
+    expect(s1.srsStore.records["FRA"]).toBeUndefined();
+    expect(s1.feedback?.kind).toBe("correct");
+
+    const s2 = reducer(s1, { type: "dismiss", now: NOW });
+    expect(s2.srsStore.records["FRA"]).toBeDefined();
+    expect(s2.autoGradePending).toBeNull();
+  });
+
+  it("override after correct uses the user's ease, not Good-then-ease", () => {
+    let s = trainingState();
+    s = reducer(s, { type: "answer", iso3: "FRA", now: NOW });
+    expect(s.autoGradePending).toBe("Good");
+    // User overrides with Easy while feedback is showing.
+    s = reducer(s, { type: "grade", ease: "Easy", now: NOW });
+    const overridden = s.srsStore.records["FRA"];
+    expect(overridden).toBeDefined();
+    expect(overridden.reps).toBe(1); // single grade, not two
+    expect(s.autoGradePending).toBeNull();
+    // Compare against a single-Easy baseline on a fresh card.
+    const baseline = trainingState();
+    const baselineSingleEasy = reducer(baseline, {
+      type: "grade",
+      ease: "Easy",
+      now: NOW,
+    });
+    expect(overridden).toEqual(baselineSingleEasy.srsStore.records["FRA"]);
+  });
+
+  it("skip in Training defers auto-Again until dismiss", () => {
+    const s0 = trainingState();
+    const s1 = reducer(s0, { type: "skip", now: NOW });
+    expect(s1.pendingGrade).toBe(false);
+    expect(s1.autoGradePending).toBe("Again");
+    expect(s1.srsStore.records["FRA"]).toBeUndefined();
+    expect(s1.feedback?.kind).toBe("skipped");
+
+    const s2 = reducer(s1, { type: "dismiss", now: NOW });
+    expect(s2.srsStore.records["FRA"]).toBeDefined();
+    expect(s2.autoGradePending).toBeNull();
+  });
+
+  it("dismiss after a wrong with pendingGrade defaults to Again", () => {
+    let s = trainingState();
+    s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
+    expect(s.pendingGrade).toBe(true);
+    s = reducer(s, { type: "dismiss", now: NOW });
+    expect(s.pendingGrade).toBe(false);
+    expect(s.srsStore.records["FRA"]).toBeDefined();
+    expect(s.feedback).toBeNull();
+  });
+
+  it("increments newIntroducedThisStretch only on first-time grades", () => {
+    let s = trainingState();
+    s = reducer(s, { type: "answer", iso3: "FRA", now: NOW });
+    // Auto-Good is deferred; introduction is counted when the record
+    // is actually written at dismiss time.
+    expect(s.newIntroducedThisStretch).toBe(0);
+    s = reducer(s, { type: "dismiss", now: NOW });
+    expect(s.newIntroducedThisStretch).toBe(1);
+    // Second grade on same iso3 doesn't bump the stretch count.
+    s = withCurrent(s, "FRA");
+    s = reducer(s, { type: "answer", iso3: "FRA", now: NOW });
+    s = reducer(s, { type: "dismiss", now: NOW });
+    expect(s.newIntroducedThisStretch).toBe(1);
+  });
+
+  it("introduction count rises when a wrong-then-grade creates a new record", () => {
+    let s = trainingState();
+    s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
+    expect(s.pendingGrade).toBe(true);
+    expect(s.newIntroducedThisStretch).toBe(0);
+    s = reducer(s, { type: "grade", ease: "Again", now: NOW });
+    expect(s.newIntroducedThisStretch).toBe(1);
+  });
+});
+
+describe("reducer — resetSrs / closeSummary", () => {
+  const NOW = new Date("2026-05-16T12:00:00Z");
+
+  it("resetSrs empties the store but preserves practiceMode and continents", () => {
+    let s = withCurrent(initialState(), "FRA");
+    s = reducer(s, { type: "answer", iso3: "FRA", now: NOW });
+    expect(Object.keys(s.srsStore.records)).toHaveLength(1);
+    const next = reducer(s, { type: "resetSrs" });
+    expect(next.srsStore.records).toEqual({});
+    expect(next.practiceMode).toBe(s.practiceMode);
+    expect(next.selectedContinents).toBe(s.selectedContinents);
+  });
+
+  it("endSession in Training commits a pending auto-grade", () => {
+    function trainingState(): State {
+      return withCurrent(
+        { ...initialState(), practiceMode: "training" as const },
+        "FRA",
+      );
+    }
+    let s = trainingState();
+    s = reducer(s, { type: "answer", iso3: "FRA", now: NOW });
+    expect(s.autoGradePending).toBe("Good");
+    expect(s.srsStore.records["FRA"]).toBeUndefined();
+    s = reducer(s, { type: "endSession" });
+    expect(s.sessionDone).toBe(true);
+    expect(s.autoGradePending).toBeNull();
+    expect(s.srsStore.records["FRA"]).toBeDefined();
+  });
+
+  it("setContinents clears in-flight Training grade flags", () => {
+    function trainingState(): State {
+      return withCurrent(
+        { ...initialState(), practiceMode: "training" as const },
+        "FRA",
+      );
+    }
+    let s = trainingState();
+    // A wrong answer leaves pendingGrade=true.
+    s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
+    expect(s.pendingGrade).toBe(true);
+    s = reducer(s, { type: "setContinents", continents: ALL_CONTINENTS });
+    expect(s.pendingGrade).toBe(false);
+    expect(s.autoGradePending).toBeNull();
+    expect(s.feedback).toBeNull();
+  });
+
+  it("closeSummary clears sessionDone without nuking session state", () => {
+    let s = withCurrent(initialState(), "FRA");
+    s = { ...s, sessionDone: true, score: 7 };
+    const next = reducer(s, { type: "closeSummary", now: NOW });
+    expect(next.sessionDone).toBe(false);
+    expect(next.score).toBe(7);
+  });
+});

@@ -1,4 +1,7 @@
-import type { Country, Phase, RetryEntry } from "../types";
+import type { Country, Phase, RetryEntry, SrsStore } from "../types";
+import { introductionOrder, isDue } from "./srs";
+
+export const TRAINING_NEW_CAP = 10;
 
 export function pickRandom(
   pool: readonly Country[],
@@ -68,4 +71,67 @@ export function pickNext(args: {
   if (country) return country;
 
   return pickRandom(pool, excludeIso3);
+}
+
+export function pickNextTraining(args: {
+  pool: readonly Country[];
+  byIso3: ReadonlyMap<string, Country>;
+  excludeIso3: string;
+  srsStore: SrsStore;
+  now: Date;
+  newIntroducedThisStretch: number;
+}): Country | null {
+  const { pool, byIso3, excludeIso3, srsStore, now, newIntroducedThisStretch } =
+    args;
+
+  // 1. Due records, oldest-due first.
+  const dueList: { iso3: string; due: number }[] = [];
+  for (const c of pool) {
+    if (c.iso3 === excludeIso3) continue;
+    const rec = srsStore.records[c.iso3];
+    if (rec && isDue(rec, now)) {
+      dueList.push({ iso3: c.iso3, due: new Date(rec.due).getTime() });
+    }
+  }
+  if (dueList.length > 0) {
+    dueList.sort((a, b) => a.due - b.due);
+    const country = byIso3.get(dueList[0].iso3);
+    if (country) return country;
+  }
+
+  // 2. New introductions (no record), by notability desc → size desc →
+  // iso3 stable. Subject to the per-stretch soft cap.
+  if (newIntroducedThisStretch < TRAINING_NEW_CAP) {
+    const fresh = pool.filter(
+      (c) => c.iso3 !== excludeIso3 && !srsStore.records[c.iso3],
+    );
+    if (fresh.length > 0) {
+      fresh.sort((a, b) => {
+        const ord = introductionOrder(b) - introductionOrder(a);
+        if (ord !== 0) return ord;
+        return a.iso3.localeCompare(b.iso3);
+      });
+      return fresh[0];
+    }
+  }
+
+  // 3a. Soft cap hit but fresh exists: pick most-overdue regardless of
+  // dueAt — there is no work yet, but we can show an already-introduced
+  // record. Find the oldest-due record in scope.
+  const allInScope: { iso3: string; due: number }[] = [];
+  for (const c of pool) {
+    if (c.iso3 === excludeIso3) continue;
+    const rec = srsStore.records[c.iso3];
+    if (rec) {
+      allInScope.push({ iso3: c.iso3, due: new Date(rec.due).getTime() });
+    }
+  }
+  if (allInScope.length > 0) {
+    allInScope.sort((a, b) => a.due - b.due);
+    const country = byIso3.get(allInScope[0].iso3);
+    if (country) return country;
+  }
+
+  // 3b. Truly empty: caller handles the caught-up empty state.
+  return null;
 }

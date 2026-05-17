@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, act } from "@testing-library/react";
 import { ControlZone } from "./ControlZone";
 import type { GameApi } from "../game/useGame";
-import { ALL_CONTINENTS, type Country, type Feedback, type Mode } from "../types";
+import { ALL_CONTINENTS, type Country, type Feedback, type QuestionMode } from "../types";
 
 const SAMPLE: Country = {
   numeric: "250",
@@ -30,13 +30,14 @@ const NAMES_BY_ISO3: Record<string, string> = {
 };
 
 function makeGame(overrides: {
-  mode?: Mode;
+  mode?: QuestionMode;
   feedback?: Feedback | null;
   current?: Country;
 }): GameApi {
   return {
     state: {
       mode: overrides.mode ?? "name-to-click",
+      practiceMode: "exam",
       selectedContinents: ALL_CONTINENTS,
       current: overrides.current ?? SAMPLE,
       feedback: overrides.feedback ?? null,
@@ -49,10 +50,18 @@ function makeGame(overrides: {
       retryQueue: [],
       completedSet: new Set<string>(),
       sessionDone: false,
+      srsStore: { version: 1, records: {} },
+      newIntroducedThisStretch: 0,
+      pendingGrade: false,
+      autoGradePending: null,
     },
     unlearnedCount: 0,
     totalInScope: 0,
     completedInScopeCount: 0,
+    dueCount: 0,
+    newAvailableCount: 0,
+    seenSrsIntro: true,
+    markSrsIntroSeen: vi.fn(),
     showLabelsOnReveal: true,
     setShowLabelsOnReveal: vi.fn(),
     isoFromNumeric: () => undefined,
@@ -64,9 +73,13 @@ function makeGame(overrides: {
     skip: vi.fn(),
     dismiss: vi.fn(),
     setMode: vi.fn(),
+    setPracticeMode: vi.fn(),
     setContinents: vi.fn(),
     endSession: vi.fn(),
     startReview: vi.fn(),
+    grade: vi.fn(),
+    resetSrs: vi.fn(),
+    closeSummary: vi.fn(),
     reset: vi.fn(),
   };
 }
@@ -78,7 +91,7 @@ afterEach(() => {
 describe("ControlZone", () => {
   it("renders Skip when there is no feedback", () => {
     const game = makeGame({});
-    render(<ControlZone game={game} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     expect(screen.getByRole("button", { name: "Skip" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
   });
@@ -90,28 +103,26 @@ describe("ControlZone", () => {
       correctIso3: "FRA",
     };
     const game = makeGame({ feedback: wrong });
-    render(<ControlZone game={game} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     const cont = screen.getByRole("button", { name: "Continue" });
     expect(document.activeElement).toBe(cont);
   });
 
-  it("does not autofocus Continue on a correct answer (button isn't shown)", () => {
+  it("shows no action button during a correct answer (auto-dismiss handles it)", () => {
     const correct: Feedback = {
       kind: "correct",
       answerIso3: "FRA",
       correctIso3: "FRA",
     };
     const game = makeGame({ feedback: correct });
-    render(<ControlZone game={game} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
-    // Skip is shown but disabled because feedback is non-null
-    const skip = screen.getByRole("button", { name: "Skip" }) as HTMLButtonElement;
-    expect(skip.disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
   });
 
   it("Skip click invokes game.skip", () => {
     const game = makeGame({});
-    render(<ControlZone game={game} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     act(() => {
       screen.getByRole("button", { name: "Skip" }).click();
     });
@@ -125,7 +136,7 @@ describe("ControlZone", () => {
       correctIso3: "FRA",
     };
     const game = makeGame({ feedback: wrong });
-    render(<ControlZone game={game} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     act(() => {
       screen.getByRole("button", { name: "Continue" }).click();
     });
@@ -139,7 +150,7 @@ describe("ControlZone", () => {
       correctIso3: "FRA",
     };
     const game = makeGame({ mode: "name-to-click", feedback: wrong });
-    render(<ControlZone game={game} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("You picked: Germany");
     // Assert the label-name pairing — only the hero produces this sequence.
@@ -153,7 +164,7 @@ describe("ControlZone", () => {
       correctIso3: "FRA",
     };
     const game = makeGame({ mode: "name-to-click", feedback: skipped });
-    render(<ControlZone game={game} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toMatch(/Skipped[\s\S]*France/);
     expect(status.textContent).not.toContain("You picked");
@@ -166,7 +177,7 @@ describe("ControlZone", () => {
       correctIso3: "FRA",
     };
     const game = makeGame({ mode: "shape-to-name", feedback: wrong });
-    render(<ControlZone game={game} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toMatch(/You missed[\s\S]*France/);
     expect(status.textContent).not.toContain("You picked");
@@ -179,7 +190,7 @@ describe("ControlZone", () => {
       correctIso3: "FRA",
     };
     const game = makeGame({ feedback: wrong });
-    render(<ControlZone game={game} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("Capital: Paris");
     expect(status.textContent).toContain(
@@ -194,7 +205,7 @@ describe("ControlZone", () => {
       correctIso3: "FRA",
     };
     const game = makeGame({ feedback: skipped });
-    render(<ControlZone game={game} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     expect(screen.getByRole("status").textContent).toContain("Capital: Paris");
   });
 
@@ -217,7 +228,7 @@ describe("ControlZone", () => {
       correctIso3: "JPN",
     };
     const game = makeGame({ current: japan, feedback: wrong });
-    render(<ControlZone game={game} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("Capital: Tokyo");
     expect(status.textContent).not.toContain("Bordered by");
@@ -242,7 +253,7 @@ describe("ControlZone", () => {
       correctIso3: "ATA",
     };
     const game = makeGame({ current: antarctica, feedback: wrong });
-    render(<ControlZone game={game} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toMatch(/You missed[\s\S]*Antarctica/);
     expect(status.textContent).not.toContain("Capital");
@@ -255,7 +266,7 @@ describe("ControlZone", () => {
       correctIso3: "FRA",
     };
     const game1 = makeGame({ feedback: wrong });
-    const { rerender } = render(<ControlZone game={game1} />);
+    const { rerender } = render(<ControlZone game={game1} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     expect(screen.getByRole("status").textContent).toContain("You missed");
     expect(screen.getByRole("status").textContent).not.toContain("Skipped");
 
@@ -265,7 +276,7 @@ describe("ControlZone", () => {
       correctIso3: "FRA",
     };
     const game2 = makeGame({ feedback: skipped });
-    rerender(<ControlZone game={game2} />);
+    rerender(<ControlZone game={game2} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     expect(screen.getByRole("status").textContent).toContain("Skipped");
     expect(screen.getByRole("status").textContent).not.toContain("You missed");
   });
@@ -277,7 +288,7 @@ describe("ControlZone", () => {
       correctIso3: "FRA",
     };
     const game = makeGame({ feedback: correct });
-    render(<ControlZone game={game} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     expect(screen.queryByRole("status")).toBeNull();
   });
 
@@ -301,7 +312,7 @@ describe("ControlZone", () => {
       correctIso3: "BOL",
     };
     const game = makeGame({ current: bolivia, feedback: wrong });
-    render(<ControlZone game={game} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("Capitals: Sucre, La Paz");
     expect(status.textContent).not.toContain("Capital: Sucre");
@@ -327,7 +338,7 @@ describe("ControlZone", () => {
       correctIso3: "ZAF",
     };
     const game = makeGame({ current: southAfrica, feedback: wrong });
-    render(<ControlZone game={game} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain(
       "Capitals: Pretoria, Cape Town, Bloemfontein",
@@ -362,7 +373,7 @@ describe("ControlZone", () => {
     };
     const game = makeGame({ current: lesotho, feedback: wrong });
     game.nameFromIso3 = (iso3) => namesByIso3[iso3] ?? iso3;
-    render(<ControlZone game={game} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("Bordered by: South Africa");
     // No trailing comma — single neighbor.
@@ -423,7 +434,7 @@ describe("ControlZone", () => {
     };
     const game = makeGame({ current: russia, feedback: wrong });
     game.nameFromIso3 = (iso3) => russiaNames[iso3] ?? iso3;
-    render(<ControlZone game={game} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} />);
     const status = screen.getByRole("status");
     // Alphabetical by display name. North Korea sorts under "N".
     expect(status.textContent).toContain(
@@ -433,9 +444,17 @@ describe("ControlZone", () => {
 
   it("renders the AnswerInput only in shape-to-name mode", () => {
     const a = makeGame({ mode: "name-to-click" });
-    const { rerender } = render(<ControlZone game={a} />);
+    const { rerender } = render(
+      <ControlZone game={a} showCaughtUp={false} onAckCaughtUp={() => {}} />,
+    );
     expect(screen.queryByPlaceholderText(/type the country name/i)).toBeNull();
-    rerender(<ControlZone game={makeGame({ mode: "shape-to-name" })} />);
+    rerender(
+      <ControlZone
+        game={makeGame({ mode: "shape-to-name" })}
+        showCaughtUp={false}
+        onAckCaughtUp={() => {}}
+      />,
+    );
     expect(screen.getByPlaceholderText(/type the country name/i)).toBeTruthy();
   });
 });

@@ -1,4 +1,4 @@
-import type { Country, Feedback, Mode } from "../types";
+import type { Country, Feedback, QuestionMode } from "../types";
 
 // Narrow out the "correct" case — the hero never renders for correct
 // answers (those auto-dismiss without a reveal). Caller is ControlZone,
@@ -8,7 +8,7 @@ type NonCorrectFeedback = Exclude<Feedback, { kind: "correct" }>;
 type Props = {
   current: Country;
   feedback: NonCorrectFeedback;
-  mode: Mode;
+  mode: QuestionMode;
   nameFromIso3: (iso3: string) => string;
 };
 
