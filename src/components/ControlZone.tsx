@@ -50,8 +50,11 @@ export function ControlZone({ game }: Props) {
   // during a Training correct/skip overlay (so users can override the
   // auto-grade with Easy/Hard before dismissal).
   const showEaseButtons = isTraining && state.feedback !== null;
+  // The intro is a teach moment. Only show it when the user actually
+  // has to pick an ease (a real miss); a 600ms auto-dismiss on a
+  // correct answer doesn't give them time to read.
   const showTrainingIntro =
-    isTraining && state.feedback !== null && !game.seenSrsIntro;
+    isTraining && state.pendingGrade && !game.seenSrsIntro;
   const skipLabel = isTraining ? "Don't know" : "Skip";
 
   return (
