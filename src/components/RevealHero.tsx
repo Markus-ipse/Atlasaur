@@ -21,33 +21,33 @@ export function RevealHero({ current, feedback, mode, nameFromIso3 }: Props) {
           <span
             className={
               "uppercase tracking-wide " +
-              (skipped ? "text-amber-800" : "text-red-600")
+              (skipped ? "text-ochre" : "text-vermillion")
             }
           >
             {skipped ? "Skipped" : "You missed"}
           </span>
           {mode === "name-to-click" && feedback.kind === "wrong" && (
             <>
-              <span className="text-slate-400"> · </span>
-              <span className="text-slate-600">
+              <span className="text-ink-faded"> · </span>
+              <span className="text-ink-mid">
                 You picked: {nameFromIso3(feedback.answerIso3)}
               </span>
             </>
           )}
         </span>
-        <span className="block text-2xl sm:text-3xl landscape:text-4xl font-semibold text-slate-900 break-words">
+        <span className="block text-2xl sm:text-3xl landscape:text-4xl font-semibold text-ink-deep break-words">
           {current.name}
         </span>
       </p>
       {current.capital !== null && (
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-mid">
           {current.capitalAlternates && current.capitalAlternates.length > 0
             ? `Capitals: ${[current.capital, ...current.capitalAlternates].join(", ")}`
             : `Capital: ${current.capital}`}
         </p>
       )}
       {current.neighbors.length > 0 && (
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-mid">
           Bordered by:{" "}
           {current.neighbors
             .map(nameFromIso3)

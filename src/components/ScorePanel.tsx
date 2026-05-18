@@ -1,6 +1,6 @@
 const SHELL =
-  "flex items-baseline gap-2 text-xs text-slate-500 tabular-nums";
-const VALUE = "font-semibold text-slate-900";
+  "flex items-baseline gap-2 text-xs text-ink-mid tabular-nums";
+const VALUE = "font-semibold text-ink-deep";
 
 export function ScorePanel({
   completedCount,

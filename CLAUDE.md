@@ -113,3 +113,17 @@ Neighbors are added to `revealIso3s` so their **labels** render too (alongside t
 - Tailwind v4 via `@tailwindcss/vite` — no `postcss.config` / `tailwind.config`. Styles are imported via `@import "tailwindcss"` in `src/index.css`.
 - Vite `base: "./"` so the build works under any subpath; required for the GitHub Pages deploy at `/Atlasaur/` (workflow: `.github/workflows/deploy.yml`, triggers on push to `main`).
 - React 19, TypeScript ~5.7, ESLint 9 flat config. Tests run in jsdom via Vitest 4.
+
+## Design tokens
+
+Color and typography tokens live in Tailwind v4's `@theme` block at the top of `src/index.css`. The names follow **period-pigment vocabulary** — `parchment-base/shadow/deep` for surfaces, `ink-deep/mid/faded` for neutrals, `vermillion / wax-red / ochre / teal-engraving` for accents. The cartography-examination aesthetic is the design language, so pigments are referenced directly in components (`bg-parchment-base`, `text-ink-deep`, `text-vermillion`). No semantic alias layer — when you need a danger color, reach for `text-vermillion`, not `text-danger`.
+
+When adding a new color, add it to `@theme` first so a Tailwind utility (`bg-foo`, `text-foo`, `border-foo`) is generated automatically. Don't drop raw hex into components or new `@theme` tokens elsewhere — keep all tokens in `src/index.css` so the palette stays auditable in one place.
+
+`var(--color-*)` references work in arbitrary CSS contexts (custom styles, inline `style={}`). For SVG `fill`/`stroke` attributes that are read or animated from JS (e.g. `src/components/fillFor.ts`, country path transitions), keep the value as a literal hex string and mirror it from the matching token — JS-set SVG attribute animation doesn't interpolate `var()` references reliably.
+
+Typography: the only loaded face is **IM Fell English** by Igino Marini (OFL 1.1, self-hosted under `public/fonts/`). Regular + italic only — no bold, no small-caps face. For emphasis use italic or size, not synthetic bold. The token is `--font-serif`; Tailwind exposes it as `font-serif`. If you add another face, update `public/fonts/OFL.txt` with the license/attribution.
+
+## Fonts (`public/fonts/`)
+
+Self-hosted so the app stays offline-capable and makes no third-party runtime requests. The `.woff2` files are referenced from `src/index.css` `@font-face` blocks; Vite serves them from the project root under `/fonts/...` thanks to `public/` being its static asset directory. To add or update fonts: drop the new `.woff2` into `public/fonts/`, add a matching `@font-face` block at the top of `src/index.css`, update `public/fonts/OFL.txt` with the attribution.

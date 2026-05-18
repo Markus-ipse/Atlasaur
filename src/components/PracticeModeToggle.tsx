@@ -10,7 +10,7 @@ export function PracticeModeToggle({ mode, onChange }: Props) {
     <div
       role="radiogroup"
       aria-label="Practice mode"
-      className="flex gap-0.5 p-0.5 rounded-full border border-slate-200 bg-slate-50"
+      className="flex gap-0.5 p-0.5 rounded-full border border-ink-faded/40 bg-parchment-shadow"
     >
       <SegButton active={mode === "exam"} onClick={() => onChange("exam")}>
         Exam
@@ -41,8 +41,8 @@ function SegButton({
       aria-checked={active}
       onClick={onClick}
       className={
-        "px-2.5 min-h-7 rounded-full text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 " +
-        (active ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100")
+        "px-2.5 min-h-7 rounded-full text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep " +
+        (active ? "bg-ink-deep text-parchment-base" : "text-ink-mid hover:bg-parchment-base")
       }
     >
       {children}

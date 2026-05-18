@@ -48,7 +48,7 @@ export function StatusBar({ game, className }: Props) {
   return (
     <header
       className={
-        "items-center justify-between gap-3 border-b border-slate-200 pb-1 " +
+        "items-center justify-between gap-3 border-b border-ink-faded/30 pb-1 " +
         (className ?? "")
       }
     >
@@ -76,9 +76,9 @@ export function StatusBar({ game, className }: Props) {
                 type="button"
                 onClick={() => game.setPracticeMode("training")}
                 title="Switch to Training mode to review"
-                className="shrink-0 text-xs text-slate-500 tabular-nums px-1.5 py-0.5 rounded hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="shrink-0 text-xs text-ink-mid tabular-nums px-1.5 py-0.5 rounded hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink-deep"
               >
-                <span className="font-semibold text-slate-900">{game.dueCount}</span>{" "}
+                <span className="font-semibold text-ink-deep">{game.dueCount}</span>{" "}
                 due
               </button>
             )}
@@ -115,21 +115,21 @@ function TrainingChips({
   newIntroduced: number;
 }) {
   return (
-    <div className="flex items-baseline gap-2 text-xs text-slate-500 tabular-nums">
+    <div className="flex items-baseline gap-2 text-xs text-ink-mid tabular-nums">
       <span>
-        Due <span className="font-semibold text-slate-900">{due}</span>
+        Due <span className="font-semibold text-ink-deep">{due}</span>
       </span>
       <span aria-hidden>·</span>
       <span>
         New{" "}
-        <span className="font-semibold text-slate-900">
+        <span className="font-semibold text-ink-deep">
           {newIntroduced}/{TRAINING_NEW_CAP}
         </span>
       </span>
       {newAvailable > 0 && (
         <>
           <span aria-hidden>·</span>
-          <span className="text-slate-400">
+          <span className="text-ink-faded">
             {newAvailable} untouched
           </span>
         </>

@@ -55,19 +55,19 @@ function ExamSummary({
   }, [showReview]);
 
   const primaryClass =
-    "min-h-11 px-5 rounded bg-slate-900 text-white font-medium";
+    "min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
   const secondaryClass =
-    "min-h-11 px-5 rounded border border-slate-300 text-slate-700 font-medium hover:bg-slate-100";
+    "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
 
   return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-slate-900/50 p-4">
+    <div className="fixed inset-0 z-10 flex items-center justify-center bg-ink-deep/55 p-4">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="session-summary-title"
-        className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-white rounded-lg shadow-lg p-6 flex flex-col gap-4"
+        className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-parchment-base rounded-lg shadow-lg p-6 flex flex-col gap-4"
       >
-        <h2 id="session-summary-title" className="text-2xl font-bold">
+        <h2 id="session-summary-title" className="text-2xl font-bold text-ink-deep">
           {title}
         </h2>
         <div className="grid grid-cols-3 gap-4 text-center">
@@ -76,23 +76,23 @@ function ExamSummary({
           <Tile label="Misses" value={String(missed.length)} />
         </div>
         {dueCount > 0 && (
-          <p className="text-xs text-slate-500 text-center">
+          <p className="text-xs text-ink-mid text-center">
             {dueCount} due in your SRS — switch to Training to review.
           </p>
         )}
         {missed.length > 0 ? (
           <div>
-            <p className="text-sm font-medium text-slate-700 mb-2">
+            <p className="text-sm font-medium text-ink-deep mb-2">
               Missed ({missed.length}):
             </p>
-            <ul className="max-h-[28dvh] overflow-y-auto text-sm text-slate-700 border border-slate-200 rounded p-3 flex flex-wrap gap-x-4 gap-y-1">
+            <ul className="max-h-[28dvh] overflow-y-auto text-sm text-ink-mid border border-ink-faded/40 rounded p-3 flex flex-wrap gap-x-4 gap-y-1">
               {missed.map((c) => (
                 <li key={c.iso3}>{c.name}</li>
               ))}
             </ul>
           </div>
         ) : (
-          <p className="text-sm text-slate-600">No misses — clean run!</p>
+          <p className="text-sm text-ink-mid">No misses — clean run!</p>
         )}
         <div className="flex flex-col gap-2">
           {showReview && (
@@ -146,9 +146,9 @@ function TrainingSummary({
   }, [onKeepTraining]);
 
   const primaryClass =
-    "min-h-11 px-5 rounded bg-slate-900 text-white font-medium flex flex-col items-center justify-center leading-tight";
+    "min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium flex flex-col items-center justify-center leading-tight hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
   const secondaryClass =
-    "min-h-11 px-5 rounded border border-slate-300 text-slate-700 font-medium hover:bg-slate-100";
+    "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
 
   const hint =
     dueCount > 0
@@ -163,7 +163,7 @@ function TrainingSummary({
 
   return (
     <div
-      className="fixed inset-0 z-10 flex items-center justify-center bg-slate-900/50 p-4"
+      className="fixed inset-0 z-10 flex items-center justify-center bg-ink-deep/55 p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onKeepTraining();
       }}
@@ -173,9 +173,9 @@ function TrainingSummary({
         aria-modal="true"
         aria-labelledby="training-summary-title"
         aria-describedby="training-summary-hint"
-        className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-white rounded-lg shadow-lg p-6 flex flex-col gap-4"
+        className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-parchment-base rounded-lg shadow-lg p-6 flex flex-col gap-4"
       >
-        <h2 id="training-summary-title" className="text-2xl font-bold">
+        <h2 id="training-summary-title" className="text-2xl font-bold text-ink-deep">
           Nice work
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
@@ -190,7 +190,7 @@ function TrainingSummary({
         </div>
         <p
           id="training-summary-hint"
-          className="text-sm text-slate-600 text-center"
+          className="text-sm text-ink-mid text-center"
         >
           {hint}
         </p>
@@ -202,7 +202,7 @@ function TrainingSummary({
             className={primaryClass}
           >
             <span>Start exam</span>
-            <span className="text-xs font-normal text-white/70">
+            <span className="text-xs font-normal text-parchment-base/70">
               {scopeLabel}
             </span>
           </button>
@@ -222,10 +222,12 @@ function TrainingSummary({
 function Tile({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col">
-      <span className="text-xs uppercase tracking-wide text-slate-500">
+      <span className="text-xs uppercase tracking-wide text-ink-mid">
         {label}
       </span>
-      <span className="text-xl font-semibold tabular-nums">{value}</span>
+      <span className="text-xl font-semibold tabular-nums text-ink-deep">
+        {value}
+      </span>
     </div>
   );
 }

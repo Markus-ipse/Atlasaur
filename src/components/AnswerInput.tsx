@@ -54,12 +54,12 @@ export function AnswerInput({
         spellCheck={false}
         inputMode="text"
         enterKeyHint="go"
-        className="flex-1 min-h-11 px-4 text-lg rounded border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50"
+        className="flex-1 min-h-11 px-4 text-lg rounded border border-ink-faded bg-parchment-base text-ink-deep placeholder:text-ink-faded focus:outline-none focus:ring-2 focus:ring-ink-deep disabled:bg-parchment-shadow"
       />
       <button
         type="submit"
         disabled={Boolean(feedback) || !value.trim()}
-        className="min-h-11 px-5 rounded bg-slate-900 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        className="min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Submit
       </button>
