@@ -6,7 +6,7 @@ export function CaughtUp({ onKeepGoing }: Props) {
   return (
     <div className="flex flex-col gap-2">
       <p className="leading-tight">
-        <span className="block text-xs uppercase tracking-wide text-teal-engraving">
+        <span className="block font-display text-xs uppercase tracking-wide text-teal-engraving">
           Caught up
         </span>
         <span className="block text-xl font-semibold text-ink-deep">

@@ -8,6 +8,33 @@
     />
     <meta name="theme-color" content="#2b1f12" />
     <title>Atlasaur</title>
+    <script>
+      // Set data-theme and the theme-color meta before React mounts so the
+      // @theme override block in index.css applies on first paint and the
+      // mobile chrome bar matches — avoids a flash of light theme for users
+      // on system-dark or explicit-dark preference. The meta is later kept
+      // in sync by useTheme when the user changes pref.
+      //
+      // SHARED CONTRACT: the storage key, accepted values, and fallback
+      // behavior here MUST match src/theme.ts loadPref(). Module code can't
+      // run before paint, so this duplication is intentional; keep both
+      // sites in lockstep when changing either.
+      (function () {
+        try {
+          var pref = localStorage.getItem("atlasaur:theme") || "system";
+          var dark =
+            pref === "dark" ||
+            (pref === "system" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.setAttribute(
+            "data-theme",
+            dark ? "dark" : "light",
+          );
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute("content", dark ? "#0e0c08" : "#2b1f12");
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

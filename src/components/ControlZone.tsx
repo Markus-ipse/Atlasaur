@@ -7,6 +7,7 @@ import { EaseButtons } from "./EaseButtons";
 import { StudyIntro } from "./StudyIntro";
 import { CaughtUp } from "./CaughtUp";
 import type { GameApi } from "../game/useGame";
+import type { ThemePref } from "../theme";
 
 type Props = {
   game: GameApi;
@@ -14,9 +15,17 @@ type Props = {
   // while the banner is up (otherwise a stray click bypasses it).
   showCaughtUp: boolean;
   onAckCaughtUp: () => void;
+  themePref: ThemePref;
+  onSetThemePref: (pref: ThemePref) => void;
 };
 
-export function ControlZone({ game, showCaughtUp, onAckCaughtUp }: Props) {
+export function ControlZone({
+  game,
+  showCaughtUp,
+  onAckCaughtUp,
+  themePref,
+  onSetThemePref,
+}: Props) {
   const { state } = game;
   const continueRef = useRef<HTMLButtonElement>(null);
   const isStudy = state.practiceMode === "study";
@@ -54,7 +63,12 @@ export function ControlZone({ game, showCaughtUp, onAckCaughtUp }: Props) {
 
   return (
     <aside className="flex flex-col shrink-0 bg-parchment-base border-ink-faded/40 portrait:border-t portrait:p-3 portrait:gap-3 portrait:overflow-y-auto landscape:border-l landscape:p-4 landscape:gap-4 landscape:w-72 lg:landscape:w-80 landscape:h-full landscape:overflow-y-auto">
-      <StatusBar game={game} className="flex portrait:hidden" />
+      <StatusBar
+        game={game}
+        className="flex portrait:hidden"
+        themePref={themePref}
+        onSetThemePref={onSetThemePref}
+      />
 
       <div className="landscape:flex-1 landscape:flex landscape:items-center">
         {showCaughtUp ? (

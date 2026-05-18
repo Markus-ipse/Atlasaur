@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Unlocks `dark:` prefixed utilities for edge cases that can't be expressed
+   via @theme token override alone (mode-only blend modes, opacity, etc.).
+   The bulk of dark mode rides on the [data-theme="dark"] block below
+   overriding --color-* variables that Tailwind v4 utilities reference via
+   var() — no `dark:` prefixes needed for normal color work. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 /* IM Fell English by Igino Marini (OFL 1.1). Self-hosted under
    public/fonts/ to avoid runtime requests to Google. See OFL.txt. */
 @font-face {
@@ -56,10 +63,68 @@
   --color-sap-green: #5d7e3e; /* correct country fill — muted period green */
   --color-skipped: #9a7a2a; /* skipped country fill */
   --color-neighbor: #c5b791; /* miss-reveal neighbor cue */
+  --color-map-border: #2b1f12; /* country path stroke — mirrors ink-deep in
+                                  light but stays warm ochre in dark so
+                                  borders read against the dark ocean */
+
+  /* Always-darker-than-base roles. Separate from --color-ink-deep because
+     scrims and edge vignettes must stay darkening across theme flips — they
+     can't ride on the primary foreground token, which inverts in dark mode. */
+  --color-scrim: #2b1f12; /* modal backdrop tint, used at bg-scrim/55 */
+  --color-vignette: #2b1f12; /* map edge darkening color */
 
   /* Typography */
   --font-serif: "IM Fell English", "Hoefler Text", "Garamond", serif;
   --font-display: "IM Fell English SC", "IM Fell English", "Hoefler Text", serif;
+}
+
+/* Dark theme — the chart room after the lamps have been turned down.
+   Warm near-black surfaces, aged-ivory inks, the same accent pigments
+   rebalanced (not replaced) for legibility on dark. The reference is real
+   night-mode instrumentation (aviation EFBs, submarine red-light, NASA
+   mission control 1960s–80s), not cinematic cyan-HUD shorthand. Every
+   pigment keeps its role; only luminance shifts. */
+[data-theme="dark"] {
+  /* Surfaces — warm near-black, faint umber undertone */
+  --color-parchment-base: #0e0c08;
+  --color-parchment-shadow: #1a1612;
+  --color-parchment-deep: #25201a;
+  --color-parchment-map: #2a241c; /* in-scope land — deep umber */
+  --color-ocean-tint: #060503; /* map background — deep warm black */
+
+  /* Inks — warm aged-ivory, NOT cool steel-white */
+  --color-ink-deep: #ede2c4; /* primary foreground (~14:1 on base) */
+  --color-ink-mid: #b89a6c; /* secondary (~7:1) */
+  --color-ink-faded: #6e5a3c; /* dim borders, graticule */
+
+  /* Accents — identity preserved from light, rebalanced for dark, NOT shifted to neon */
+  --color-vermillion: #c84a3a;
+  --color-vermillion-faded: #a64634;
+  --color-wax-red: #8e2a22;
+  --color-ochre: #d49a3a;
+  --color-teal-engraving: #6ea8a0;
+
+  /* Map states */
+  --color-sap-green: #7d9a4c; /* same period foliage, brightened for legibility */
+  --color-skipped: #c69a36; /* amber, ochre family */
+  --color-neighbor: #8a7a4a; /* warm muted ink — NOT cool blue */
+  --color-map-border: #7a6440; /* warm faded ochre — visible against dark ocean */
+
+  /* Always-darker-than-base roles. Both stay in the warm family to match
+     the rest of the dark palette; vignette is pure black to deepen map
+     edges, scrim is a touch lighter so dialogs read as floating above the
+     chart room rather than punched through it. */
+  --color-scrim: #080503;
+  --color-vignette: #000000;
+
+  /* Focus-ring offset color. Tailwind's default is #fff which would draw
+     a bright halo around every focused control on dark; mirror the page
+     surface instead so the offset blends seamlessly. NOTE: this references
+     the Tailwind v4 internal name `--tw-ring-offset-color`. Treated as
+     internal by Tailwind; a future minor version could rename it without
+     a build error, so revisit if focus rings start drawing a white halo
+     in dark after a Tailwind upgrade. */
+  --tw-ring-offset-color: var(--color-parchment-base);
 }
 
 html,
@@ -107,6 +172,24 @@ body::before {
   background-size: 240px 240px;
 }
 
+/* Dark mode grain — multiply against near-black produces nothing, so swap
+   to screen blend with a brighter warm-ivory matrix. Reads as faint amber
+   fiber speckle on the dark surface — same tactile role the sepia grain
+   plays in light mode, just inverted in luminance. Opacity reduced
+   slightly since screen on a near-black ground is more visible than
+   multiply on cream. */
+[data-theme="dark"] .parchment-grain::after,
+[data-theme="dark"] body::before {
+  mix-blend-mode: screen;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.93  0 0 0 0 0.81  0 0 0 0 0.65  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+[data-theme="dark"] .parchment-grain::after {
+  opacity: 0.08;
+}
+[data-theme="dark"] body::before {
+  opacity: 0.05;
+}
+
 #root {
   position: relative;
   z-index: 1;
@@ -118,8 +201,23 @@ body::before {
   background: radial-gradient(
     ellipse at center,
     transparent 55%,
-    color-mix(in srgb, var(--color-ink-deep) 22%, transparent) 100%
+    color-mix(in srgb, var(--color-vignette) 22%, transparent) 100%
   );
+}
+
+/* Theme transition. Animates body's own background/foreground so the page
+   itself fades on toggle; country fills also ease via their inline style
+   in WorldMap.tsx (the visual centerpiece of the toggle). Panels, buttons,
+   and chips intentionally snap — they have their own hover transitions
+   that should stay snappy, and CSS transition is per-element so a body
+   rule can't reach them anyway. Reduced-motion gated. */
+body {
+  transition: background-color 200ms ease, color 200ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  body {
+    transition: none;
+  }
 }
 
 button,

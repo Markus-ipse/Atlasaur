@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local visual-review screenshots from /pre-commit-review browser sweeps
+.review/

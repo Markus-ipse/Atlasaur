@@ -35,7 +35,7 @@ import {
   type Label,
   type Rect,
 } from "./labelLayout";
-import { COLOR_BORDER, COLOR_OCEAN_LABEL, COLOR_OCEAN_TINT, fillFor } from "./fillFor";
+import { fillFor, type Palette } from "./fillFor";
 import { Wordmark } from "./Wordmark";
 
 const topology = topologyJson as unknown as Topology;
@@ -276,6 +276,10 @@ type Props = {
   // When false, country clicks are suppressed. Used by Study mode's
   // CaughtUp banner so a stray click doesn't bypass it.
   interactive?: boolean;
+  // Active theme palette — passed in so SVG fill/stroke values stay as
+  // literal hex strings (var() refs don't interpolate reliably across
+  // animated attribute changes; see CLAUDE.md).
+  palette: Palette;
 };
 
 export function WorldMap({
@@ -290,6 +294,7 @@ export function WorldMap({
   isInScope,
   onCountryClick,
   interactive = true,
+  palette,
 }: Props) {
   const neighborSet = useMemo(
     () => new Set(correctNeighborIso3s),
@@ -536,7 +541,7 @@ export function WorldMap({
   return (
     <div
       className="parchment-grain relative h-full w-full overflow-hidden [overscroll-behavior:none]"
-      style={{ backgroundColor: COLOR_OCEAN_TINT }}
+      style={{ backgroundColor: palette.oceanTint }}
     >
       <svg
         ref={svgRef}
@@ -551,7 +556,7 @@ export function WorldMap({
           <path
             d={GRATICULE_D}
             fill="none"
-            stroke={COLOR_BORDER}
+            stroke={palette.border}
             strokeWidth={0.25}
             vectorEffect="non-scaling-stroke"
             opacity={0.18}
@@ -560,14 +565,17 @@ export function WorldMap({
           {PATHS.map((p) => {
             const iso3 = p.numericId ? isoFromNumeric(p.numericId) : undefined;
             const inScope = iso3 ? isInScope(iso3) : false;
-            const fill = fillFor({ iso3, highlightedIso3, feedback, inScope, neighborSet });
+            const fill = fillFor(
+              { iso3, highlightedIso3, feedback, inScope, neighborSet },
+              palette,
+            );
             const clickable = isClickMode && Boolean(iso3) && inScope;
             return (
               <path
                 key={p.key}
                 d={p.d}
                 fill={fill}
-                stroke={COLOR_BORDER}
+                stroke={palette.border}
                 strokeWidth={0.5}
                 vectorEffect="non-scaling-stroke"
                 className={clickable ? "country-clickable cursor-pointer" : ""}
@@ -592,8 +600,8 @@ export function WorldMap({
                 fontSize={oceanLabelFontSize}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fill={COLOR_OCEAN_LABEL}
-                stroke={COLOR_OCEAN_TINT}
+                fill={palette.oceanLabel}
+                stroke={palette.oceanTint}
                 strokeWidth={oceanLabelFontSize * 0.22}
                 paintOrder="stroke"
               >
@@ -610,8 +618,8 @@ export function WorldMap({
               fontSize={labelFontSize}
               textAnchor="middle"
               dominantBaseline="middle"
-              fill={COLOR_BORDER}
-              stroke={COLOR_OCEAN_TINT}
+              fill={palette.border}
+              stroke={palette.oceanTint}
               strokeWidth={labelFontSize * 0.22}
               paintOrder="stroke"
               style={{ pointerEvents: "none" }}

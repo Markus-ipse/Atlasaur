@@ -6,6 +6,7 @@ import {
   type PracticeMode,
   type QuestionMode,
 } from "../types";
+import type { ThemePref } from "../theme";
 
 type PopupCoords = {
   top: number;
@@ -29,6 +30,8 @@ type Props = {
   totalReviews: number;
   lifetimeAccuracy: number;
   onResetSrs: () => void;
+  themePref: ThemePref;
+  onSetThemePref: (pref: ThemePref) => void;
 };
 
 export function SettingsMenu({
@@ -46,6 +49,8 @@ export function SettingsMenu({
   totalReviews,
   lifetimeAccuracy,
   onResetSrs,
+  themePref,
+  onSetThemePref,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<PopupCoords | null>(null);
@@ -157,7 +162,7 @@ export function SettingsMenu({
             className="z-50 w-72 rounded-lg border border-ink-faded/40 bg-parchment-base shadow-lg p-3 flex flex-col gap-3 overflow-y-auto"
           >
             <div>
-              <p className="text-xs uppercase tracking-wide text-ink-mid mb-1">Question</p>
+              <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Question</p>
               <div
                 role="radiogroup"
                 aria-label="Question mode"
@@ -178,7 +183,7 @@ export function SettingsMenu({
               </div>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-ink-mid mb-1">Continents</p>
+              <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Continents</p>
               <div role="group" aria-label="Continents" className="flex flex-wrap gap-1">
                 {ALL_CONTINENTS.map((continent) => {
                   const active = selectedSet.has(continent);
@@ -201,7 +206,7 @@ export function SettingsMenu({
             </div>
             {practiceMode !== "study" && (
               <div>
-                <p className="text-xs uppercase tracking-wide text-ink-mid mb-1">Reveal</p>
+                <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Reveal</p>
                 <label className="flex items-center gap-2 text-sm text-ink-deep cursor-pointer">
                   <input
                     type="checkbox"
@@ -214,7 +219,34 @@ export function SettingsMenu({
               </div>
             )}
             <div>
-              <p className="text-xs uppercase tracking-wide text-ink-mid mb-1">Stats</p>
+              <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Theme</p>
+              <div
+                role="radiogroup"
+                aria-label="Theme"
+                className="flex gap-1 p-1 rounded-full border border-ink-faded/40 bg-parchment-shadow"
+              >
+                <ModeButton
+                  active={themePref === "system"}
+                  onClick={() => onSetThemePref("system")}
+                >
+                  System
+                </ModeButton>
+                <ModeButton
+                  active={themePref === "light"}
+                  onClick={() => onSetThemePref("light")}
+                >
+                  Light
+                </ModeButton>
+                <ModeButton
+                  active={themePref === "dark"}
+                  onClick={() => onSetThemePref("dark")}
+                >
+                  Dark
+                </ModeButton>
+              </div>
+            </div>
+            <div>
+              <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Stats</p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-mid tabular-nums">
                 <span>Learned</span>
                 <span className="text-ink-deep font-medium text-right">

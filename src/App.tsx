@@ -7,6 +7,8 @@ import { StatusBar } from "./components/StatusBar";
 import { STUDY_NEW_CAP } from "./game/pickCountry";
 import countriesData from "./data/countries.json";
 import type { Country } from "./types";
+import { useTheme } from "./theme";
+import { DARK_PALETTE, LIGHT_PALETTE } from "./components/fillFor";
 
 const ALL_COUNTRIES = countriesData as Country[];
 
@@ -17,6 +19,8 @@ const NO_NEIGHBORS: readonly string[] = [];
 export default function App() {
   const game = useGame();
   const { state } = game;
+  const { pref: themePref, theme, setPref: setThemePref } = useTheme();
+  const palette = theme === "dark" ? DARK_PALETTE : LIGHT_PALETTE;
 
   const highlightedIso3 =
     state.mode === "shape-to-name" ? state.current.iso3 : null;
@@ -55,6 +59,8 @@ export default function App() {
       <StatusBar
         game={game}
         className="hidden portrait:flex px-3 pt-3 bg-parchment-base"
+        themePref={themePref}
+        onSetThemePref={setThemePref}
       />
       <div className="relative flex-1 min-h-0 min-w-0">
         <WorldMap
@@ -72,12 +78,15 @@ export default function App() {
           isInScope={game.isInScope}
           onCountryClick={game.answer}
           interactive={!showCaughtUp}
+          palette={palette}
         />
       </div>
       <ControlZone
         game={game}
         showCaughtUp={showCaughtUp}
         onAckCaughtUp={() => setCaughtUpAck(true)}
+        themePref={themePref}
+        onSetThemePref={setThemePref}
       />
       {state.sessionDone && (
         <SessionSummary

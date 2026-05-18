@@ -60,7 +60,7 @@ function QuizSummary({
     "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
 
   return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-ink-deep/55 p-4">
+    <div className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4">
       <div
         role="dialog"
         aria-modal="true"
@@ -163,7 +163,7 @@ function StudySummary({
 
   return (
     <div
-      className="fixed inset-0 z-10 flex items-center justify-center bg-ink-deep/55 p-4"
+      className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onKeepStudying();
       }}
@@ -222,7 +222,7 @@ function StudySummary({
 function Tile({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col">
-      <span className="text-xs uppercase tracking-wide text-ink-mid">
+      <span className="font-display text-xs uppercase tracking-wide text-ink-mid">
         {label}
       </span>
       <span className="text-xl font-semibold tabular-nums text-ink-deep">

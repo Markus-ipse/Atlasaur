@@ -11,6 +11,7 @@ import {
 import countriesData from "../data/countries.json";
 import type { Continent, Country } from "../types";
 import type { GameApi } from "../game/useGame";
+import type { ThemePref } from "../theme";
 
 const ALL_COUNTRIES = countriesData as Country[];
 
@@ -26,9 +27,11 @@ function scopeIso3s(continents: readonly Continent[]): Set<string> {
 type Props = {
   game: GameApi;
   className?: string;
+  themePref: ThemePref;
+  onSetThemePref: (pref: ThemePref) => void;
 };
 
-export function StatusBar({ game, className }: Props) {
+export function StatusBar({ game, className, themePref, onSetThemePref }: Props) {
   const { state } = game;
   const isStudy = state.practiceMode === "study";
 
@@ -100,6 +103,8 @@ export function StatusBar({ game, className }: Props) {
         totalReviews={reviews}
         lifetimeAccuracy={accuracy}
         onResetSrs={game.resetSrs}
+        themePref={themePref}
+        onSetThemePref={onSetThemePref}
       />
     </header>
   );

@@ -20,7 +20,7 @@ export function RevealHero({ current, feedback, mode, nameFromIso3 }: Props) {
         <span className="block text-xs">
           <span
             className={
-              "uppercase tracking-wide " +
+              "font-display uppercase tracking-wide " +
               (skipped ? "text-ochre" : "text-vermillion")
             }
           >
