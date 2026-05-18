@@ -4,7 +4,7 @@ import { AnswerInput } from "./AnswerInput";
 import { RevealHero } from "./RevealHero";
 import { StatusBar } from "./StatusBar";
 import { EaseButtons } from "./EaseButtons";
-import { TrainingIntro } from "./TrainingIntro";
+import { StudyIntro } from "./StudyIntro";
 import { CaughtUp } from "./CaughtUp";
 import type { GameApi } from "../game/useGame";
 
@@ -19,12 +19,12 @@ type Props = {
 export function ControlZone({ game, showCaughtUp, onAckCaughtUp }: Props) {
   const { state } = game;
   const continueRef = useRef<HTMLButtonElement>(null);
-  const isTraining = state.practiceMode === "training";
+  const isStudy = state.practiceMode === "study";
   const heroFeedback =
     state.feedback && state.feedback.kind !== "correct" ? state.feedback : null;
 
   // Continue dismisses any feedback that isn't waiting on an explicit
-  // ease press (Training wrong = pendingGrade). Correct feedback gets
+  // ease press (Study wrong = pendingGrade). Correct feedback gets
   // auto-dismissed on the 600ms timer instead, so we hide Continue
   // there to avoid a button that lives for one blink.
   const showContinue =
@@ -35,22 +35,22 @@ export function ControlZone({ game, showCaughtUp, onAckCaughtUp }: Props) {
   useEffect(() => {
     // preventScroll keeps a tall feedback panel from scrolling Continue
     // into view and pushing the hero off the top. Focus whenever the
-    // Continue button is shown — including Training-skip, so Enter
+    // Continue button is shown — including Study-skip, so Enter
     // commits the queued Again like users expect.
     if (showContinue) continueRef.current?.focus({ preventScroll: true });
   }, [showContinue]);
 
-  // Show ease buttons during a Training miss reveal (pendingGrade) or
-  // during a Training correct/skip overlay (so users can override the
+  // Show ease buttons during a Study miss reveal (pendingGrade) or
+  // during a Study correct/skip overlay (so users can override the
   // auto-grade with Easy/Hard before dismissal).
-  const showEaseButtons = isTraining && state.feedback !== null;
+  const showEaseButtons = isStudy && state.feedback !== null;
   // Intro shows whenever the user is paused on a reveal (wrong or
   // skip). The 600ms correct flash is too short to read — pendingGrade
   // alone would also miss the skip case where the user's first action
   // is "Don't know" and they've never seen the ease buttons before.
-  const showTrainingIntro =
-    isTraining && heroFeedback !== null && !game.seenSrsIntro;
-  const skipLabel = isTraining ? "Don't know" : "Skip";
+  const showStudyIntro =
+    isStudy && heroFeedback !== null && !game.seenSrsIntro;
+  const skipLabel = isStudy ? "Don't know" : "Skip";
 
   return (
     <aside className="flex flex-col shrink-0 bg-parchment-base border-ink-faded/40 portrait:border-t portrait:p-3 portrait:gap-3 portrait:overflow-y-auto landscape:border-l landscape:p-4 landscape:gap-4 landscape:w-72 lg:landscape:w-80 landscape:h-full landscape:overflow-y-auto">
@@ -80,8 +80,8 @@ export function ControlZone({ game, showCaughtUp, onAckCaughtUp }: Props) {
         />
       )}
 
-      {showTrainingIntro && (
-        <TrainingIntro onDismiss={game.markSrsIntroSeen} />
+      {showStudyIntro && (
+        <StudyIntro onDismiss={game.markSrsIntroSeen} />
       )}
 
       {showEaseButtons && (

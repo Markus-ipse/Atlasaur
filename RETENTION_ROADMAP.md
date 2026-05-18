@@ -67,10 +67,10 @@ Once M2 metadata exists, three new modes are cheap.
 
 > **Note:** The original spec below replaced the existing loop with
 > FSRS. The shipped implementation instead introduces a new
-> **Training** practice mode alongside a preserved **Exam** mode (the
+> **Study** practice mode alongside a preserved **Quiz** mode (the
 > current loop). Both modes write to a single shared SRS store keyed
-> by iso3, so Exam answers contribute to the learning algorithm without
-> requiring users to opt in to Training. See `src/game/srs.ts` and the
+> by iso3, so Quiz answers contribute to the learning algorithm without
+> requiring users to opt in to Study. See `src/game/srs.ts` and the
 > `practiceMode` axis in `src/game/useGame.ts`. The historical spec
 > stays here for context.
 

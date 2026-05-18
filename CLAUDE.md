@@ -33,26 +33,26 @@ State has a `phase: "normal" | "review"` and a `retryQueue: { iso3, dueAt }[]`:
 
 State has two orthogonal axes:
 
-- **`practiceMode: "exam" | "training"`** — selects the scheduling regime.
+- **`practiceMode: "quiz" | "study"`** — selects the scheduling regime.
 - **`mode: QuestionMode = "name-to-click" | "shape-to-name"`** — selects the prompt type.
 
-Both axes are persisted (`atlasaur:practiceMode` / `atlasaur:selectedContinents`). `Mode` was renamed to `QuestionMode` in M4 to avoid ambiguity with the new practice axis.
+Both axes are persisted (`atlasaur:practiceMode` / `atlasaur:selectedContinents`). `Mode` was renamed to `QuestionMode` in M4 to avoid ambiguity with the new practice axis. The practice-mode values were renamed from `"exam"`/`"training"` to `"quiz"`/`"study"`; `loadPracticeMode` translates the legacy values on read so existing users carry over.
 
-**Exam mode** preserves the original loop verbatim: score, streak, `retryQueue`, `phase: "review"`, end-of-session summary. Every Exam `answer`/`skip` *also* writes through to the SRS store (`Correct → Good`, `Wrong → Again`, `Skip → Again`), but only in `phase === "normal"` — writing in review phase would double-count (the same miss is already tracked by `retryQueue`). No ease buttons.
+**Quiz mode** preserves the original loop verbatim: score, streak, `retryQueue`, `phase: "review"`, end-of-session summary. Every Quiz `answer`/`skip` *also* writes through to the SRS store (`Correct → Good`, `Wrong → Again`, `Skip → Again`), but only in `phase === "normal"` — writing in review phase would double-count (the same miss is already tracked by `retryQueue`). No ease buttons.
 
-**Training mode** uses FSRS for picks and grading:
+**Study mode** uses FSRS for picks and grading:
 
-- Pick precedence (in `pickNextTraining`, `src/game/pickCountry.ts`): oldest due record → new country (by `notabilityTier` then `sizeTier` then iso3) subject to a soft cap of `TRAINING_NEW_CAP = 10` new introductions per stretch → most-overdue fallback when the cap is hit.
+- Pick precedence (in `pickNextStudy`, `src/game/pickCountry.ts`): oldest due record → new country (by `notabilityTier` then `sizeTier` then iso3) subject to a soft cap of `STUDY_NEW_CAP = 10` new introductions per stretch → most-overdue fallback when the cap is hit.
 - Grading: on a miss, `pendingGrade = true`; the user picks Again/Hard/Good/Easy (keys 1/2/3/4) via `EaseButtons`. Correct answers and skips don't write to the SRS store immediately — they set `autoGradePending` (`Good` and `Again` respectively) and `dismissFeedback` commits that grade when the feedback panel clears. If the user presses an ease before dismiss fires, the `grade` action writes their pick and clears `autoGradePending`, so an Easy override after a correct answer is a *single* Easy grade rather than Good-then-Easy compounded. `CORRECT_DISMISS_MS` drives the auto-dismiss for correct only; skip/wrong require an ease press (or Continue → defaults to Again) to advance.
-- `newIntroducedThisStretch` is volatile in-memory; resets on `setPracticeMode("training")` and on reload.
-- `state.sessionDone` is never auto-set in Training; the user exits via "Done for now" (the existing End-session button, relabeled), which lands them on a Training-flavored `SessionSummary` (lifetime stats). The summary has two actions: **Start exam** (primary, focused — flips `practiceMode` via `setPracticeMode("exam")`) and **Keep training** (secondary — calls `closeSummary`). Escape and backdrop click both dismiss via `closeSummary`. A contextual hint line above the buttons varies with `dueCount`/`newAvailableCount` to recommend the next step.
+- `newIntroducedThisStretch` is volatile in-memory; resets on `setPracticeMode("study")` and on reload.
+- `state.sessionDone` is never auto-set in Study; the user exits via "Done for now" (the existing End-session button, relabeled), which lands them on a Study-flavored `SessionSummary` (lifetime stats). The summary has two actions: **Start quiz** (primary, focused — flips `practiceMode` via `setPracticeMode("quiz")`) and **Keep studying** (secondary — calls `closeSummary`). Escape and backdrop click both dismiss via `closeSummary`. A contextual hint line above the buttons varies with `dueCount`/`newAvailableCount` to recommend the next step.
 
 **SRS store** is one record per country (`atlasaur:srs:v1`, shape: `{ version: 1, records: { iso3 → SrsRecord } }`). One record is **shared across both practice modes and both question modes** for v1 — a design choice noted in the roadmap follow-ups. `src/game/srs.ts` wraps `ts-fsrs@^5.3.3`: load/save with versioned schema and ISO↔Date hydration, `grade(record, ease, now)` mapping our `Ease` string union to the library's `Rating` enum, plus `dueCount` / `newAvailableCount` / `learnedCount` / `totalReviews` / `lifetimeAccuracy` aggregate helpers. `now: Date` is injected at every grade call site (action payloads carry it) so tests are deterministic.
 
 **Mode flips** behave differently by intent:
 
 - `setMode` (question mode) — preserves today's behavior of wiping in-session state (`retryQueue`, `completedSet`, `score`), because the queue entries refer to the old question type. `srsStore` and `practiceMode` are passed through `initialState`'s extended signature so they survive.
-- `setPracticeMode` (new) — resets only session counters (`score`/`streak`/`total`/`missed`/`pendingGrade`/`autoGradePending`/`newIntroducedThisStretch`). `retryQueue` and `completedSet` survive so a Training detour doesn't nuke an Exam in-session review queue.
+- `setPracticeMode` (new) — resets only session counters (`score`/`streak`/`total`/`missed`/`pendingGrade`/`autoGradePending`/`newIntroducedThisStretch`). `retryQueue` and `completedSet` survive so a Study detour doesn't nuke a Quiz in-session review queue.
 
 **Continent filter** still prunes `retryQueue` but never deletes SRS records — out-of-scope due cards resurface when the user widens scope.
 

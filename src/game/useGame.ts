@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useState } from "react";
 import countriesData from "../data/countries.json";
 import { normalize } from "../data/normalize";
-import { pickRandom, pickNext, pickNextTraining } from "./pickCountry";
+import { pickRandom, pickNext, pickNextStudy } from "./pickCountry";
 import {
   dueCount as srsDueCount,
   emptyStore,
@@ -38,10 +38,10 @@ const PRACTICE_MODE_STORAGE_KEY = "atlasaur:practiceMode";
 function loadPracticeMode(): PracticeMode {
   try {
     const raw = window.localStorage.getItem(PRACTICE_MODE_STORAGE_KEY);
-    if (raw === "training") return "training";
-    return "exam";
+    if (raw === "study" || raw === "training") return "study";
+    return "quiz";
   } catch {
-    return "exam";
+    return "quiz";
   }
 }
 
@@ -144,7 +144,7 @@ export type State = {
   srsStore: SrsStore;
   newIntroducedThisStretch: number;
   pendingGrade: boolean;
-  // Training-only: a grade scheduled to commit when feedback dismisses
+  // Study-only: a grade scheduled to commit when feedback dismisses
   // (auto-Good on correct, auto-Again on skip). User-initiated grade
   // clears this and writes its own ease instead, so override after a
   // correct answer means "Easy", not "Good then Easy".
@@ -197,7 +197,7 @@ export function initialState(
         }
       : modeOrOptions;
   const mode = options.mode ?? "name-to-click";
-  const practiceMode = options.practiceMode ?? "exam";
+  const practiceMode = options.practiceMode ?? "quiz";
   const selectedContinents = options.selectedContinents ?? ALL_CONTINENTS;
   const srsStore = options.srsStore ?? emptyStore();
   const pool = filterPool(selectedContinents);
@@ -235,8 +235,8 @@ function pickInitialCountry(
   srsStore: SrsStore,
   retryQueue: readonly RetryEntry[],
 ): Country {
-  if (practiceMode === "training") {
-    const picked = pickNextTraining({
+  if (practiceMode === "study") {
+    const picked = pickNextStudy({
       pool,
       byIso3: COUNTRY_BY_ISO3,
       excludeIso3: "",
@@ -250,8 +250,8 @@ function pickInitialCountry(
 }
 
 function nextCurrent(state: State, now: Date = new Date()): Country {
-  if (state.practiceMode === "training") {
-    const picked = pickNextTraining({
+  if (state.practiceMode === "study") {
+    const picked = pickNextStudy({
       pool: filterPool(state.selectedContinents),
       byIso3: COUNTRY_BY_ISO3,
       excludeIso3: state.current.iso3,
@@ -274,13 +274,13 @@ function nextCurrent(state: State, now: Date = new Date()): Country {
   });
 }
 
-function applyExamSrsWriteThrough(
+function applyQuizSrsWriteThrough(
   state: State,
   iso3: string,
   ease: Ease,
   now: Date,
 ): SrsStore {
-  if (state.practiceMode !== "exam" || state.phase !== "normal") {
+  if (state.practiceMode !== "quiz" || state.phase !== "normal") {
     return state.srsStore;
   }
   const next = srsGrade(state.srsStore.records[iso3] ?? null, ease, now);
@@ -313,8 +313,8 @@ function applyMiss(
   const correctIso3 = current.iso3;
   const feedback: Feedback = { kind, answerIso3, correctIso3 };
 
-  if (state.practiceMode === "training") {
-    // Training doesn't touch session counters or retryQueue.
+  if (state.practiceMode === "study") {
+    // Study mode doesn't touch session counters or retryQueue.
     // Wrong → user must grade (pendingGrade=true, no auto-grade).
     // Skip → auto-Again scheduled for dismiss-time, so an Easy/Hard
     // override doesn't compound on top of an already-written Again.
@@ -324,8 +324,8 @@ function applyMiss(
     return { ...state, feedback, pendingGrade: true, autoGradePending: null };
   }
 
-  // Exam mode.
-  const srsStore = applyExamSrsWriteThrough(
+  // Quiz mode.
+  const srsStore = applyQuizSrsWriteThrough(
     state,
     correctIso3,
     "Again",
@@ -375,7 +375,7 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
     ? state.completedSet
     : new Set(state.completedSet).add(correctIso3);
 
-  if (state.practiceMode === "training") {
+  if (state.practiceMode === "study") {
     // Auto-Good is *scheduled* for dismiss-time; not committed yet.
     // If the user presses an ease before the timer fires, the grade
     // action writes their pick instead.
@@ -388,7 +388,7 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
     };
   }
 
-  const srsStore = applyExamSrsWriteThrough(state, correctIso3, "Good", now);
+  const srsStore = applyQuizSrsWriteThrough(state, correctIso3, "Good", now);
 
   if (state.phase === "review") {
     return {
@@ -416,7 +416,7 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
 }
 
 function dismissFeedback(state: State, now: Date): State {
-  if (state.practiceMode === "training") {
+  if (state.practiceMode === "study") {
     // Commit a deferred auto-grade (Good on correct, Again on skip) if
     // the user didn't override. Picking the next country runs against
     // the post-grade store so we don't re-surface the same iso3.
@@ -474,9 +474,9 @@ export function reducer(state: State, action: Action): State {
     }
     case "dismiss": {
       if (!state.feedback) return state;
-      // Training: if a miss hasn't been graded yet, dismiss falls back
+      // Study: if a miss hasn't been graded yet, dismiss falls back
       // to Again — queue it for dismissFeedback to commit.
-      if (state.practiceMode === "training" && state.pendingGrade) {
+      if (state.practiceMode === "study" && state.pendingGrade) {
         return dismissFeedback(
           { ...state, pendingGrade: false, autoGradePending: "Again" },
           now,
@@ -498,8 +498,8 @@ export function reducer(state: State, action: Action): State {
     }
     case "setPracticeMode": {
       if (state.practiceMode === action.mode) return state;
-      // Preserve retryQueue + completedSet (so a quick Training detour
-      // doesn't nuke the Exam in-session review queue), but reset
+      // Preserve retryQueue + completedSet (so a quick Study detour
+      // doesn't nuke the Quiz in-session review queue), but reset
       // session counters and the soft cap.
       const next: State = {
         ...state,
@@ -532,7 +532,7 @@ export function reducer(state: State, action: Action): State {
       const reviewEmpty = state.phase === "review" && retryQueue.length === 0;
       const poolDone =
         state.phase === "normal" &&
-        state.practiceMode === "exam" &&
+        state.practiceMode === "quiz" &&
         poolComplete(pool, state.completedSet, retryQueue);
       return {
         ...state,
@@ -540,7 +540,7 @@ export function reducer(state: State, action: Action): State {
         current,
         retryQueue,
         feedback: null,
-        // Wipe in-flight Training grade state: feedback is gone and
+        // Wipe in-flight Study-mode grade state: feedback is gone and
         // `current` may have changed, so leftover pendingGrade /
         // autoGradePending would target a country the user can no
         // longer see.
@@ -551,10 +551,10 @@ export function reducer(state: State, action: Action): State {
       };
     }
     case "endSession": {
-      // If Training has an auto-grade in flight (correct-flash or skip
+      // If Study has an auto-grade in flight (correct-flash or skip
       // waiting on dismiss), commit it before bowing out — otherwise
       // the user's last interaction silently produces no SRS record.
-      if (state.practiceMode === "training" && state.autoGradePending) {
+      if (state.practiceMode === "study" && state.autoGradePending) {
         const iso3 = state.current.iso3;
         const isNew = !state.srsStore.records[iso3];
         const next = srsGrade(
@@ -591,7 +591,7 @@ export function reducer(state: State, action: Action): State {
       };
     }
     case "grade": {
-      if (state.practiceMode !== "training") return state;
+      if (state.practiceMode !== "study") return state;
       const iso3 = state.current.iso3;
       const isNew = !state.srsStore.records[iso3];
       const next = srsGrade(
@@ -627,7 +627,7 @@ export function reducer(state: State, action: Action): State {
     case "closeSummary": {
       // Clear the summary without nuking session state. Re-pick so the
       // user lands on a fresh prompt (or the most-overdue fallback in
-      // Training when nothing's due).
+      // Study when nothing's due).
       const next: State = { ...state, sessionDone: false, feedback: null };
       return { ...next, current: nextCurrent(next, now) };
     }

@@ -32,7 +32,7 @@ export function AnswerInput({
     const trimmed = value.trim();
     if (!trimmed) return;
     const iso3 = matchTypedAnswer(trimmed);
-    // Blur so subsequent number keys (Training ease shortcuts) don't
+    // Blur so subsequent number keys (Study ease shortcuts) don't
     // land in the textbox.
     inputRef.current?.blur();
     onAnswer(iso3);

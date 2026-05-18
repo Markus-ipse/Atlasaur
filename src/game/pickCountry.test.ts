@@ -173,7 +173,7 @@ describe("pickNext — review phase", () => {
   });
 });
 
-import { pickNextTraining, TRAINING_NEW_CAP } from "./pickCountry";
+import { pickNextStudy, STUDY_NEW_CAP } from "./pickCountry";
 import { grade } from "./srs";
 import type { SrsStore } from "../types";
 
@@ -181,7 +181,7 @@ function tierCountry(iso3: string, notability: 0 | 1 | 2, size: 0 | 1 | 2 | 3): 
   return { ...country(iso3), notabilityTier: notability, sizeTier: size };
 }
 
-describe("pickNextTraining", () => {
+describe("pickNextStudy", () => {
   const NOW = new Date("2026-05-16T12:00:00Z");
 
   it("prefers a due record over a fresh introduction", () => {
@@ -195,7 +195,7 @@ describe("pickNextTraining", () => {
       version: 1,
       records: { FRA: grade(null, "Again", past) },
     };
-    const picked = pickNextTraining({
+    const picked = pickNextStudy({
       pool,
       byIso3,
       excludeIso3: "",
@@ -214,7 +214,7 @@ describe("pickNextTraining", () => {
     const pool = [big_obscure, mid, small_famous];
     const byIso3 = new Map(pool.map((c) => [c.iso3, c]));
     const srsStore: SrsStore = { version: 1, records: {} };
-    const picked = pickNextTraining({
+    const picked = pickNextStudy({
       pool,
       byIso3,
       excludeIso3: "",
@@ -237,13 +237,13 @@ describe("pickNextTraining", () => {
       version: 1,
       records: { SEEN: { ...seenRecord, due: future.toISOString() } },
     };
-    const picked = pickNextTraining({
+    const picked = pickNextStudy({
       pool,
       byIso3,
       excludeIso3: "",
       srsStore,
       now: NOW,
-      newIntroducedThisStretch: TRAINING_NEW_CAP,
+      newIntroducedThisStretch: STUDY_NEW_CAP,
     });
     expect(picked?.iso3).toBe("SEEN");
   });
@@ -253,13 +253,13 @@ describe("pickNextTraining", () => {
     const pool = [fra];
     const byIso3 = new Map(pool.map((c) => [c.iso3, c]));
     const srsStore: SrsStore = { version: 1, records: {} };
-    const picked = pickNextTraining({
+    const picked = pickNextStudy({
       pool,
       byIso3,
       excludeIso3: "FRA",
       srsStore,
       now: NOW,
-      newIntroducedThisStretch: TRAINING_NEW_CAP,
+      newIntroducedThisStretch: STUDY_NEW_CAP,
     });
     expect(picked).toBeNull();
   });
@@ -283,7 +283,7 @@ describe("pickNextTraining", () => {
       ["FRA", inEurope],
       ["JPN", inAsia],
     ]);
-    const picked = pickNextTraining({
+    const picked = pickNextStudy({
       pool: europePool,
       byIso3,
       excludeIso3: "",

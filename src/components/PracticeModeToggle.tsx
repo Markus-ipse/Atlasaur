@@ -12,14 +12,14 @@ export function PracticeModeToggle({ mode, onChange }: Props) {
       aria-label="Practice mode"
       className="flex gap-0.5 p-0.5 rounded-full border border-ink-faded/40 bg-parchment-shadow"
     >
-      <SegButton active={mode === "exam"} onClick={() => onChange("exam")}>
-        Exam
+      <SegButton active={mode === "quiz"} onClick={() => onChange("quiz")}>
+        Quiz
       </SegButton>
       <SegButton
-        active={mode === "training"}
-        onClick={() => onChange("training")}
+        active={mode === "study"}
+        onClick={() => onChange("study")}
       >
-        Training
+        Study
       </SegButton>
     </div>
   );

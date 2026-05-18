@@ -1,7 +1,7 @@
 import type { Country, Phase, RetryEntry, SrsStore } from "../types";
 import { introductionOrder, isDue } from "./srs";
 
-export const TRAINING_NEW_CAP = 10;
+export const STUDY_NEW_CAP = 10;
 
 export function pickRandom(
   pool: readonly Country[],
@@ -73,7 +73,7 @@ export function pickNext(args: {
   return pickRandom(pool, excludeIso3);
 }
 
-export function pickNextTraining(args: {
+export function pickNextStudy(args: {
   pool: readonly Country[];
   byIso3: ReadonlyMap<string, Country>;
   excludeIso3: string;
@@ -101,7 +101,7 @@ export function pickNextTraining(args: {
 
   // 2. New introductions (no record), by notability desc → size desc →
   // iso3 stable. Subject to the per-stretch soft cap.
-  if (newIntroducedThisStretch < TRAINING_NEW_CAP) {
+  if (newIntroducedThisStretch < STUDY_NEW_CAP) {
     const fresh = pool.filter(
       (c) => c.iso3 !== excludeIso3 && !srsStore.records[c.iso3],
     );

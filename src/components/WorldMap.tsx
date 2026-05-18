@@ -273,7 +273,7 @@ type Props = {
   numericFromIso3: (iso3: string) => string | undefined;
   isInScope: (iso3: string) => boolean;
   onCountryClick: (iso3: string) => void;
-  // When false, country clicks are suppressed. Used by the Training
+  // When false, country clicks are suppressed. Used by Study mode's
   // CaughtUp banner so a stray click doesn't bypass it.
   interactive?: boolean;
 };

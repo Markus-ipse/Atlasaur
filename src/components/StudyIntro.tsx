@@ -2,11 +2,11 @@ type Props = {
   onDismiss: () => void;
 };
 
-export function TrainingIntro({ onDismiss }: Props) {
+export function StudyIntro({ onDismiss }: Props) {
   return (
     <div className="relative rounded border border-ochre/40 bg-ochre/15 p-3 pr-8 text-xs leading-snug text-ink-deep">
       <p>
-        <span className="font-medium">Training mode.</span> Grade how
+        <span className="font-medium">Study mode.</span> Grade how
         well you knew it — keys 1/2/3/4 or click. Atlasaur schedules
         each country to come back at the right time.
       </p>

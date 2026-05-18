@@ -69,7 +69,7 @@ export type Country = {
 
 export type QuestionMode = "name-to-click" | "shape-to-name";
 
-export type PracticeMode = "exam" | "training";
+export type PracticeMode = "quiz" | "study";
 
 export type Ease = "Again" | "Hard" | "Good" | "Easy";
 

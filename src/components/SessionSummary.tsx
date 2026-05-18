@@ -20,19 +20,19 @@ type Props = {
   scopeIso3s: ReadonlySet<string>;
   onReview: () => void;
   onPlayAgain: () => void;
-  onStartExam: () => void;
-  onKeepTraining: () => void;
+  onStartQuiz: () => void;
+  onKeepStudying: () => void;
 };
 
 export function SessionSummary(props: Props) {
-  return props.practiceMode === "training" ? (
-    <TrainingSummary {...props} />
+  return props.practiceMode === "study" ? (
+    <StudySummary {...props} />
   ) : (
-    <ExamSummary {...props} />
+    <QuizSummary {...props} />
   );
 }
 
-function ExamSummary({
+function QuizSummary({
   score,
   total,
   missed,
@@ -77,7 +77,7 @@ function ExamSummary({
         </div>
         {dueCount > 0 && (
           <p className="text-xs text-ink-mid text-center">
-            {dueCount} due in your SRS — switch to Training to review.
+            {dueCount} due in your SRS — switch to Study to review.
           </p>
         )}
         {missed.length > 0 ? (
@@ -119,31 +119,31 @@ function ExamSummary({
   );
 }
 
-function TrainingSummary({
+function StudySummary({
   dueCount,
   newAvailableCount,
   totalInScope,
   srsStore,
   scopeIso3s,
-  onStartExam,
-  onKeepTraining,
+  onStartQuiz,
+  onKeepStudying,
 }: Props) {
   const learned = srsLearnedCount(srsStore, scopeIso3s);
   const reviews = srsTotalReviews(srsStore);
   const accuracy = srsLifetimeAccuracy(srsStore);
-  const examRef = useRef<HTMLButtonElement>(null);
+  const quizRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    examRef.current?.focus();
+    quizRef.current?.focus();
   }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onKeepTraining();
+      if (e.key === "Escape") onKeepStudying();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onKeepTraining]);
+  }, [onKeepStudying]);
 
   const primaryClass =
     "min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium flex flex-col items-center justify-center leading-tight hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
@@ -156,8 +156,8 @@ function TrainingSummary({
       : newAvailableCount > 0
       ? `You can introduce ${newAvailableCount} more ${
           newAvailableCount === 1 ? "country" : "countries"
-        }, or switch to exam.`
-      : "All caught up for now — try an exam, or take a break and come back later.";
+        }, or switch to quiz.`
+      : "All caught up for now — try a quiz, or take a break and come back later.";
 
   const scopeLabel = `${totalInScope} ${totalInScope === 1 ? "country" : "countries"}`;
 
@@ -165,17 +165,17 @@ function TrainingSummary({
     <div
       className="fixed inset-0 z-10 flex items-center justify-center bg-ink-deep/55 p-4"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onKeepTraining();
+        if (e.target === e.currentTarget) onKeepStudying();
       }}
     >
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="training-summary-title"
-        aria-describedby="training-summary-hint"
+        aria-labelledby="study-summary-title"
+        aria-describedby="study-summary-hint"
         className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-parchment-base rounded-lg shadow-lg p-6 flex flex-col gap-4"
       >
-        <h2 id="training-summary-title" className="text-2xl font-bold text-ink-deep">
+        <h2 id="study-summary-title" className="text-2xl font-bold text-ink-deep">
           Nice work
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
@@ -189,29 +189,29 @@ function TrainingSummary({
           />
         </div>
         <p
-          id="training-summary-hint"
+          id="study-summary-hint"
           className="text-sm text-ink-mid text-center"
         >
           {hint}
         </p>
         <div className="flex flex-col gap-2">
           <button
-            ref={examRef}
+            ref={quizRef}
             type="button"
-            onClick={onStartExam}
+            onClick={onStartQuiz}
             className={primaryClass}
           >
-            <span>Start exam</span>
+            <span>Start quiz</span>
             <span className="text-xs font-normal text-parchment-base/70">
               {scopeLabel}
             </span>
           </button>
           <button
             type="button"
-            onClick={onKeepTraining}
+            onClick={onKeepStudying}
             className={secondaryClass}
           >
-            Keep training
+            Keep studying
           </button>
         </div>
       </div>

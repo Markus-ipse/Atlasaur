@@ -4,7 +4,7 @@ import { WorldMap } from "./components/WorldMap";
 import { ControlZone } from "./components/ControlZone";
 import { SessionSummary } from "./components/SessionSummary";
 import { StatusBar } from "./components/StatusBar";
-import { TRAINING_NEW_CAP } from "./game/pickCountry";
+import { STUDY_NEW_CAP } from "./game/pickCountry";
 import countriesData from "./data/countries.json";
 import type { Country } from "./types";
 
@@ -39,10 +39,10 @@ export default function App() {
   // while it's showing. Auto-clears once the user picks up work
   // (something becomes due, or they flip practice mode).
   const caughtUpEligible =
-    state.practiceMode === "training" &&
+    state.practiceMode === "study" &&
     !state.feedback &&
     game.dueCount === 0 &&
-    state.newIntroducedThisStretch >= TRAINING_NEW_CAP;
+    state.newIntroducedThisStretch >= STUDY_NEW_CAP;
   const [caughtUpAck, setCaughtUpAck] = useState(false);
   useEffect(() => {
     if (!caughtUpEligible) setCaughtUpAck(false);
@@ -62,8 +62,8 @@ export default function App() {
           highlightedIso3={highlightedIso3}
           feedback={state.feedback}
           showLabelsOnReveal={
-            // Training mode forces reveal labels on — it's a study mode.
-            state.practiceMode === "training" ? true : game.showLabelsOnReveal
+            // Study mode forces reveal labels on for elaborative encoding.
+            state.practiceMode === "study" ? true : game.showLabelsOnReveal
           }
           correctNeighborIso3s={correctNeighborIso3s}
           selectedContinents={state.selectedContinents}
@@ -94,8 +94,8 @@ export default function App() {
           scopeIso3s={scopeIso3s}
           onReview={game.startReview}
           onPlayAgain={game.reset}
-          onStartExam={() => game.setPracticeMode("exam")}
-          onKeepTraining={game.closeSummary}
+          onStartQuiz={() => game.setPracticeMode("quiz")}
+          onKeepStudying={game.closeSummary}
         />
       )}
     </div>

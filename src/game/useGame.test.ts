@@ -447,24 +447,24 @@ describe("reducer — setContinents", () => {
   });
 });
 
-describe("reducer — SRS write-through (Exam normal phase)", () => {
+describe("reducer — SRS write-through (Quiz normal phase)", () => {
   const NOW = new Date("2026-05-16T12:00:00Z");
 
-  it("answer-correct in Exam writes a Good grade to srsStore", () => {
+  it("answer-correct in Quiz writes a Good grade to srsStore", () => {
     const s0 = withCurrent(initialState(), "FRA");
     const s1 = reducer(s0, { type: "answer", iso3: "FRA", now: NOW });
     expect(s1.srsStore.records["FRA"]).toBeDefined();
     expect(s1.srsStore.records["FRA"].reps).toBe(1);
   });
 
-  it("answer-wrong in Exam writes an Again grade to srsStore", () => {
+  it("answer-wrong in Quiz writes an Again grade to srsStore", () => {
     const s0 = withCurrent(initialState(), "FRA");
     const s1 = reducer(s0, { type: "answer", iso3: "DEU", now: NOW });
     expect(s1.srsStore.records["FRA"]).toBeDefined();
     expect(s1.srsStore.records["FRA"].reps).toBe(1);
   });
 
-  it("skip in Exam writes an Again grade", () => {
+  it("skip in Quiz writes an Again grade", () => {
     const s0 = withCurrent(initialState(), "FRA");
     const s1 = reducer(s0, { type: "skip", now: NOW });
     expect(s1.srsStore.records["FRA"]).toBeDefined();
@@ -486,7 +486,7 @@ describe("reducer — SRS write-through (Exam normal phase)", () => {
 describe("reducer — setPracticeMode", () => {
   const NOW = new Date("2026-05-16T12:00:00Z");
 
-  it("flips to Training and resets session counters", () => {
+  it("flips to Study and resets session counters", () => {
     const s0 = withCurrent(initialState(), "FRA");
     const seeded: State = {
       ...s0,
@@ -498,10 +498,10 @@ describe("reducer — setPracticeMode", () => {
     };
     const next = reducer(seeded, {
       type: "setPracticeMode",
-      mode: "training",
+      mode: "study",
       now: NOW,
     });
-    expect(next.practiceMode).toBe("training");
+    expect(next.practiceMode).toBe("study");
     expect(next.score).toBe(0);
     expect(next.streak).toBe(0);
     expect(next.total).toBe(0);
@@ -517,7 +517,7 @@ describe("reducer — setPracticeMode", () => {
     };
     const next = reducer(seeded, {
       type: "setPracticeMode",
-      mode: "training",
+      mode: "study",
       now: NOW,
     });
     expect(next.retryQueue.map((e) => e.iso3)).toEqual(["FRA"]);
@@ -529,25 +529,25 @@ describe("reducer — setPracticeMode", () => {
     const s1 = reducer(s0, { type: "answer", iso3: "FRA", now: NOW });
     const next = reducer(s1, {
       type: "setPracticeMode",
-      mode: "training",
+      mode: "study",
       now: NOW,
     });
     expect(next.srsStore.records["FRA"]).toEqual(s1.srsStore.records["FRA"]);
   });
 });
 
-describe("reducer — Training mode grade flow", () => {
+describe("reducer — Study mode grade flow", () => {
   const NOW = new Date("2026-05-16T12:00:00Z");
 
-  function trainingState(): State {
+  function studyState(): State {
     return withCurrent(
-      { ...initialState(), practiceMode: "training" as const },
+      { ...initialState(), practiceMode: "study" as const },
       "FRA",
     );
   }
 
   it("answer-wrong sets pendingGrade and shows feedback (no auto-grade)", () => {
-    const s0 = trainingState();
+    const s0 = studyState();
     const s1 = reducer(s0, { type: "answer", iso3: "DEU", now: NOW });
     expect(s1.feedback?.kind).toBe("wrong");
     expect(s1.pendingGrade).toBe(true);
@@ -555,7 +555,7 @@ describe("reducer — Training mode grade flow", () => {
   });
 
   it("grade(Good) after a wrong answer writes Good and clears pendingGrade", () => {
-    let s = trainingState();
+    let s = studyState();
     s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
     s = reducer(s, { type: "grade", ease: "Good", now: NOW });
     expect(s.pendingGrade).toBe(false);
@@ -564,8 +564,8 @@ describe("reducer — Training mode grade flow", () => {
     expect(s.feedback).toBeNull();
   });
 
-  it("answer-correct in Training defers auto-Good until dismiss", () => {
-    const s0 = trainingState();
+  it("answer-correct in Study defers auto-Good until dismiss", () => {
+    const s0 = studyState();
     const s1 = reducer(s0, { type: "answer", iso3: "FRA", now: NOW });
     expect(s1.pendingGrade).toBe(false);
     expect(s1.autoGradePending).toBe("Good");
@@ -578,7 +578,7 @@ describe("reducer — Training mode grade flow", () => {
   });
 
   it("override after correct uses the user's ease, not Good-then-ease", () => {
-    let s = trainingState();
+    let s = studyState();
     s = reducer(s, { type: "answer", iso3: "FRA", now: NOW });
     expect(s.autoGradePending).toBe("Good");
     // User overrides with Easy while feedback is showing.
@@ -588,7 +588,7 @@ describe("reducer — Training mode grade flow", () => {
     expect(overridden.reps).toBe(1); // single grade, not two
     expect(s.autoGradePending).toBeNull();
     // Compare against a single-Easy baseline on a fresh card.
-    const baseline = trainingState();
+    const baseline = studyState();
     const baselineSingleEasy = reducer(baseline, {
       type: "grade",
       ease: "Easy",
@@ -597,8 +597,8 @@ describe("reducer — Training mode grade flow", () => {
     expect(overridden).toEqual(baselineSingleEasy.srsStore.records["FRA"]);
   });
 
-  it("skip in Training defers auto-Again until dismiss", () => {
-    const s0 = trainingState();
+  it("skip in Study defers auto-Again until dismiss", () => {
+    const s0 = studyState();
     const s1 = reducer(s0, { type: "skip", now: NOW });
     expect(s1.pendingGrade).toBe(false);
     expect(s1.autoGradePending).toBe("Again");
@@ -611,7 +611,7 @@ describe("reducer — Training mode grade flow", () => {
   });
 
   it("dismiss after a wrong with pendingGrade defaults to Again", () => {
-    let s = trainingState();
+    let s = studyState();
     s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
     expect(s.pendingGrade).toBe(true);
     s = reducer(s, { type: "dismiss", now: NOW });
@@ -621,7 +621,7 @@ describe("reducer — Training mode grade flow", () => {
   });
 
   it("increments newIntroducedThisStretch only on first-time grades", () => {
-    let s = trainingState();
+    let s = studyState();
     s = reducer(s, { type: "answer", iso3: "FRA", now: NOW });
     // Auto-Good is deferred; introduction is counted when the record
     // is actually written at dismiss time.
@@ -636,7 +636,7 @@ describe("reducer — Training mode grade flow", () => {
   });
 
   it("introduction count rises when a wrong-then-grade creates a new record", () => {
-    let s = trainingState();
+    let s = studyState();
     s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
     expect(s.pendingGrade).toBe(true);
     expect(s.newIntroducedThisStretch).toBe(0);
@@ -658,14 +658,14 @@ describe("reducer — resetSrs / closeSummary", () => {
     expect(next.selectedContinents).toBe(s.selectedContinents);
   });
 
-  it("endSession in Training commits a pending auto-grade", () => {
-    function trainingState(): State {
+  it("endSession in Study commits a pending auto-grade", () => {
+    function studyState(): State {
       return withCurrent(
-        { ...initialState(), practiceMode: "training" as const },
+        { ...initialState(), practiceMode: "study" as const },
         "FRA",
       );
     }
-    let s = trainingState();
+    let s = studyState();
     s = reducer(s, { type: "answer", iso3: "FRA", now: NOW });
     expect(s.autoGradePending).toBe("Good");
     expect(s.srsStore.records["FRA"]).toBeUndefined();
@@ -675,14 +675,14 @@ describe("reducer — resetSrs / closeSummary", () => {
     expect(s.srsStore.records["FRA"]).toBeDefined();
   });
 
-  it("setContinents clears in-flight Training grade flags", () => {
-    function trainingState(): State {
+  it("setContinents clears in-flight Study grade flags", () => {
+    function studyState(): State {
       return withCurrent(
-        { ...initialState(), practiceMode: "training" as const },
+        { ...initialState(), practiceMode: "study" as const },
         "FRA",
       );
     }
-    let s = trainingState();
+    let s = studyState();
     // A wrong answer leaves pendingGrade=true.
     s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
     expect(s.pendingGrade).toBe(true);

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { ScorePanel } from "./ScorePanel";
 import { SettingsMenu } from "./SettingsMenu";
 import { PracticeModeToggle } from "./PracticeModeToggle";
-import { TRAINING_NEW_CAP } from "../game/pickCountry";
+import { STUDY_NEW_CAP } from "../game/pickCountry";
 import {
   learnedCount as srsLearnedCount,
   lifetimeAccuracy as srsLifetimeAccuracy,
@@ -30,7 +30,7 @@ type Props = {
 
 export function StatusBar({ game, className }: Props) {
   const { state } = game;
-  const isTraining = state.practiceMode === "training";
+  const isStudy = state.practiceMode === "study";
 
   const learned = useMemo(
     () => srsLearnedCount(state.srsStore, scopeIso3s(state.selectedContinents)),
@@ -57,8 +57,8 @@ export function StatusBar({ game, className }: Props) {
           mode={state.practiceMode}
           onChange={game.setPracticeMode}
         />
-        {isTraining ? (
-          <TrainingChips
+        {isStudy ? (
+          <StudyChips
             due={game.dueCount}
             newAvailable={game.newAvailableCount}
             newIntroduced={state.newIntroducedThisStretch}
@@ -74,8 +74,8 @@ export function StatusBar({ game, className }: Props) {
             {game.dueCount > 0 && (
               <button
                 type="button"
-                onClick={() => game.setPracticeMode("training")}
-                title="Switch to Training mode to review"
+                onClick={() => game.setPracticeMode("study")}
+                title="Switch to Study mode to review"
                 className="shrink-0 text-xs text-ink-mid tabular-nums px-1.5 py-0.5 rounded hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink-deep"
               >
                 <span className="font-semibold text-ink-deep">{game.dueCount}</span>{" "}
@@ -105,7 +105,7 @@ export function StatusBar({ game, className }: Props) {
   );
 }
 
-function TrainingChips({
+function StudyChips({
   due,
   newAvailable,
   newIntroduced,
@@ -123,7 +123,7 @@ function TrainingChips({
       <span>
         New{" "}
         <span className="font-semibold text-ink-deep">
-          {newIntroduced}/{TRAINING_NEW_CAP}
+          {newIntroduced}/{STUDY_NEW_CAP}
         </span>
       </span>
       {newAvailable > 0 && (

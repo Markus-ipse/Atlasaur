@@ -37,7 +37,7 @@ function makeGame(overrides: {
   return {
     state: {
       mode: overrides.mode ?? "name-to-click",
-      practiceMode: "exam",
+      practiceMode: "quiz",
       selectedContinents: ALL_CONTINENTS,
       current: overrides.current ?? SAMPLE,
       feedback: overrides.feedback ?? null,

@@ -199,7 +199,7 @@ export function SettingsMenu({
                 })}
               </div>
             </div>
-            {practiceMode !== "training" && (
+            {practiceMode !== "study" && (
               <div>
                 <p className="text-xs uppercase tracking-wide text-ink-mid mb-1">Reveal</p>
                 <label className="flex items-center gap-2 text-sm text-ink-deep cursor-pointer">
@@ -245,7 +245,7 @@ export function SettingsMenu({
               onClick={handleEndSession}
               className="min-h-11 px-3 rounded border border-ink-faded text-ink-mid text-sm hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
             >
-              {practiceMode === "training" ? "Done for now" : "End session"}
+              {practiceMode === "study" ? "Done for now" : "End session"}
             </button>
             <div className="pt-2 mt-1 border-t border-ink-faded/30">
               {confirmReset ? (
