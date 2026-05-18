@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { geoEqualEarth, geoPath, geoStream } from "d3-geo";
+import { geoEqualEarth, geoGraticule10, geoPath, geoStream } from "d3-geo";
 import { select } from "d3-selection";
 import {
   zoom as d3zoom,
@@ -35,7 +35,8 @@ import {
   type Label,
   type Rect,
 } from "./labelLayout";
-import { COLOR_BORDER, fillFor } from "./fillFor";
+import { COLOR_BORDER, COLOR_OCEAN_LABEL, COLOR_OCEAN_TINT, fillFor } from "./fillFor";
+import { Wordmark } from "./Wordmark";
 
 const topology = topologyJson as unknown as Topology;
 
@@ -64,7 +65,6 @@ function prefersReducedMotion(): boolean {
   );
 }
 
-const COLOR_OCEAN_LABEL = "#0369a1";
 // Ocean labels: target on-screen size scales linearly with rendered SVG
 // width between these caps. Min keeps mobile legible; max stops them
 // ballooning on large desktops.
@@ -98,6 +98,13 @@ const PATHS: PathItem[] = collection.features.map((f, i) => {
     d: pathGen(f) ?? "",
   };
 });
+
+// Graticule (latitude/longitude grid) — period-cartography hallmark.
+// Default `geoGraticule10` emits meridians and parallels every 10°, with
+// 90° at the extreme meridians. Rendered once at module load behind the
+// country paths; scales with the zoom-transform group so it stays
+// geographically anchored.
+const GRATICULE_D = pathGen(geoGraticule10()) ?? "";
 
 type ProjRing = [number, number][];
 
@@ -527,7 +534,10 @@ export function WorldMap({
   );
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-sky-100 [overscroll-behavior:none]">
+    <div
+      className="parchment-grain relative h-full w-full overflow-hidden [overscroll-behavior:none]"
+      style={{ backgroundColor: COLOR_OCEAN_TINT }}
+    >
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
@@ -535,6 +545,18 @@ export function WorldMap({
         preserveAspectRatio="xMidYMid meet"
       >
         <g transform={transform.toString()}>
+          {/* Graticule — period-cartography grid behind the country
+              paths. Pointer-events disabled so it never intercepts
+              clicks. */}
+          <path
+            d={GRATICULE_D}
+            fill="none"
+            stroke={COLOR_BORDER}
+            strokeWidth={0.25}
+            vectorEffect="non-scaling-stroke"
+            opacity={0.18}
+            pointerEvents="none"
+          />
           {PATHS.map((p) => {
             const iso3 = p.numericId ? isoFromNumeric(p.numericId) : undefined;
             const inScope = iso3 ? isInScope(iso3) : false;
@@ -571,8 +593,8 @@ export function WorldMap({
                 textAnchor="middle"
                 dominantBaseline="middle"
                 fill={COLOR_OCEAN_LABEL}
-                stroke="white"
-                strokeWidth={oceanLabelFontSize * 0.18}
+                stroke={COLOR_OCEAN_TINT}
+                strokeWidth={oceanLabelFontSize * 0.22}
                 paintOrder="stroke"
               >
                 <tspan x={o.cx} dy="-0.55em">{o.qualifier}</tspan>
@@ -588,23 +610,30 @@ export function WorldMap({
               fontSize={labelFontSize}
               textAnchor="middle"
               dominantBaseline="middle"
-              fill="#0f172a"
-              stroke="white"
-              strokeWidth={labelFontSize * 0.18}
+              fill={COLOR_BORDER}
+              stroke={COLOR_OCEAN_TINT}
+              strokeWidth={labelFontSize * 0.22}
               paintOrder="stroke"
-              style={{ pointerEvents: "none", fontWeight: 500 }}
+              style={{ pointerEvents: "none" }}
             >
               {l.name}
             </text>
           ))}
         </g>
       </svg>
+      {/* Edge vignette — CSS radial gradient on the wrapper so it scales
+          with the actual viewport regardless of SVG letterboxing. Faint
+          ink at the corners suggests aged parchment held under light. */}
+      <div className="absolute inset-0 pointer-events-none map-vignette" />
+      {/* Title cartouche. DOM overlay so it sits in the actual viewport
+          corner regardless of how the SVG letterboxes its content. */}
+      <Wordmark />
       {isPanned && (
         <button
           type="button"
           onClick={resetView}
           aria-label="Reset map view"
-          className="absolute top-2 right-2 min-h-11 min-w-11 px-3 rounded-full border border-slate-300 bg-white/90 backdrop-blur text-sm text-slate-700 shadow-sm hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          className="absolute top-2 right-2 min-h-11 min-w-11 px-3 rounded-full border border-ink-faded bg-parchment-base/90 backdrop-blur text-sm text-ink-deep shadow-sm hover:bg-parchment-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
         >
           Reset
         </button>

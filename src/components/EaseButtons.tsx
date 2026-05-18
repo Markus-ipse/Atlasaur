@@ -21,11 +21,14 @@ const LABEL_BY_EASE: Record<Ease, string> = {
   Easy: "Easy",
 };
 
+// Four distinct hues so the user can pick by color, not just position:
+// vermillion (wrong), ochre (struggling), sap-green (correct), and
+// engraving teal (easy).
 const STYLE_BY_EASE: Record<Ease, string> = {
-  Again: "bg-red-600 hover:bg-red-700 text-white",
-  Hard: "bg-amber-500 hover:bg-amber-600 text-white",
-  Good: "bg-emerald-600 hover:bg-emerald-700 text-white",
-  Easy: "bg-sky-600 hover:bg-sky-700 text-white",
+  Again: "bg-vermillion hover:bg-wax-red text-parchment-base",
+  Hard: "bg-ochre hover:bg-ochre/90 text-parchment-base",
+  Good: "bg-sap-green hover:bg-sap-green/90 text-parchment-base",
+  Easy: "bg-teal-engraving hover:bg-teal-engraving/90 text-parchment-base",
 };
 
 export function EaseButtons({ record, onGrade, keysActive }: Props) {
@@ -70,7 +73,7 @@ export function EaseButtons({ record, onGrade, keysActive }: Props) {
             title={`${display} (Anki: ${ease}) · ~${interval}`}
             aria-label={`${display}, key ${i + 1}, interval about ${interval}`}
             className={
-              "min-h-11 px-1 rounded font-medium text-sm flex flex-col items-center justify-center gap-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 " +
+              "min-h-11 px-1 rounded font-medium text-sm flex flex-col items-center justify-center gap-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-ink-deep " +
               STYLE_BY_EASE[ease]
             }
           >

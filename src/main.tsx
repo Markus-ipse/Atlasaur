@@ -12,17 +12,17 @@ function renderFatal(root: HTMLElement, error: unknown): void {
   root.innerHTML = "";
   const wrap = document.createElement("div");
   wrap.style.cssText =
-    "padding:16px;font:14px ui-sans-serif,system-ui,sans-serif;color:#0f172a;background:#fef2f2;min-height:100dvh;box-sizing:border-box";
+    "padding:16px;font:14px Hoefler Text,Garamond,serif;color:#2b1f12;background:#f0e2c4;min-height:100dvh;box-sizing:border-box";
   const h = document.createElement("h1");
   h.textContent = "Atlasaur failed to load";
-  h.style.cssText = "font-size:18px;margin:0 0 8px;font-weight:600";
+  h.style.cssText = "font-size:18px;margin:0 0 8px";
   const p = document.createElement("p");
   p.textContent = message;
-  p.style.cssText = "margin:0 0 12px;color:#b91c1c";
+  p.style.cssText = "margin:0 0 12px;color:#a83b2c";
   const pre = document.createElement("pre");
   pre.textContent = stack;
   pre.style.cssText =
-    "white-space:pre-wrap;font:12px ui-monospace,monospace;color:#475569;margin:0;overflow:auto";
+    "white-space:pre-wrap;font:12px ui-monospace,monospace;color:#5c4327;margin:0;overflow:auto";
   wrap.append(h, p, pre);
   root.append(wrap);
 }

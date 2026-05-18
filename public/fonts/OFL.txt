@@ -1,0 +1,13 @@
+IM Fell English is by Igino Marini, released under the SIL Open Font License,
+Version 1.1.
+
+Source: http://www.iginomarini.com/
+Google Fonts: https://fonts.google.com/specimen/IM+Fell+English
+
+The font files in this directory (IMFellEnglish-Regular.woff2,
+IMFellEnglish-Italic.woff2, IMFellEnglishSC-Regular.woff2) were retrieved
+from Google Fonts on 2026-05-17 and are redistributed unchanged under the
+terms of the OFL 1.1.
+
+The full OFL 1.1 license text is available at:
+https://openfontlicense.org/open-font-license-official-text/

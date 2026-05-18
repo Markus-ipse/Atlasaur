@@ -53,7 +53,7 @@ export function ControlZone({ game, showCaughtUp, onAckCaughtUp }: Props) {
   const skipLabel = isTraining ? "Don't know" : "Skip";
 
   return (
-    <aside className="flex flex-col shrink-0 bg-white border-slate-200 portrait:border-t portrait:p-3 portrait:gap-3 portrait:overflow-y-auto landscape:border-l landscape:p-4 landscape:gap-4 landscape:w-72 lg:landscape:w-80 landscape:h-full landscape:overflow-y-auto">
+    <aside className="flex flex-col shrink-0 bg-parchment-base border-ink-faded/40 portrait:border-t portrait:p-3 portrait:gap-3 portrait:overflow-y-auto landscape:border-l landscape:p-4 landscape:gap-4 landscape:w-72 lg:landscape:w-80 landscape:h-full landscape:overflow-y-auto">
       <StatusBar game={game} className="flex portrait:hidden" />
 
       <div className="landscape:flex-1 landscape:flex landscape:items-center">
@@ -102,7 +102,7 @@ export function ControlZone({ game, showCaughtUp, onAckCaughtUp }: Props) {
               ref={continueRef}
               type="button"
               onClick={game.dismiss}
-              className="flex-1 min-h-11 px-4 rounded bg-slate-900 text-white font-medium hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              className="flex-1 min-h-11 px-4 rounded bg-ink-deep text-parchment-base font-medium hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
             >
               Continue
             </button>
@@ -110,7 +110,7 @@ export function ControlZone({ game, showCaughtUp, onAckCaughtUp }: Props) {
             <button
               type="button"
               onClick={game.skip}
-              className="flex-1 min-h-11 px-4 rounded border border-slate-300 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              className="flex-1 min-h-11 px-4 rounded border border-ink-faded text-ink-mid hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
             >
               {skipLabel}
             </button>
