@@ -86,11 +86,11 @@
    pigment keeps its role; only luminance shifts. */
 [data-theme="dark"] {
   /* Surfaces — warm near-black, faint umber undertone */
-  --color-parchment-base: #0e0c08;
-  --color-parchment-shadow: #1a1612;
-  --color-parchment-deep: #25201a;
-  --color-parchment-map: #2a241c; /* in-scope land — deep umber */
-  --color-ocean-tint: #060503; /* map background — deep warm black */
+  --color-parchment-base: #1c1812;
+  --color-parchment-shadow: #272118;
+  --color-parchment-deep: #322a1f;
+  --color-parchment-map: #3a3024; /* in-scope land — deep umber */
+  --color-ocean-tint: #17130d; /* map background — deep warm black */
 
   /* Inks — warm aged-ivory, NOT cool steel-white */
   --color-ink-deep: #ede2c4; /* primary foreground (~14:1 on base) */

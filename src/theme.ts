@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 
 export type ThemePref = "system" | "light" | "dark";
 export type Theme = "light" | "dark";
@@ -61,15 +61,22 @@ export function useTheme(): {
   // Mirror the resolved theme onto <html data-theme="..."> so the @theme
   // token override block in index.css applies, and update the meta
   // theme-color so the mobile chrome bar matches. The pre-paint script in
-  // index.html runs first to avoid FOUC; this effect keeps both in sync
-  // when the user changes pref or the system flips while on "system".
-  useEffect(() => {
+  // index.html runs first to avoid FOUC; this layout effect keeps both in
+  // sync when the user changes pref or the system flips while on "system".
+  // Layout effect (not regular effect) so the data-theme attribute is in
+  // place before App's palette-reading layout effect runs.
+  useLayoutEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
-      // Light keeps the historic dark-ink "accent stripe" at the top of
-      // mobile chrome; dark matches the page surface for seamless chrome.
-      meta.setAttribute("content", theme === "dark" ? "#0e0c08" : "#2b1f12");
+      // Light keeps the dark-ink "accent stripe" at the top of mobile
+      // chrome (--color-ink-deep); dark matches the page surface for
+      // seamless chrome (--color-parchment-base). Read from CSS so the
+      // @theme block stays the single source of truth.
+      const root = getComputedStyle(document.documentElement);
+      const token =
+        theme === "dark" ? "--color-parchment-base" : "--color-ink-deep";
+      meta.setAttribute("content", root.getPropertyValue(token).trim());
     }
   }, [theme]);
 

@@ -1,6 +1,21 @@
 import { describe, it, expect } from "vitest";
 import type { Feedback } from "../types";
-import { LIGHT_PALETTE, fillFor } from "./fillFor";
+import { fillFor, type Palette } from "./fillFor";
+
+// Distinct sentinel colors so a precedence bug shows up as a wrong return
+// value. Real palette resolution lives in App.tsx via readPaletteFromCss.
+const LIGHT_PALETTE: Palette = {
+  default: "#default",
+  inert: "#inert00",
+  highlight: "#highlt",
+  correct: "#correc",
+  wrong: "#wrong0",
+  skipped: "#skippd",
+  neighbor: "#neighb",
+  border: "#border",
+  oceanTint: "#ocean0",
+  oceanLabel: "#oclbl0",
+};
 
 const NO_NEIGHBORS: ReadonlySet<string> = new Set();
 const FRANCE_NEIGHBORS: ReadonlySet<string> = new Set([

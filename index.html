@@ -31,7 +31,12 @@
             dark ? "dark" : "light",
           );
           var meta = document.querySelector('meta[name="theme-color"]');
-          if (meta) meta.setAttribute("content", dark ? "#0e0c08" : "#2b1f12");
+          // Hex literals here MUST mirror --color-parchment-base (dark) and
+          // --color-ink-deep (light) in src/index.css. This script runs
+          // before the stylesheet is parsed, so it can't read the CSS
+          // variables — useTheme overwrites the meta from CSS after mount,
+          // but this initial value is what mobile chrome sees during boot.
+          if (meta) meta.setAttribute("content", dark ? "#1c1812" : "#2b1f12");
         } catch (e) {}
       })();
     </script>

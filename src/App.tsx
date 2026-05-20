@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useGame } from "./game/useGame";
 import { WorldMap } from "./components/WorldMap";
 import { ControlZone } from "./components/ControlZone";
@@ -8,7 +8,7 @@ import { STUDY_NEW_CAP } from "./game/pickCountry";
 import countriesData from "./data/countries.json";
 import type { Country } from "./types";
 import { useTheme } from "./theme";
-import { DARK_PALETTE, LIGHT_PALETTE } from "./components/fillFor";
+import { readPaletteFromCss } from "./components/fillFor";
 
 const ALL_COUNTRIES = countriesData as Country[];
 
@@ -20,7 +20,16 @@ export default function App() {
   const game = useGame();
   const { state } = game;
   const { pref: themePref, theme, setPref: setThemePref } = useTheme();
-  const palette = theme === "dark" ? DARK_PALETTE : LIGHT_PALETTE;
+  // Palette is resolved from the @theme CSS custom properties at mount and
+  // re-read whenever the theme flips. Initial mount sees the right tokens
+  // because index.html's pre-paint script sets data-theme synchronously
+  // before React mounts. On theme toggle, useTheme's useLayoutEffect runs
+  // before this one (declaration order within App) so getComputedStyle
+  // sees the new tokens.
+  const [palette, setPalette] = useState(readPaletteFromCss);
+  useLayoutEffect(() => {
+    setPalette(readPaletteFromCss());
+  }, [theme]);
 
   const highlightedIso3 =
     state.mode === "shape-to-name" ? state.current.iso3 : null;

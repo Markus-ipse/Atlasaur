@@ -1,9 +1,10 @@
 import type { Feedback } from "../types";
 
 // SVG fill/stroke attributes set from JS need literal color values — var()
-// references don't interpolate across transitions reliably. We mirror the
-// @theme tokens defined in src/index.css here as hex literals and pass the
-// active palette through from the theme-aware layer in App.tsx.
+// references don't interpolate across CSS transitions reliably. We resolve
+// the @theme tokens from src/index.css to hex strings at theme-flip time
+// via readPaletteFromCss(), then pass the palette down. The values reaching
+// SVG attributes stay literal, but CSS remains the single source of truth.
 
 export type Palette = {
   default: string; // in-scope land
@@ -18,31 +19,52 @@ export type Palette = {
   oceanLabel: string; // ocean label text
 };
 
-export const LIGHT_PALETTE: Palette = {
-  default: "#dac79a", // --color-parchment-map
-  inert: "#e3d2ad", // --color-parchment-shadow
-  highlight: "#b08327", // --color-ochre
-  correct: "#5d7e3e", // --color-sap-green
-  wrong: "#b66556", // --color-vermillion-faded
-  skipped: "#9a7a2a", // --color-skipped
-  neighbor: "#c5b791", // --color-neighbor
-  border: "#2b1f12", // --color-map-border (mirrors --color-ink-deep in light)
-  oceanTint: "#e6dec9", // --color-ocean-tint
-  oceanLabel: "#5c4327", // --color-ink-mid
+// CSS custom property names, keyed by Palette slot. Centralized so the
+// mapping is auditable in one place.
+const PALETTE_TOKENS: Record<keyof Palette, string> = {
+  default: "--color-parchment-map",
+  inert: "--color-parchment-shadow",
+  highlight: "--color-ochre",
+  correct: "--color-sap-green",
+  wrong: "--color-vermillion-faded",
+  skipped: "--color-skipped",
+  neighbor: "--color-neighbor",
+  border: "--color-map-border",
+  oceanTint: "--color-ocean-tint",
+  oceanLabel: "--color-ink-mid",
 };
 
-export const DARK_PALETTE: Palette = {
-  default: "#2a241c", // --color-parchment-map (dark)
-  inert: "#1a1612", // --color-parchment-shadow (dark)
-  highlight: "#d49a3a", // --color-ochre (dark)
-  correct: "#7d9a4c", // --color-sap-green (dark)
-  wrong: "#a64634", // --color-vermillion-faded (dark)
-  skipped: "#c69a36", // --color-skipped (dark)
-  neighbor: "#8a7a4a", // --color-neighbor (dark) — warm muted ink, not blue
-  border: "#7a6440", // --color-map-border (dark) — warm faded ochre
-  oceanTint: "#060503", // --color-ocean-tint (dark)
-  oceanLabel: "#b89a6c", // --color-ink-mid (dark)
-};
+// Resolves the current Palette by reading CSS custom properties off
+// <html>. Call this AFTER the theme's data-theme attribute has been
+// applied (the pre-paint script in index.html does this on first load;
+// useTheme's layout effect does it on toggle). Safe to call at module
+// init in a browser env — returns empty strings under SSR/jsdom without
+// a populated stylesheet, which is fine for tests that pass their own
+// palette fixture rather than calling this.
+export function readPaletteFromCss(): Palette {
+  const root = getComputedStyle(document.documentElement);
+  const get = (name: string) => root.getPropertyValue(name).trim();
+  const out = {} as Palette;
+  for (const key of Object.keys(PALETTE_TOKENS) as (keyof Palette)[]) {
+    out[key] = get(PALETTE_TOKENS[key]);
+  }
+  // Dev-mode loudness: a typo in PALETTE_TOKENS or a missing @theme entry
+  // returns an empty string here and paints SVG fills as black/transparent
+  // — exactly the silent divergence this refactor exists to prevent. Warn
+  // so it shows up in the console during local work. Skipped under jsdom
+  // (no parsed stylesheets → every token is empty by definition, would
+  // spam ten warnings per <App /> mount in tests).
+  if (import.meta.env.DEV && document.styleSheets.length > 0) {
+    for (const key of Object.keys(out) as (keyof Palette)[]) {
+      if (!out[key]) {
+        console.warn(
+          `[palette] empty value for ${key} (CSS token ${PALETTE_TOKENS[key]})`,
+        );
+      }
+    }
+  }
+  return out;
+}
 
 export function fillFor(
   args: {
