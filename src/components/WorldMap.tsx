@@ -265,6 +265,10 @@ type Props = {
   // wrong/skipped reveal. Empty when feedback is null or the correct
   // country has no land neighbors (islands).
   correctNeighborIso3s: readonly string[];
+  // [lon, lat] of the correct country's capital during a wrong/skipped
+  // reveal; null when feedback is null, kind === "correct", or the country
+  // has no capital (e.g. Antarctica). Drives the capital-marker dot.
+  revealCapitalLonLat: [number, number] | null;
   // Active continent filter — drives the resting-zoom frame so a filtered
   // pool (e.g. Europe only) lands the user near their selection instead of
   // on the full world map.
@@ -288,6 +292,7 @@ export function WorldMap({
   feedback,
   showLabelsOnReveal,
   correctNeighborIso3s,
+  revealCapitalLonLat,
   selectedContinents,
   isoFromNumeric,
   numericFromIso3,
@@ -538,6 +543,13 @@ export function WorldMap({
     ],
   );
 
+  // Project the reveal capital once per change; the projection itself is
+  // module-level and never moves, so this only runs when the answer flips.
+  const capitalDotXY = useMemo(
+    () => (revealCapitalLonLat ? projection(revealCapitalLonLat) : null),
+    [revealCapitalLonLat],
+  );
+
   return (
     <div
       className="parchment-grain relative h-full w-full overflow-hidden [overscroll-behavior:none]"
@@ -627,6 +639,27 @@ export function WorldMap({
               {l.name}
             </text>
           ))}
+          {/* Capital marker — drawn after labels so the location signal wins
+              over the (mostly redundant) country label on miss-reveal.
+              Radii divided by transform.k so the dot stays a constant ~4px
+              halo / 2.5px center regardless of reveal zoom (labels and path
+              strokes use the same counter-scale convention). */}
+          {capitalDotXY && (
+            <g aria-hidden="true" style={{ pointerEvents: "none" }}>
+              <circle
+                cx={capitalDotXY[0]}
+                cy={capitalDotXY[1]}
+                r={4 / transform.k}
+                fill={palette.capitalDotHalo}
+              />
+              <circle
+                cx={capitalDotXY[0]}
+                cy={capitalDotXY[1]}
+                r={2.5 / transform.k}
+                fill={palette.capitalDot}
+              />
+            </g>
+          )}
         </g>
       </svg>
       {/* Edge vignette — CSS radial gradient on the wrapper so it scales

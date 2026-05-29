@@ -17,6 +17,8 @@ export type Palette = {
   border: string; // country path stroke
   oceanTint: string; // SVG/map background
   oceanLabel: string; // ocean label text
+  capitalDot: string; // miss-reveal capital marker fill
+  capitalDotHalo: string; // miss-reveal capital marker halo
 };
 
 // CSS custom property names, keyed by Palette slot. Centralized so the
@@ -32,6 +34,8 @@ const PALETTE_TOKENS: Record<keyof Palette, string> = {
   border: "--color-map-border",
   oceanTint: "--color-ocean-tint",
   oceanLabel: "--color-ink-mid",
+  capitalDot: "--color-ink-deep",
+  capitalDotHalo: "--color-parchment-base",
 };
 
 // Resolves the current Palette by reading CSS custom properties off

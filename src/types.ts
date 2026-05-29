@@ -52,6 +52,10 @@ export type Country = {
   // UI omits the "Capital:" line on null, mirroring how "Bordered by:" is
   // omitted when `neighbors` is empty.
   capital: string | null;
+  // [lon, lat] of the capital city; null when capital is null. Always
+  // present (not optional) so consumers don't have to distinguish
+  // "missing field" from "no capital" — mirrors `capital`'s shape.
+  capitalLonLat: [number, number] | null;
   // Additional capitals for countries with administrative splits (e.g.
   // South Africa, Bolivia, Sri Lanka). Absent when there's only one. The
   // reveal renders `Capitals: primary, ...alternates` when present;

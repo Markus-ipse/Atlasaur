@@ -11,6 +11,7 @@ function country(iso3: string): Country {
     continent: "Europe",
     subregion: "Western Europe",
     capital: "—",
+    capitalLonLat: [0, 0],
     neighbors: [],
     sizeTier: 0,
     notabilityTier: 0,

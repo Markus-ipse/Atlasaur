@@ -15,6 +15,8 @@ const LIGHT_PALETTE: Palette = {
   border: "#border",
   oceanTint: "#ocean0",
   oceanLabel: "#oclbl0",
+  capitalDot: "#capdot",
+  capitalDotHalo: "#caphal",
 };
 
 const NO_NEIGHBORS: ReadonlySet<string> = new Set();

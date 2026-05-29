@@ -34,10 +34,19 @@ export default function App() {
   const highlightedIso3 =
     state.mode === "shape-to-name" ? state.current.iso3 : null;
 
-  const correctNeighborIso3s =
-    state.feedback && state.feedback.kind !== "correct"
-      ? state.current.neighbors
-      : NO_NEIGHBORS;
+  // True during a wrong/skipped reveal — drives all the elaborative-encoding
+  // cues (neighbor tint, capital dot). False when no feedback or a correct
+  // answer (which gets only the ephemeral flash).
+  const isMissReveal =
+    state.feedback !== null && state.feedback.kind !== "correct";
+
+  const correctNeighborIso3s = isMissReveal
+    ? state.current.neighbors
+    : NO_NEIGHBORS;
+
+  const revealCapitalLonLat = isMissReveal
+    ? state.current.capitalLonLat
+    : null;
 
   const scopeIso3s = useMemo(() => {
     const cset = new Set(state.selectedContinents);
@@ -81,6 +90,7 @@ export default function App() {
             state.practiceMode === "study" ? true : game.showLabelsOnReveal
           }
           correctNeighborIso3s={correctNeighborIso3s}
+          revealCapitalLonLat={revealCapitalLonLat}
           selectedContinents={state.selectedContinents}
           isoFromNumeric={game.isoFromNumeric}
           numericFromIso3={game.numericFromIso3}

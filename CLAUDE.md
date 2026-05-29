@@ -71,6 +71,7 @@ Per-entry fields in the `COUNTRIES` table:
 
 - **`iso3` / `name` / `aliases` / `continent`** — matching, display, and continent-filter scoping.
 - **`capital`** — `string | null`. `null` means "no meaningful capital" (Antarctica, French Southern Territories); the miss-reveal UI omits the line on null. Multi-capital cases (Netherlands → Amsterdam, South Africa → Pretoria) take the constitutional/de jure capital; M3 will add `capitalAliases` for the de facto names.
+- **`capitalLonLat`** — `[lon, lat] | null` tuple in degrees. Drives the capital-marker dot the WorldMap renders on miss-reveal. The source row omits the field when `capital === null`; the build script emits `null` to the JSON so the `Country` type can stay `[number, number] | null` instead of optional. The validator rejects entries where `capital !== null` but `capitalLonLat` is missing/malformed, and where `capital === null` but `capitalLonLat` is set.
 - **`subregion`** — one of the 22 UN M49 subregions plus `"Antarctica"`. Kept in sync between `VALID_SUBREGIONS` in the script and the `Subregion` union in `src/types.ts`.
 - **`landAreaKm2`** — raw input, **not emitted** to the JSON. The script buckets it into `sizeTier`: 0 (<50k), 1 (50k–500k), 2 (500k–2M), 3 (≥2M).
 - **`notabilityTier`** — `0 | 1 | 2`. Hand-curated "well-known" axis independent of size (Singapore=2 despite tier-0 area; Kazakhstan=1 despite tier-3 area). Drives M5 introduction order.
@@ -80,7 +81,7 @@ Per-entry fields in the `COUNTRIES` table:
 
 Partially-recognized territories (Kosovo, N. Cyprus, Somaliland) have no official ISO 3166-1 numeric and ship in the topology without a `feature.id`. They're keyed in the table by a synthetic numeric in the ISO-reserved 900–999 user-assigned range and an alpha-3 in the user-assigned `XAA–XZZ` range, with a `topoName` field that names the topology feature to match (`properties.name`). The build script enforces: synthetic numerics must be in 900–999, `topoName` must resolve to a real topology feature, no entry can have both a real numeric AND a `topoName`, and iso3s must be unique. `WorldMap.tsx` reads `countries.json` only at module load to wire the synthetic numeric onto these features (via `numericIdFor`); no game data flows from `countries.json` into the map otherwise.
 
-The build script also validates: `capital` is non-empty string or `null`; `subregion` ∈ `VALID_SUBREGIONS`; `landAreaKm2` > 0; `notabilityTier` ∈ {0, 1, 2}; every iso3 in `neighbors`/`neighborsOverride` resolves to a matched entry. Neighbor symmetry is checked as a warning (not fatal) — asymmetric pairs typically indicate an intentional override or a topology arc quirk worth a comment.
+The build script also validates: `capital` is non-empty string or `null`; `capitalLonLat` is a `[lon, lat]` tuple with `lon ∈ [-180, 180]` and `lat ∈ [-90, 90]` when `capital !== null`, and unset when `capital === null`; `subregion` ∈ `VALID_SUBREGIONS`; `landAreaKm2` > 0; `notabilityTier` ∈ {0, 1, 2}; every iso3 in `neighbors`/`neighborsOverride` resolves to a matched entry. Neighbor symmetry is checked as a warning (not fatal) — asymmetric pairs typically indicate an intentional override or a topology arc quirk worth a comment.
 
 ### Derived topology: `src/data/world-110m.json`
 

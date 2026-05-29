@@ -139,6 +139,7 @@ describe("introductionOrder", () => {
       continent: "Europe",
       subregion: "Western Europe",
       capital: null,
+      capitalLonLat: null,
       neighbors: [],
       sizeTier: size,
       notabilityTier: notability,

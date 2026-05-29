@@ -7,6 +7,10 @@
     "continent": "Asia",
     "subregion": "Southern Asia",
     "capital": "Kabul",
+    "capitalLonLat": [
+      69.18,
+      34.52
+    ],
     "notabilityTier": 1,
     "sizeTier": 2,
     "neighbors": [
@@ -26,6 +30,10 @@
     "continent": "Europe",
     "subregion": "Southern Europe",
     "capital": "Tirana",
+    "capitalLonLat": [
+      19.82,
+      41.32
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": [
@@ -43,6 +51,10 @@
     "continent": "Africa",
     "subregion": "Northern Africa",
     "capital": "Algiers",
+    "capitalLonLat": [
+      3.05,
+      36.75
+    ],
     "notabilityTier": 1,
     "sizeTier": 3,
     "neighbors": [
@@ -63,6 +75,10 @@
     "continent": "Africa",
     "subregion": "Middle Africa",
     "capital": "Luanda",
+    "capitalLonLat": [
+      13.22,
+      -8.83
+    ],
     "notabilityTier": 1,
     "sizeTier": 2,
     "neighbors": [
@@ -82,7 +98,8 @@
     "capital": null,
     "notabilityTier": 2,
     "sizeTier": 3,
-    "neighbors": []
+    "neighbors": [],
+    "capitalLonLat": null
   },
   {
     "numeric": "032",
@@ -92,6 +109,10 @@
     "continent": "South America",
     "subregion": "South America",
     "capital": "Buenos Aires",
+    "capitalLonLat": [
+      -58.67,
+      -34.58
+    ],
     "notabilityTier": 2,
     "sizeTier": 3,
     "neighbors": [
@@ -110,6 +131,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "Yerevan",
+    "capitalLonLat": [
+      44.5,
+      40.17
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": [
@@ -127,6 +152,10 @@
     "continent": "Oceania",
     "subregion": "Australia and New Zealand",
     "capital": "Canberra",
+    "capitalLonLat": [
+      149.13,
+      -35.27
+    ],
     "notabilityTier": 2,
     "sizeTier": 3,
     "neighbors": []
@@ -139,6 +168,10 @@
     "continent": "Europe",
     "subregion": "Western Europe",
     "capital": "Vienna",
+    "capitalLonLat": [
+      16.37,
+      48.2
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -159,6 +192,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "Baku",
+    "capitalLonLat": [
+      49.87,
+      40.38
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -178,6 +215,10 @@
     "continent": "North America",
     "subregion": "Caribbean",
     "capital": "Nassau",
+    "capitalLonLat": [
+      -77.35,
+      25.08
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": []
@@ -190,6 +231,10 @@
     "continent": "Asia",
     "subregion": "Southern Asia",
     "capital": "Dhaka",
+    "capitalLonLat": [
+      90.4,
+      23.72
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -205,6 +250,10 @@
     "continent": "Europe",
     "subregion": "Eastern Europe",
     "capital": "Minsk",
+    "capitalLonLat": [
+      27.57,
+      53.9
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -223,6 +272,10 @@
     "continent": "Europe",
     "subregion": "Western Europe",
     "capital": "Brussels",
+    "capitalLonLat": [
+      4.33,
+      50.83
+    ],
     "notabilityTier": 2,
     "sizeTier": 0,
     "neighbors": [
@@ -240,6 +293,10 @@
     "continent": "North America",
     "subregion": "Central America",
     "capital": "Belmopan",
+    "capitalLonLat": [
+      -88.77,
+      17.25
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": [
@@ -255,6 +312,10 @@
     "continent": "Africa",
     "subregion": "Western Africa",
     "capital": "Porto-Novo",
+    "capitalLonLat": [
+      2.62,
+      6.48
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -275,6 +336,10 @@
     "continent": "Asia",
     "subregion": "Southern Asia",
     "capital": "Thimphu",
+    "capitalLonLat": [
+      89.63,
+      27.47
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": [
@@ -290,6 +355,10 @@
     "continent": "South America",
     "subregion": "South America",
     "capital": "Sucre",
+    "capitalLonLat": [
+      -65.26,
+      -19.02
+    ],
     "notabilityTier": 1,
     "sizeTier": 2,
     "neighbors": [
@@ -313,6 +382,10 @@
     "continent": "Europe",
     "subregion": "Southern Europe",
     "capital": "Sarajevo",
+    "capitalLonLat": [
+      18.42,
+      43.87
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -329,6 +402,10 @@
     "continent": "Africa",
     "subregion": "Southern Africa",
     "capital": "Gaborone",
+    "capitalLonLat": [
+      25.9,
+      -24.63
+    ],
     "notabilityTier": 1,
     "sizeTier": 2,
     "neighbors": [
@@ -346,6 +423,10 @@
     "continent": "South America",
     "subregion": "South America",
     "capital": "Brasília",
+    "capitalLonLat": [
+      -47.88,
+      -15.79
+    ],
     "notabilityTier": 2,
     "sizeTier": 3,
     "neighbors": [
@@ -371,6 +452,10 @@
     "continent": "Asia",
     "subregion": "South-eastern Asia",
     "capital": "Bandar Seri Begawan",
+    "capitalLonLat": [
+      114.93,
+      4.88
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": [
@@ -385,6 +470,10 @@
     "continent": "Europe",
     "subregion": "Eastern Europe",
     "capital": "Sofia",
+    "capitalLonLat": [
+      23.32,
+      42.68
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -403,6 +492,10 @@
     "continent": "Africa",
     "subregion": "Western Africa",
     "capital": "Ouagadougou",
+    "capitalLonLat": [
+      -1.52,
+      12.37
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -422,6 +515,10 @@
     "continent": "Africa",
     "subregion": "Eastern Africa",
     "capital": "Gitega",
+    "capitalLonLat": [
+      29.93,
+      -3.43
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": [
@@ -438,6 +535,10 @@
     "continent": "Asia",
     "subregion": "South-eastern Asia",
     "capital": "Phnom Penh",
+    "capitalLonLat": [
+      104.92,
+      11.55
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -454,6 +555,10 @@
     "continent": "Africa",
     "subregion": "Middle Africa",
     "capital": "Yaoundé",
+    "capitalLonLat": [
+      11.5,
+      3.85
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -474,6 +579,10 @@
     "continent": "North America",
     "subregion": "Northern America",
     "capital": "Ottawa",
+    "capitalLonLat": [
+      -75.7,
+      45.42
+    ],
     "notabilityTier": 2,
     "sizeTier": 3,
     "neighbors": [
@@ -490,6 +599,10 @@
     "continent": "Africa",
     "subregion": "Middle Africa",
     "capital": "Bangui",
+    "capitalLonLat": [
+      18.58,
+      4.37
+    ],
     "notabilityTier": 0,
     "sizeTier": 2,
     "neighbors": [
@@ -509,6 +622,10 @@
     "continent": "Africa",
     "subregion": "Middle Africa",
     "capital": "N'Djamena",
+    "capitalLonLat": [
+      15.03,
+      12.1
+    ],
     "notabilityTier": 0,
     "sizeTier": 2,
     "neighbors": [
@@ -527,6 +644,10 @@
     "continent": "South America",
     "subregion": "South America",
     "capital": "Santiago",
+    "capitalLonLat": [
+      -70.67,
+      -33.45
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
@@ -546,6 +667,10 @@
     "continent": "Asia",
     "subregion": "Eastern Asia",
     "capital": "Beijing",
+    "capitalLonLat": [
+      116.38,
+      39.92
+    ],
     "notabilityTier": 2,
     "sizeTier": 3,
     "neighbors": [
@@ -573,6 +698,10 @@
     "continent": "South America",
     "subregion": "South America",
     "capital": "Bogotá",
+    "capitalLonLat": [
+      -74.07,
+      4.71
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
@@ -591,6 +720,10 @@
     "continent": "North America",
     "subregion": "Central America",
     "capital": "San José",
+    "capitalLonLat": [
+      -84.09,
+      9.93
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -608,6 +741,10 @@
     "continent": "Africa",
     "subregion": "Western Africa",
     "capital": "Yamoussoukro",
+    "capitalLonLat": [
+      -5.27,
+      6.82
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -629,6 +766,10 @@
     "continent": "Europe",
     "subregion": "Southern Europe",
     "capital": "Zagreb",
+    "capitalLonLat": [
+      16,
+      45.8
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -647,6 +788,10 @@
     "continent": "North America",
     "subregion": "Caribbean",
     "capital": "Havana",
+    "capitalLonLat": [
+      -82.35,
+      23.12
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": []
@@ -659,6 +804,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "Nicosia",
+    "capitalLonLat": [
+      33.37,
+      35.17
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": [
@@ -675,6 +824,10 @@
     "continent": "Europe",
     "subregion": "Eastern Europe",
     "capital": "Prague",
+    "capitalLonLat": [
+      14.47,
+      50.08
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -697,6 +850,10 @@
     "continent": "Africa",
     "subregion": "Middle Africa",
     "capital": "Kinshasa",
+    "capitalLonLat": [
+      15.3,
+      -4.32
+    ],
     "notabilityTier": 1,
     "sizeTier": 3,
     "neighbors": [
@@ -719,6 +876,10 @@
     "continent": "Europe",
     "subregion": "Northern Europe",
     "capital": "Copenhagen",
+    "capitalLonLat": [
+      12.58,
+      55.67
+    ],
     "notabilityTier": 2,
     "sizeTier": 0,
     "neighbors": [
@@ -733,6 +894,10 @@
     "continent": "Africa",
     "subregion": "Eastern Africa",
     "capital": "Djibouti",
+    "capitalLonLat": [
+      43.15,
+      11.58
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": [
@@ -749,6 +914,10 @@
     "continent": "North America",
     "subregion": "Caribbean",
     "capital": "Santo Domingo",
+    "capitalLonLat": [
+      -69.9,
+      18.47
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": [
@@ -763,6 +932,10 @@
     "continent": "South America",
     "subregion": "South America",
     "capital": "Quito",
+    "capitalLonLat": [
+      -78.5,
+      -0.22
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -778,6 +951,10 @@
     "continent": "Africa",
     "subregion": "Northern Africa",
     "capital": "Cairo",
+    "capitalLonLat": [
+      31.25,
+      30.05
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
@@ -794,6 +971,10 @@
     "continent": "North America",
     "subregion": "Central America",
     "capital": "San Salvador",
+    "capitalLonLat": [
+      -89.2,
+      13.7
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": [
@@ -809,6 +990,10 @@
     "continent": "Africa",
     "subregion": "Middle Africa",
     "capital": "Malabo",
+    "capitalLonLat": [
+      10.49,
+      1.35
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": [
@@ -824,6 +1009,10 @@
     "continent": "Africa",
     "subregion": "Eastern Africa",
     "capital": "Asmara",
+    "capitalLonLat": [
+      38.93,
+      15.33
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -840,6 +1029,10 @@
     "continent": "Europe",
     "subregion": "Northern Europe",
     "capital": "Tallinn",
+    "capitalLonLat": [
+      24.72,
+      59.43
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": [
@@ -857,6 +1050,10 @@
     "continent": "Africa",
     "subregion": "Southern Africa",
     "capital": "Mbabane",
+    "capitalLonLat": [
+      31.13,
+      -26.32
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": [
@@ -875,6 +1072,10 @@
     "continent": "Africa",
     "subregion": "Eastern Africa",
     "capital": "Addis Ababa",
+    "capitalLonLat": [
+      38.7,
+      9.03
+    ],
     "notabilityTier": 1,
     "sizeTier": 2,
     "neighbors": [
@@ -897,6 +1098,10 @@
     "continent": "South America",
     "subregion": "South America",
     "capital": "Stanley",
+    "capitalLonLat": [
+      -57.85,
+      -51.7
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": []
@@ -909,6 +1114,10 @@
     "continent": "Oceania",
     "subregion": "Melanesia",
     "capital": "Suva",
+    "capitalLonLat": [
+      178.42,
+      -18.13
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": []
@@ -921,6 +1130,10 @@
     "continent": "Europe",
     "subregion": "Northern Europe",
     "capital": "Helsinki",
+    "capitalLonLat": [
+      24.93,
+      60.17
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -939,6 +1152,10 @@
     "continent": "Europe",
     "subregion": "Western Europe",
     "capital": "Paris",
+    "capitalLonLat": [
+      2.33,
+      48.87
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
@@ -962,6 +1179,10 @@
     "continent": "South America",
     "subregion": "South America",
     "capital": "Cayenne",
+    "capitalLonLat": [
+      -52.33,
+      4.94
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -979,7 +1200,8 @@
     "capital": null,
     "notabilityTier": 0,
     "sizeTier": 0,
-    "neighbors": []
+    "neighbors": [],
+    "capitalLonLat": null
   },
   {
     "numeric": "266",
@@ -989,6 +1211,10 @@
     "continent": "Africa",
     "subregion": "Middle Africa",
     "capital": "Libreville",
+    "capitalLonLat": [
+      9.45,
+      0.38
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -1007,6 +1233,10 @@
     "continent": "Africa",
     "subregion": "Western Africa",
     "capital": "Banjul",
+    "capitalLonLat": [
+      -16.57,
+      13.45
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": [
@@ -1021,6 +1251,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "Tbilisi",
+    "capitalLonLat": [
+      44.83,
+      41.68
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -1040,6 +1274,10 @@
     "continent": "Europe",
     "subregion": "Western Europe",
     "capital": "Berlin",
+    "capitalLonLat": [
+      13.4,
+      52.52
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -1062,6 +1300,10 @@
     "continent": "Africa",
     "subregion": "Western Africa",
     "capital": "Accra",
+    "capitalLonLat": [
+      -0.22,
+      5.55
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -1080,6 +1322,10 @@
     "continent": "Europe",
     "subregion": "Southern Europe",
     "capital": "Athens",
+    "capitalLonLat": [
+      23.73,
+      37.98
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -1097,6 +1343,10 @@
     "continent": "North America",
     "subregion": "Northern America",
     "capital": "Nuuk",
+    "capitalLonLat": [
+      -51.75,
+      64.18
+    ],
     "notabilityTier": 1,
     "sizeTier": 3,
     "neighbors": []
@@ -1109,6 +1359,10 @@
     "continent": "North America",
     "subregion": "Central America",
     "capital": "Guatemala City",
+    "capitalLonLat": [
+      -90.52,
+      14.62
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -1126,6 +1380,10 @@
     "continent": "Africa",
     "subregion": "Western Africa",
     "capital": "Conakry",
+    "capitalLonLat": [
+      -13.7,
+      9.5
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -1145,6 +1403,10 @@
     "continent": "Africa",
     "subregion": "Western Africa",
     "capital": "Bissau",
+    "capitalLonLat": [
+      -15.58,
+      11.85
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": [
@@ -1160,6 +1422,10 @@
     "continent": "South America",
     "subregion": "South America",
     "capital": "Georgetown",
+    "capitalLonLat": [
+      -58.15,
+      6.8
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -1176,6 +1442,10 @@
     "continent": "North America",
     "subregion": "Caribbean",
     "capital": "Port-au-Prince",
+    "capitalLonLat": [
+      -72.33,
+      18.53
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": [
@@ -1190,6 +1460,10 @@
     "continent": "North America",
     "subregion": "Central America",
     "capital": "Tegucigalpa",
+    "capitalLonLat": [
+      -87.22,
+      14.1
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -1206,6 +1480,10 @@
     "continent": "Europe",
     "subregion": "Eastern Europe",
     "capital": "Budapest",
+    "capitalLonLat": [
+      19.08,
+      47.5
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -1226,6 +1504,10 @@
     "continent": "Europe",
     "subregion": "Northern Europe",
     "capital": "Reykjavík",
+    "capitalLonLat": [
+      -21.95,
+      64.15
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": []
@@ -1240,6 +1522,10 @@
     "continent": "Asia",
     "subregion": "Southern Asia",
     "capital": "New Delhi",
+    "capitalLonLat": [
+      77.2,
+      28.6
+    ],
     "notabilityTier": 2,
     "sizeTier": 3,
     "neighbors": [
@@ -1259,6 +1545,10 @@
     "continent": "Asia",
     "subregion": "South-eastern Asia",
     "capital": "Jakarta",
+    "capitalLonLat": [
+      106.82,
+      -6.17
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
@@ -1277,6 +1567,10 @@
     "continent": "Asia",
     "subregion": "Southern Asia",
     "capital": "Tehran",
+    "capitalLonLat": [
+      51.42,
+      35.7
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
@@ -1297,6 +1591,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "Baghdad",
+    "capitalLonLat": [
+      44.4,
+      33.33
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -1319,6 +1617,10 @@
     "continent": "Europe",
     "subregion": "Northern Europe",
     "capital": "Dublin",
+    "capitalLonLat": [
+      -6.23,
+      53.32
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -1333,6 +1635,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "Jerusalem",
+    "capitalLonLat": [
+      35.23,
+      31.77
+    ],
     "notabilityTier": 2,
     "sizeTier": 0,
     "neighbors": [
@@ -1351,6 +1657,10 @@
     "continent": "Europe",
     "subregion": "Southern Europe",
     "capital": "Rome",
+    "capitalLonLat": [
+      12.48,
+      41.9
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -1368,6 +1678,10 @@
     "continent": "North America",
     "subregion": "Caribbean",
     "capital": "Kingston",
+    "capitalLonLat": [
+      -76.794,
+      17.997
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": []
@@ -1383,6 +1697,10 @@
     "continent": "Asia",
     "subregion": "Eastern Asia",
     "capital": "Tokyo",
+    "capitalLonLat": [
+      139.75,
+      35.68
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": []
@@ -1395,6 +1713,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "Amman",
+    "capitalLonLat": [
+      35.93,
+      31.95
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -1413,6 +1735,10 @@
     "continent": "Asia",
     "subregion": "Central Asia",
     "capital": "Astana",
+    "capitalLonLat": [
+      71.45,
+      51.16
+    ],
     "notabilityTier": 1,
     "sizeTier": 3,
     "neighbors": [
@@ -1431,6 +1757,10 @@
     "continent": "Africa",
     "subregion": "Eastern Africa",
     "capital": "Nairobi",
+    "capitalLonLat": [
+      36.82,
+      -1.28
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
@@ -1451,6 +1781,10 @@
     "continent": "Europe",
     "subregion": "Southern Europe",
     "capital": "Pristina",
+    "capitalLonLat": [
+      21.167,
+      42.667
+    ],
     "notabilityTier": 1,
     "topoName": "Kosovo",
     "sizeTier": 0,
@@ -1469,6 +1803,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "Kuwait City",
+    "capitalLonLat": [
+      47.97,
+      29.37
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": [
@@ -1484,6 +1822,10 @@
     "continent": "Asia",
     "subregion": "Central Asia",
     "capital": "Bishkek",
+    "capitalLonLat": [
+      74.6,
+      42.87
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -1501,6 +1843,10 @@
     "continent": "Asia",
     "subregion": "South-eastern Asia",
     "capital": "Vientiane",
+    "capitalLonLat": [
+      102.6,
+      17.97
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -1519,6 +1865,10 @@
     "continent": "Europe",
     "subregion": "Northern Europe",
     "capital": "Riga",
+    "capitalLonLat": [
+      24.1,
+      56.95
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -1536,6 +1886,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "Beirut",
+    "capitalLonLat": [
+      35.5,
+      33.87
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": [
@@ -1551,6 +1905,10 @@
     "continent": "Africa",
     "subregion": "Southern Africa",
     "capital": "Maseru",
+    "capitalLonLat": [
+      27.48,
+      -29.32
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": [
@@ -1565,6 +1923,10 @@
     "continent": "Africa",
     "subregion": "Western Africa",
     "capital": "Monrovia",
+    "capitalLonLat": [
+      -10.8,
+      6.3
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -1581,6 +1943,10 @@
     "continent": "Africa",
     "subregion": "Northern Africa",
     "capital": "Tripoli",
+    "capitalLonLat": [
+      13.17,
+      32.88
+    ],
     "notabilityTier": 1,
     "sizeTier": 2,
     "neighbors": [
@@ -1600,6 +1966,10 @@
     "continent": "Europe",
     "subregion": "Northern Europe",
     "capital": "Vilnius",
+    "capitalLonLat": [
+      25.32,
+      54.68
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -1617,6 +1987,10 @@
     "continent": "Europe",
     "subregion": "Western Europe",
     "capital": "Luxembourg",
+    "capitalLonLat": [
+      6.12,
+      49.6
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": [
@@ -1633,6 +2007,10 @@
     "continent": "Africa",
     "subregion": "Eastern Africa",
     "capital": "Antananarivo",
+    "capitalLonLat": [
+      47.52,
+      -18.92
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": []
@@ -1645,6 +2023,10 @@
     "continent": "Africa",
     "subregion": "Eastern Africa",
     "capital": "Lilongwe",
+    "capitalLonLat": [
+      33.78,
+      -13.97
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -1661,6 +2043,10 @@
     "continent": "Asia",
     "subregion": "South-eastern Asia",
     "capital": "Kuala Lumpur",
+    "capitalLonLat": [
+      101.7,
+      3.17
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -1677,6 +2063,10 @@
     "continent": "Africa",
     "subregion": "Western Africa",
     "capital": "Bamako",
+    "capitalLonLat": [
+      -8,
+      12.65
+    ],
     "notabilityTier": 0,
     "sizeTier": 2,
     "neighbors": [
@@ -1697,6 +2087,10 @@
     "continent": "Africa",
     "subregion": "Western Africa",
     "capital": "Nouakchott",
+    "capitalLonLat": [
+      -15.97,
+      18.07
+    ],
     "notabilityTier": 0,
     "sizeTier": 2,
     "neighbors": [
@@ -1714,6 +2108,10 @@
     "continent": "North America",
     "subregion": "Central America",
     "capital": "Mexico City",
+    "capitalLonLat": [
+      -99.13,
+      19.43
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
@@ -1730,6 +2128,10 @@
     "continent": "Europe",
     "subregion": "Eastern Europe",
     "capital": "Chișinău",
+    "capitalLonLat": [
+      28.9,
+      47.01
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": [
@@ -1745,6 +2147,10 @@
     "continent": "Asia",
     "subregion": "Eastern Asia",
     "capital": "Ulaanbaatar",
+    "capitalLonLat": [
+      106.91,
+      47.92
+    ],
     "notabilityTier": 1,
     "sizeTier": 2,
     "neighbors": [
@@ -1760,6 +2166,10 @@
     "continent": "Europe",
     "subregion": "Southern Europe",
     "capital": "Podgorica",
+    "capitalLonLat": [
+      19.27,
+      42.43
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": [
@@ -1778,6 +2188,10 @@
     "continent": "Africa",
     "subregion": "Northern Africa",
     "capital": "Rabat",
+    "capitalLonLat": [
+      -6.82,
+      34.02
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -1793,6 +2207,10 @@
     "continent": "Africa",
     "subregion": "Eastern Africa",
     "capital": "Maputo",
+    "capitalLonLat": [
+      32.58,
+      -25.95
+    ],
     "notabilityTier": 1,
     "sizeTier": 2,
     "neighbors": [
@@ -1814,6 +2232,10 @@
     "continent": "Asia",
     "subregion": "South-eastern Asia",
     "capital": "Naypyidaw",
+    "capitalLonLat": [
+      96.07,
+      19.76
+    ],
     "notabilityTier": 1,
     "sizeTier": 2,
     "neighbors": [
@@ -1832,6 +2254,10 @@
     "continent": "Africa",
     "subregion": "Southern Africa",
     "capital": "Windhoek",
+    "capitalLonLat": [
+      17.08,
+      -22.57
+    ],
     "notabilityTier": 1,
     "sizeTier": 2,
     "neighbors": [
@@ -1849,6 +2275,10 @@
     "continent": "Asia",
     "subregion": "Southern Asia",
     "capital": "Kathmandu",
+    "capitalLonLat": [
+      85.32,
+      27.72
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -1867,6 +2297,10 @@
     "continent": "Europe",
     "subregion": "Western Europe",
     "capital": "Amsterdam",
+    "capitalLonLat": [
+      4.92,
+      52.35
+    ],
     "notabilityTier": 2,
     "sizeTier": 0,
     "neighbors": [
@@ -1885,6 +2319,10 @@
     "continent": "Oceania",
     "subregion": "Melanesia",
     "capital": "Nouméa",
+    "capitalLonLat": [
+      166.45,
+      -22.27
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": []
@@ -1899,6 +2337,10 @@
     "continent": "Oceania",
     "subregion": "Australia and New Zealand",
     "capital": "Wellington",
+    "capitalLonLat": [
+      174.78,
+      -41.3
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": []
@@ -1911,6 +2353,10 @@
     "continent": "North America",
     "subregion": "Central America",
     "capital": "Managua",
+    "capitalLonLat": [
+      -86.25,
+      12.13
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -1926,6 +2372,10 @@
     "continent": "Africa",
     "subregion": "Western Africa",
     "capital": "Niamey",
+    "capitalLonLat": [
+      2.12,
+      13.52
+    ],
     "notabilityTier": 0,
     "sizeTier": 2,
     "neighbors": [
@@ -1947,6 +2397,10 @@
     "continent": "Africa",
     "subregion": "Western Africa",
     "capital": "Abuja",
+    "capitalLonLat": [
+      7.53,
+      9.08
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
@@ -1966,6 +2420,10 @@
     "continent": "Asia",
     "subregion": "Eastern Asia",
     "capital": "Pyongyang",
+    "capitalLonLat": [
+      125.75,
+      39.02
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -1986,6 +2444,10 @@
     "continent": "Europe",
     "subregion": "Southern Europe",
     "capital": "Skopje",
+    "capitalLonLat": [
+      21.43,
+      42
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": [
@@ -2008,6 +2470,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "North Nicosia",
+    "capitalLonLat": [
+      33.367,
+      35.183
+    ],
     "notabilityTier": 0,
     "topoName": "N. Cyprus",
     "sizeTier": 0,
@@ -2023,6 +2489,10 @@
     "continent": "Europe",
     "subregion": "Northern Europe",
     "capital": "Oslo",
+    "capitalLonLat": [
+      10.75,
+      59.92
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -2039,6 +2509,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "Muscat",
+    "capitalLonLat": [
+      58.58,
+      23.62
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -2055,6 +2529,10 @@
     "continent": "Asia",
     "subregion": "Southern Asia",
     "capital": "Islamabad",
+    "capitalLonLat": [
+      73.05,
+      33.68
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
@@ -2075,6 +2553,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "Ramallah",
+    "capitalLonLat": [
+      35.2,
+      31.9
+    ],
     "notabilityTier": 2,
     "sizeTier": 0,
     "neighbors": [
@@ -2090,6 +2572,10 @@
     "continent": "North America",
     "subregion": "Central America",
     "capital": "Panama City",
+    "capitalLonLat": [
+      -79.53,
+      8.97
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -2105,6 +2591,10 @@
     "continent": "Oceania",
     "subregion": "Melanesia",
     "capital": "Port Moresby",
+    "capitalLonLat": [
+      147.18,
+      -9.45
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -2119,6 +2609,10 @@
     "continent": "South America",
     "subregion": "South America",
     "capital": "Asunción",
+    "capitalLonLat": [
+      -57.57,
+      -25.28
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -2135,6 +2629,10 @@
     "continent": "South America",
     "subregion": "South America",
     "capital": "Lima",
+    "capitalLonLat": [
+      -77.05,
+      -12.05
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
@@ -2155,6 +2653,10 @@
     "continent": "Asia",
     "subregion": "South-eastern Asia",
     "capital": "Manila",
+    "capitalLonLat": [
+      120.97,
+      14.6
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": []
@@ -2167,6 +2669,10 @@
     "continent": "Europe",
     "subregion": "Eastern Europe",
     "capital": "Warsaw",
+    "capitalLonLat": [
+      21,
+      52.25
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -2187,6 +2693,10 @@
     "continent": "Europe",
     "subregion": "Southern Europe",
     "capital": "Lisbon",
+    "capitalLonLat": [
+      -9.13,
+      38.72
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -2201,6 +2711,10 @@
     "continent": "North America",
     "subregion": "Caribbean",
     "capital": "San Juan",
+    "capitalLonLat": [
+      -66.12,
+      18.47
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": []
@@ -2213,6 +2727,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "Doha",
+    "capitalLonLat": [
+      51.53,
+      25.28
+    ],
     "notabilityTier": 2,
     "sizeTier": 0,
     "neighbors": [
@@ -2230,6 +2748,10 @@
     "continent": "Africa",
     "subregion": "Middle Africa",
     "capital": "Brazzaville",
+    "capitalLonLat": [
+      15.28,
+      -4.25
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -2248,6 +2770,10 @@
     "continent": "Europe",
     "subregion": "Eastern Europe",
     "capital": "Bucharest",
+    "capitalLonLat": [
+      26.1,
+      44.43
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -2268,6 +2794,10 @@
     "continent": "Europe",
     "subregion": "Eastern Europe",
     "capital": "Moscow",
+    "capitalLonLat": [
+      37.6,
+      55.75
+    ],
     "notabilityTier": 2,
     "sizeTier": 3,
     "neighbors": [
@@ -2295,6 +2825,10 @@
     "continent": "Africa",
     "subregion": "Eastern Africa",
     "capital": "Kigali",
+    "capitalLonLat": [
+      30.05,
+      -1.95
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": [
@@ -2312,6 +2846,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "Riyadh",
+    "capitalLonLat": [
+      46.7,
+      24.65
+    ],
     "notabilityTier": 2,
     "sizeTier": 3,
     "neighbors": [
@@ -2332,6 +2870,10 @@
     "continent": "Africa",
     "subregion": "Western Africa",
     "capital": "Dakar",
+    "capitalLonLat": [
+      -17.63,
+      14.73
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -2350,6 +2892,10 @@
     "continent": "Europe",
     "subregion": "Southern Europe",
     "capital": "Belgrade",
+    "capitalLonLat": [
+      20.5,
+      44.83
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -2371,6 +2917,10 @@
     "continent": "Africa",
     "subregion": "Western Africa",
     "capital": "Freetown",
+    "capitalLonLat": [
+      -13.23,
+      8.48
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -2386,6 +2936,10 @@
     "continent": "Europe",
     "subregion": "Eastern Europe",
     "capital": "Bratislava",
+    "capitalLonLat": [
+      17.12,
+      48.15
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": [
@@ -2404,6 +2958,10 @@
     "continent": "Europe",
     "subregion": "Southern Europe",
     "capital": "Ljubljana",
+    "capitalLonLat": [
+      14.52,
+      46.05
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": [
@@ -2421,6 +2979,10 @@
     "continent": "Oceania",
     "subregion": "Melanesia",
     "capital": "Honiara",
+    "capitalLonLat": [
+      159.95,
+      -9.43
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": []
@@ -2433,6 +2995,10 @@
     "continent": "Africa",
     "subregion": "Eastern Africa",
     "capital": "Mogadishu",
+    "capitalLonLat": [
+      45.33,
+      2.07
+    ],
     "notabilityTier": 1,
     "sizeTier": 2,
     "neighbors": [
@@ -2451,6 +3017,10 @@
     "continent": "Africa",
     "subregion": "Eastern Africa",
     "capital": "Hargeisa",
+    "capitalLonLat": [
+      44.067,
+      9.55
+    ],
     "notabilityTier": 0,
     "topoName": "Somaliland",
     "sizeTier": 1,
@@ -2470,6 +3040,10 @@
     "continent": "Africa",
     "subregion": "Southern Africa",
     "capital": "Pretoria",
+    "capitalLonLat": [
+      28.22,
+      -25.7
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
@@ -2496,6 +3070,10 @@
     "continent": "Asia",
     "subregion": "Eastern Asia",
     "capital": "Seoul",
+    "capitalLonLat": [
+      126.98,
+      37.55
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -2510,6 +3088,10 @@
     "continent": "Africa",
     "subregion": "Eastern Africa",
     "capital": "Juba",
+    "capitalLonLat": [
+      31.62,
+      4.85
+    ],
     "notabilityTier": 1,
     "sizeTier": 2,
     "neighbors": [
@@ -2531,6 +3113,10 @@
     "continent": "Europe",
     "subregion": "Southern Europe",
     "capital": "Madrid",
+    "capitalLonLat": [
+      -3.68,
+      40.4
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
@@ -2546,6 +3132,10 @@
     "continent": "Asia",
     "subregion": "Southern Asia",
     "capital": "Colombo",
+    "capitalLonLat": [
+      79.9,
+      6.89
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [],
@@ -2561,6 +3151,10 @@
     "continent": "Africa",
     "subregion": "Northern Africa",
     "capital": "Khartoum",
+    "capitalLonLat": [
+      32.53,
+      15.6
+    ],
     "notabilityTier": 1,
     "sizeTier": 2,
     "neighbors": [
@@ -2581,6 +3175,10 @@
     "continent": "South America",
     "subregion": "South America",
     "capital": "Paramaribo",
+    "capitalLonLat": [
+      -55.17,
+      5.83
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -2599,6 +3197,10 @@
     "continent": "Europe",
     "subregion": "Northern Europe",
     "capital": "Stockholm",
+    "capitalLonLat": [
+      18.05,
+      59.33
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -2614,6 +3216,10 @@
     "continent": "Europe",
     "subregion": "Western Europe",
     "capital": "Bern",
+    "capitalLonLat": [
+      7.47,
+      46.92
+    ],
     "notabilityTier": 2,
     "sizeTier": 0,
     "neighbors": [
@@ -2633,6 +3239,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "Damascus",
+    "capitalLonLat": [
+      36.3,
+      33.5
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -2654,6 +3264,10 @@
     "continent": "Asia",
     "subregion": "Eastern Asia",
     "capital": "Taipei",
+    "capitalLonLat": [
+      121.52,
+      25.03
+    ],
     "notabilityTier": 2,
     "sizeTier": 0,
     "neighbors": []
@@ -2666,6 +3280,10 @@
     "continent": "Asia",
     "subregion": "Central Asia",
     "capital": "Dushanbe",
+    "capitalLonLat": [
+      68.77,
+      38.55
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -2683,6 +3301,10 @@
     "continent": "Africa",
     "subregion": "Eastern Africa",
     "capital": "Dodoma",
+    "capitalLonLat": [
+      35.75,
+      -6.16
+    ],
     "notabilityTier": 1,
     "sizeTier": 2,
     "neighbors": [
@@ -2704,6 +3326,10 @@
     "continent": "Asia",
     "subregion": "South-eastern Asia",
     "capital": "Bangkok",
+    "capitalLonLat": [
+      100.52,
+      13.75
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
@@ -2723,6 +3349,10 @@
     "continent": "Asia",
     "subregion": "South-eastern Asia",
     "capital": "Dili",
+    "capitalLonLat": [
+      125.6,
+      -8.58
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": [
@@ -2737,6 +3367,10 @@
     "continent": "Africa",
     "subregion": "Western Africa",
     "capital": "Lomé",
+    "capitalLonLat": [
+      1.21,
+      6.14
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -2753,6 +3387,10 @@
     "continent": "North America",
     "subregion": "Caribbean",
     "capital": "Port of Spain",
+    "capitalLonLat": [
+      -61.52,
+      10.65
+    ],
     "notabilityTier": 1,
     "sizeTier": 0,
     "neighbors": []
@@ -2765,6 +3403,10 @@
     "continent": "Africa",
     "subregion": "Northern Africa",
     "capital": "Tunis",
+    "capitalLonLat": [
+      10.18,
+      36.8
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -2782,6 +3424,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "Ankara",
+    "capitalLonLat": [
+      32.87,
+      39.93
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
@@ -2802,6 +3448,10 @@
     "continent": "Asia",
     "subregion": "Central Asia",
     "capital": "Ashgabat",
+    "capitalLonLat": [
+      58.38,
+      37.95
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -2819,6 +3469,10 @@
     "continent": "Africa",
     "subregion": "Eastern Africa",
     "capital": "Kampala",
+    "capitalLonLat": [
+      32.55,
+      0.32
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -2837,6 +3491,10 @@
     "continent": "Europe",
     "subregion": "Eastern Europe",
     "capital": "Kyiv",
+    "capitalLonLat": [
+      30.52,
+      50.43
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
@@ -2860,6 +3518,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "Abu Dhabi",
+    "capitalLonLat": [
+      54.37,
+      24.47
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -2880,6 +3542,10 @@
     "continent": "Europe",
     "subregion": "Northern Europe",
     "capital": "London",
+    "capitalLonLat": [
+      -0.08,
+      51.5
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -2899,6 +3565,10 @@
     "continent": "North America",
     "subregion": "Northern America",
     "capital": "Washington, D.C.",
+    "capitalLonLat": [
+      -77.05,
+      38.89
+    ],
     "notabilityTier": 2,
     "sizeTier": 3,
     "neighbors": [
@@ -2914,6 +3584,10 @@
     "continent": "South America",
     "subregion": "South America",
     "capital": "Montevideo",
+    "capitalLonLat": [
+      -56.17,
+      -34.85
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
@@ -2929,6 +3603,10 @@
     "continent": "Asia",
     "subregion": "Central Asia",
     "capital": "Tashkent",
+    "capitalLonLat": [
+      69.25,
+      41.32
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -2947,6 +3625,10 @@
     "continent": "Oceania",
     "subregion": "Melanesia",
     "capital": "Port Vila",
+    "capitalLonLat": [
+      168.32,
+      -17.73
+    ],
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": []
@@ -2959,6 +3641,10 @@
     "continent": "South America",
     "subregion": "South America",
     "capital": "Caracas",
+    "capitalLonLat": [
+      -66.87,
+      10.48
+    ],
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
@@ -2977,6 +3663,10 @@
     "continent": "Asia",
     "subregion": "South-eastern Asia",
     "capital": "Hanoi",
+    "capitalLonLat": [
+      105.85,
+      21.03
+    ],
     "notabilityTier": 2,
     "sizeTier": 1,
     "neighbors": [
@@ -2993,6 +3683,10 @@
     "continent": "Africa",
     "subregion": "Northern Africa",
     "capital": "El Aaiún",
+    "capitalLonLat": [
+      -13.2,
+      27.15
+    ],
     "notabilityTier": 0,
     "sizeTier": 1,
     "neighbors": [
@@ -3009,6 +3703,10 @@
     "continent": "Asia",
     "subregion": "Western Asia",
     "capital": "Sana'a",
+    "capitalLonLat": [
+      44.19,
+      15.37
+    ],
     "notabilityTier": 1,
     "sizeTier": 2,
     "neighbors": [
@@ -3024,6 +3722,10 @@
     "continent": "Africa",
     "subregion": "Eastern Africa",
     "capital": "Lusaka",
+    "capitalLonLat": [
+      28.28,
+      -15.42
+    ],
     "notabilityTier": 1,
     "sizeTier": 2,
     "neighbors": [
@@ -3045,6 +3747,10 @@
     "continent": "Africa",
     "subregion": "Eastern Africa",
     "capital": "Harare",
+    "capitalLonLat": [
+      31.03,
+      -17.82
+    ],
     "notabilityTier": 1,
     "sizeTier": 1,
     "neighbors": [
