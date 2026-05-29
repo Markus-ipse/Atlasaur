@@ -20,6 +20,13 @@ const PALETTE: Palette = {
   capitalDotHalo: "#caphal",
 };
 
+// FRA → "250" so the capital-dot bounds gate can resolve France's drawn
+// geometry; everything else is unmapped (mirrors how unrelated countries
+// don't matter for these assertions).
+const FRA_NUMERIC = "250";
+const numericFromIso3 = (iso3: string) =>
+  iso3 === "FRA" ? FRA_NUMERIC : undefined;
+
 const BASE_PROPS = {
   mode: "name-to-click" as const,
   highlightedIso3: null,
@@ -27,13 +34,19 @@ const BASE_PROPS = {
   correctNeighborIso3s: [] as readonly string[],
   selectedContinents: ALL_CONTINENTS,
   isoFromNumeric: () => undefined,
-  numericFromIso3: () => undefined,
+  numericFromIso3,
   isInScope: () => true,
   onCountryClick: () => {},
   palette: PALETTE,
 };
 
 const WRONG: Feedback = { kind: "wrong", answerIso3: "DEU", correctIso3: "FRA" };
+
+// Paris — comfortably inside France's drawn geometry.
+const PARIS: [number, number] = [2.33, 48.87];
+// Port Vila's longitude/latitude — far from France, i.e. outside the answer
+// country's bounds. Stands in for a capital on an island the topology omits.
+const OFF_GEOMETRY: [number, number] = [168.32, -17.73];
 
 function capitalDotCircles(container: HTMLElement): SVGCircleElement[] {
   return Array.from(
@@ -46,18 +59,31 @@ function capitalDotCircles(container: HTMLElement): SVGCircleElement[] {
 describe("WorldMap — capital marker", () => {
   afterEach(cleanup);
 
-  it("renders halo + center dot when revealCapitalLonLat is set", () => {
+  it("renders halo + center dot when the capital is inside the answer country", () => {
     const { container } = render(
       <WorldMap
         {...BASE_PROPS}
         feedback={WRONG}
-        revealCapitalLonLat={[2.33, 48.87]}
+        revealCapitalLonLat={PARIS}
       />,
     );
     const circles = capitalDotCircles(container);
     expect(circles).toHaveLength(2);
     expect(circles[0].getAttribute("fill")).toBe(PALETTE.capitalDotHalo);
     expect(circles[1].getAttribute("fill")).toBe(PALETTE.capitalDot);
+  });
+
+  it("omits the dot when the capital projects outside the answer country's drawn geometry", () => {
+    // e.g. Vanuatu's Port Vila sits on an island the 110m topology omits, so
+    // the dot would otherwise be stranded in open ocean far from the land.
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        feedback={WRONG}
+        revealCapitalLonLat={OFF_GEOMETRY}
+      />,
+    );
+    expect(capitalDotCircles(container)).toHaveLength(0);
   });
 
   it("renders no marker when revealCapitalLonLat is null", () => {

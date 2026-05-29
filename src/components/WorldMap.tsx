@@ -220,6 +220,25 @@ const LABELS_BY_NUMERIC = new Map<string, Label>(
   LABELS.map((l) => [l.numericId, l]),
 );
 
+// Full projected bounds (all rings) per country, keyed by numeric. Unlike
+// LABELS (largest ring only), this covers every drawn island — used to gate
+// the capital dot: at 110m resolution a capital can sit on an island too
+// small to render (e.g. Vanuatu's Efate / Port Vila), which would strand the
+// dot in open ocean far from the drawn land once the reveal zoom magnifies
+// the gap. We omit the dot in that case rather than point at empty water.
+// Caveat: antimeridian crossers (Fiji, Russia) get full-map-width bounds from
+// pathGen.bounds (same pitfall the reveal-zoom avoids via LABELS — see the
+// comment at the computeRevealTarget effect below), so the gate is a no-op for
+// them. Acceptable: it fails open (dot shows), matching pre-gate behavior, and
+// their capitals are on rendered land today.
+const BOUNDS_BY_NUMERIC = new Map<string, [[number, number], [number, number]]>();
+for (const f of collection.features) {
+  const numericId = numericIdFor(f);
+  if (!numericId) continue;
+  const b = pathGen.bounds(f);
+  if (Number.isFinite(b[0][0])) BOUNDS_BY_NUMERIC.set(numericId, b);
+}
+
 // Continent → numeric ids, used to compute the resting-zoom frame from
 // `selectedContinents`. Built once at module load; the continent assignment
 // is static per country.
@@ -545,10 +564,28 @@ export function WorldMap({
 
   // Project the reveal capital once per change; the projection itself is
   // module-level and never moves, so this only runs when the answer flips.
-  const capitalDotXY = useMemo(
-    () => (revealCapitalLonLat ? projection(revealCapitalLonLat) : null),
-    [revealCapitalLonLat],
-  );
+  // Suppress the dot when the capital projects outside the answer country's
+  // drawn geometry (+ a small slack for generalized coastlines): at 110m the
+  // capital's island may not be rendered, and the reveal zoom would otherwise
+  // strand the dot in open ocean. The capital name still shows in ControlZone.
+  const capitalDotXY = useMemo(() => {
+    if (!revealCapitalLonLat || !revealCorrectIso3) return null;
+    const xy = projection(revealCapitalLonLat);
+    if (!xy) return null;
+    const numeric = numericFromIso3(revealCorrectIso3);
+    const b = numeric ? BOUNDS_BY_NUMERIC.get(numeric) : undefined;
+    if (!b) return null;
+    const m = 2; // px slack — keeps coastal capitals (Dakar, Tripoli) drawn
+    if (
+      xy[0] < b[0][0] - m ||
+      xy[0] > b[1][0] + m ||
+      xy[1] < b[0][1] - m ||
+      xy[1] > b[1][1] + m
+    ) {
+      return null;
+    }
+    return xy;
+  }, [revealCapitalLonLat, revealCorrectIso3, numericFromIso3]);
 
   return (
     <div
