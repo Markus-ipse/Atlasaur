@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -b",
     "build:topology": "node scripts/build-topology.mjs",
     "build:countries": "node scripts/build-topology.mjs && node scripts/build-countries.mjs"
   },

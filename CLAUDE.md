@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - `npm run dev` — Vite dev server with HMR
 - `npm run build` — `tsc -b && vite build` (typecheck is part of the production build)
-- `npm run typecheck` — `tsc --noEmit` only
+- `npm run typecheck` — `tsc -b` only (build mode, matching the `build` script's project-references setup)
 - `npm run lint` — ESLint (flat config, typescript-eslint + react-hooks + react-refresh)
 - `npm test` — Vitest in `run` mode (jsdom env). Single test: `npx vitest run src/game/useGame.test.ts -t "answer-correct"`. Watch mode: `npx vitest`.
 - `npm run build:topology` — Regenerates `src/data/world-110m.json` from `node_modules/world-atlas/countries-110m.json` via `scripts/build-topology.mjs`. The script splits French Guiana out of France's MultiPolygon at the TopoJSON arc-reference layer so GUF is its own clickable/labelable feature. The output is a committed build artifact consumed by both `WorldMap.tsx` and `build-countries.mjs`.
