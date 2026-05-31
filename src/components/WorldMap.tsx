@@ -284,6 +284,9 @@ type Props = {
   // wrong/skipped reveal. Empty when feedback is null or the correct
   // country has no land neighbors (islands).
   correctNeighborIso3s: readonly string[];
+  // Countries inside the active Study spotlight subregion, tinted with an
+  // ambient ochre wash. Empty when no spotlight is active.
+  spotlightIso3Set: ReadonlySet<string>;
   // [lon, lat] of the correct country's capital during a wrong/skipped
   // reveal; null when feedback is null, kind === "correct", or the country
   // has no capital (e.g. Antarctica). Drives the capital-marker dot.
@@ -311,6 +314,7 @@ export function WorldMap({
   feedback,
   showLabelsOnReveal,
   correctNeighborIso3s,
+  spotlightIso3Set,
   revealCapitalLonLat,
   selectedContinents,
   isoFromNumeric,
@@ -615,7 +619,14 @@ export function WorldMap({
             const iso3 = p.numericId ? isoFromNumeric(p.numericId) : undefined;
             const inScope = iso3 ? isInScope(iso3) : false;
             const fill = fillFor(
-              { iso3, highlightedIso3, feedback, inScope, neighborSet },
+              {
+                iso3,
+                highlightedIso3,
+                feedback,
+                inScope,
+                neighborSet,
+                spotlightSet: spotlightIso3Set,
+              },
               palette,
             );
             const clickable = isClickMode && Boolean(iso3) && inScope;

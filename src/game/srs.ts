@@ -5,7 +5,14 @@ import {
   type Card,
   type Grade,
 } from "ts-fsrs";
-import type { Continent, Country, Ease, SrsRecord, SrsStore } from "../types";
+import type {
+  Continent,
+  Country,
+  Ease,
+  SrsRecord,
+  SrsStore,
+  Subregion,
+} from "../types";
 
 const SRS_STORAGE_KEY = "atlasaur:srs:v1";
 const SRS_SEEN_INTRO_KEY = "atlasaur:srs:seenIntro";
@@ -160,6 +167,29 @@ export function learnedCount(store: SrsStore, scope: ReadonlySet<string>): numbe
     if (store.records[iso3].state >= 2) n++;
   }
   return n;
+}
+
+// Per-subregion mastery aggregate, scoped to the active continent filter.
+// `learned` reuses learnedCount's `state >= 2` predicate (graduated past
+// Learning/Relearning); `total` is every in-scope country in the subregion.
+// Only subregions with ≥1 in-scope country appear — so subregions absent at
+// this topology resolution (Micronesia, Polynesia) never surface. Pure: the
+// metric the spotlight feature consumes (total − learned) is time-independent.
+export function masteryBySubregion(
+  store: SrsStore,
+  countries: readonly Country[],
+  scope: ReadonlySet<string>,
+): Map<Subregion, { learned: number; total: number }> {
+  const map = new Map<Subregion, { learned: number; total: number }>();
+  for (const c of countries) {
+    if (!scope.has(c.iso3)) continue;
+    const entry = map.get(c.subregion) ?? { learned: 0, total: 0 };
+    entry.total += 1;
+    const rec = store.records[c.iso3];
+    if (rec && rec.state >= 2) entry.learned += 1;
+    map.set(c.subregion, entry);
+  }
+  return map;
 }
 
 export function totalReviews(store: SrsStore): number {

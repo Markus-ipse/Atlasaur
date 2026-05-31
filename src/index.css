@@ -63,6 +63,10 @@
   --color-sap-green: #5d7e3e; /* correct country fill — muted period green */
   --color-skipped: #9a7a2a; /* skipped country fill */
   --color-neighbor: #c5b791; /* miss-reveal neighbor cue */
+  --color-spotlight: #cda85f; /* ambient ochre wash for the focused subregion —
+                                 warmer/more golden than parchment-map so it
+                                 reads distinct from the in-scope default and
+                                 the neighbor cue */
   --color-map-border: #2b1f12; /* country path stroke — mirrors ink-deep in
                                   light but stays warm ochre in dark so
                                   borders read against the dark ocean */
@@ -108,6 +112,7 @@
   --color-sap-green: #7d9a4c; /* same period foliage, brightened for legibility */
   --color-skipped: #c69a36; /* amber, ochre family */
   --color-neighbor: #8a7a4a; /* warm muted ink — NOT cool blue */
+  --color-spotlight: #5e4a22; /* ambient ochre wash, brightened from map fill */
   --color-map-border: #7a6440; /* warm faded ochre — visible against dark ocean */
 
   /* Always-darker-than-base roles. Both stay in the warm family to match
@@ -217,6 +222,27 @@ body {
 @media (prefers-reduced-motion: reduce) {
   body {
     transition: none;
+  }
+}
+
+/* One-shot toast fade-in. Reduced-motion gated — the message still appears
+   instantly, just without the slide/fade. */
+@keyframes toast-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.toast-fade {
+  animation: toast-fade-in 200ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast-fade {
+    animation: none;
   }
 }
 

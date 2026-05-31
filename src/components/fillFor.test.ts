@@ -12,6 +12,7 @@ const LIGHT_PALETTE: Palette = {
   wrong: "#wrong0",
   skipped: "#skippd",
   neighbor: "#neighb",
+  spotlight: "#spotlt",
   border: "#border",
   oceanTint: "#ocean0",
   oceanLabel: "#oclbl0",
@@ -188,6 +189,92 @@ describe("fillFor — no feedback", () => {
         LIGHT_PALETTE,
       ),
     ).toBe(LIGHT_PALETTE.default);
+  });
+});
+
+describe("fillFor — spotlight tint", () => {
+  const SPOTLIGHT: ReadonlySet<string> = new Set(["NGA", "GHA"]);
+
+  it("tints a spotlight country over the in-scope default", () => {
+    expect(
+      fillFor(
+        {
+          iso3: "NGA",
+          highlightedIso3: null,
+          feedback: null,
+          inScope: true,
+          neighborSet: NO_NEIGHBORS,
+          spotlightSet: SPOTLIGHT,
+        },
+        LIGHT_PALETTE,
+      ),
+    ).toBe(LIGHT_PALETTE.spotlight);
+  });
+
+  it("loses to highlight", () => {
+    expect(
+      fillFor(
+        {
+          iso3: "NGA",
+          highlightedIso3: "NGA",
+          feedback: null,
+          inScope: true,
+          neighborSet: NO_NEIGHBORS,
+          spotlightSet: SPOTLIGHT,
+        },
+        LIGHT_PALETTE,
+      ),
+    ).toBe(LIGHT_PALETTE.highlight);
+  });
+
+  it("loses to feedback states (correct/neighbor) for the involved countries", () => {
+    // Correct country wins even if it's also in the spotlight set.
+    expect(
+      fillFor(
+        {
+          iso3: "FRA",
+          highlightedIso3: null,
+          feedback: wrong,
+          inScope: true,
+          neighborSet: FRANCE_NEIGHBORS,
+          spotlightSet: new Set(["FRA"]),
+        },
+        LIGHT_PALETTE,
+      ),
+    ).toBe(LIGHT_PALETTE.correct);
+    // A neighbor that's also spotlighted shows the neighbor cue. Use BEL
+    // (a France neighbor that is NOT the wrong-clicked answer, which is DEU).
+    expect(
+      fillFor(
+        {
+          iso3: "BEL",
+          highlightedIso3: null,
+          feedback: wrong,
+          inScope: true,
+          neighborSet: FRANCE_NEIGHBORS,
+          spotlightSet: new Set(["BEL"]),
+        },
+        LIGHT_PALETTE,
+      ),
+    ).toBe(LIGHT_PALETTE.neighbor);
+  });
+
+  it("stays ambient during a reveal for a country not involved in the feedback", () => {
+    // ITA is in scope, spotlit, NOT the answer and NOT a France neighbor here.
+    const noNeighbors: ReadonlySet<string> = new Set();
+    expect(
+      fillFor(
+        {
+          iso3: "ITA",
+          highlightedIso3: null,
+          feedback: wrong,
+          inScope: true,
+          neighborSet: noNeighbors,
+          spotlightSet: new Set(["ITA"]),
+        },
+        LIGHT_PALETTE,
+      ),
+    ).toBe(LIGHT_PALETTE.spotlight);
   });
 });
 

@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { reducer, initialState, type State } from "./useGame";
+import { STUDY_NEW_CAP } from "./pickCountry";
+import { grade as srsGrade } from "./srs";
+import countriesData from "../data/countries.json";
 import { ALL_CONTINENTS, type Country } from "../types";
+
+const ALL_COUNTRIES = countriesData as Country[];
 
 function withCurrent(state: State, iso3: string): State {
   // Force a known current country by pulling it from any state's seed pool
@@ -700,5 +705,150 @@ describe("reducer — resetSrs / closeSummary", () => {
     const next = reducer(s, { type: "closeSummary", now: NOW });
     expect(next.sessionDone).toBe(false);
     expect(next.score).toBe(7);
+  });
+});
+
+describe("reducer — spotlight subregion", () => {
+  const NOW = new Date("2026-05-16T12:00:00Z");
+  const SPOTLIGHT_CLEARED = "Spotlight cleared — back to full scope";
+
+  function africaStudy(): State {
+    return initialState({
+      practiceMode: "study",
+      selectedContinents: ["Africa"],
+    });
+  }
+
+  it("setSpotlight narrows Study picks, resets the stretch cap, and closes the summary", () => {
+    // Mirror the real activation path: the Focus CTA fires from the open
+    // summary (sessionDone true) and is the *only* dispatch — so setSpotlight
+    // must close the summary and pick exactly once.
+    const base: State = {
+      ...africaStudy(),
+      newIntroducedThisStretch: 5,
+      sessionDone: true,
+    };
+    const next = reducer(base, {
+      type: "setSpotlight",
+      subregion: "Western Africa",
+      now: NOW,
+    });
+    expect(next.spotlightSubregion).toBe("Western Africa");
+    // Activating a spotlight is a fresh stretch.
+    expect(next.newIntroducedThisStretch).toBe(0);
+    // The next pick comes from the focused subregion.
+    expect(next.current.subregion).toBe("Western Africa");
+    // The summary is dismissed in the same step.
+    expect(next.sessionDone).toBe(false);
+  });
+
+  it("clearSpotlight clears the lens", () => {
+    const s = reducer(africaStudy(), {
+      type: "setSpotlight",
+      subregion: "Western Africa",
+      now: NOW,
+    });
+    expect(s.spotlightSubregion).toBe("Western Africa");
+    expect(reducer(s, { type: "clearSpotlight" }).spotlightSubregion).toBeNull();
+  });
+
+  it("setContinents clears the spotlight", () => {
+    const s = reducer(africaStudy(), {
+      type: "setSpotlight",
+      subregion: "Western Africa",
+      now: NOW,
+    });
+    const next = reducer(s, {
+      type: "setContinents",
+      continents: ["Africa", "Europe"],
+    });
+    expect(next.spotlightSubregion).toBeNull();
+  });
+
+  it("setPracticeMode('quiz') clears the spotlight", () => {
+    const s = reducer(africaStudy(), {
+      type: "setSpotlight",
+      subregion: "Western Africa",
+      now: NOW,
+    });
+    const next = reducer(s, {
+      type: "setPracticeMode",
+      mode: "quiz",
+      now: NOW,
+    });
+    expect(next.spotlightSubregion).toBeNull();
+  });
+
+  it("setMode (question-mode flip) does not carry the spotlight", () => {
+    const s = reducer(africaStudy(), {
+      type: "setSpotlight",
+      subregion: "Western Africa",
+      now: NOW,
+    });
+    const next = reducer(s, { type: "setMode", mode: "shape-to-name" });
+    expect(next.spotlightSubregion).toBeNull();
+  });
+
+  it("reload (fresh initialState) does not carry the spotlight", () => {
+    expect(initialState().spotlightSubregion).toBeNull();
+    expect(initialState({ practiceMode: "study" }).transientMessage).toBeNull();
+  });
+
+  it("depletes mid-session via dismissFeedback: auto-clears, re-picks full pool, toasts", () => {
+    const tenDaysAgo = new Date(NOW.getTime() - 10 * 86_400_000);
+    const seeded: State = {
+      ...withCurrent(africaStudy(), "ZAF"), // Southern Africa
+      spotlightSubregion: "Southern Africa",
+      // Cap hit → no fresh introductions possible in the focused region.
+      newIntroducedThisStretch: STUDY_NEW_CAP,
+      feedback: { kind: "correct", answerIso3: "ZAF", correctIso3: "ZAF" },
+      autoGradePending: "Good",
+      // A due card outside the spotlight region, so the widened re-pick has
+      // somewhere to land.
+      srsStore: {
+        version: 1,
+        records: { EGY: srsGrade(null, "Again", tenDaysAgo) },
+      },
+    };
+    const next = reducer(seeded, { type: "dismiss", now: NOW });
+    expect(next.spotlightSubregion).toBeNull();
+    expect(next.transientMessage).toBe(SPOTLIGHT_CLEARED);
+    // Re-pick came from the full continent pool (the due EGY), not Southern Africa.
+    expect(next.current.iso3).toBe("EGY");
+  });
+
+  it("depletes at activation via closeSummary: auto-clears and toasts", () => {
+    const seeded: State = {
+      ...withCurrent(africaStudy(), "EGY"),
+      spotlightSubregion: "Southern Africa",
+      newIntroducedThisStretch: STUDY_NEW_CAP, // already depleted region
+      srsStore: { version: 1, records: {} },
+      sessionDone: true,
+    };
+    const next = reducer(seeded, { type: "closeSummary", now: NOW });
+    expect(next.spotlightSubregion).toBeNull();
+    expect(next.transientMessage).toBe(SPOTLIGHT_CLEARED);
+    expect(next.sessionDone).toBe(false);
+  });
+
+  it("Quiz mode ignores spotlightSubregion (defense-in-depth)", () => {
+    const africaIso3s = ALL_COUNTRIES.filter(
+      (c) => c.continent === "Africa",
+    ).map((c) => c.iso3);
+    // Complete every African country except EGY, so the only fresh quiz pick
+    // is EGY — which is NOT in the (defensively-set) Southern Africa spotlight.
+    const completedSet = new Set(africaIso3s.filter((i) => i !== "EGY"));
+    const seeded: State = {
+      ...withCurrent(
+        initialState({ practiceMode: "quiz", selectedContinents: ["Africa"] }),
+        "ZAF",
+      ),
+      spotlightSubregion: "Southern Africa",
+      completedSet,
+      sessionDone: true,
+    };
+    const next = reducer(seeded, { type: "closeSummary", now: NOW });
+    // Quiz pick is continent-scoped, not narrowed to the spotlight subregion.
+    expect(next.current.iso3).toBe("EGY");
   });
 });

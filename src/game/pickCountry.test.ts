@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { pickNext } from "./pickCountry";
-import type { Country, RetryEntry } from "../types";
+import { pickNext, pickSpotlight } from "./pickCountry";
+import type { Country, RetryEntry, Subregion } from "../types";
 
 function country(iso3: string): Country {
   return {
@@ -293,5 +293,72 @@ describe("pickNextStudy", () => {
       newIntroducedThisStretch: 0,
     });
     expect(picked?.iso3).toBe("FRA");
+  });
+});
+
+describe("pickSpotlight", () => {
+  function mastery(
+    entries: [Subregion, number, number][],
+  ): Map<Subregion, { learned: number; total: number }> {
+    const m = new Map<Subregion, { learned: number; total: number }>();
+    for (const [sub, learned, total] of entries) m.set(sub, { learned, total });
+    return m;
+  }
+
+  it("filters below-gate subregions BEFORE ranking (late-game bug)", () => {
+    // Southern Africa 4/5: lowest ratio (.80) but remaining 1 < gate → drop.
+    // Eastern Africa 13/16: ratio .8125, remaining 3 → clears the gate.
+    // Rank-then-null-check would pick Southern Africa, fail the gate, and
+    // return null. Filter-first correctly surfaces Eastern Africa.
+    const result = pickSpotlight(
+      mastery([
+        ["Southern Africa", 4, 5],
+        ["Eastern Africa", 13, 16],
+      ]),
+    );
+    expect(result).toEqual({ subregion: "Eastern Africa", remaining: 3 });
+  });
+
+  it("ranks survivors by lowest learned/total ratio (most neglected first)", () => {
+    const result = pickSpotlight(
+      mastery([
+        ["Western Africa", 0, 12], // ratio 0
+        ["Eastern Africa", 5, 50], // ratio .10
+      ]),
+    );
+    expect(result?.subregion).toBe("Western Africa");
+  });
+
+  it("tiebreaks equal ratios by largest remaining, then alphabetical", () => {
+    // Both ratio 0; remaining 8 vs 4 → Middle Africa (8) wins.
+    const byRemaining = pickSpotlight(
+      mastery([
+        ["Western Africa", 0, 4],
+        ["Middle Africa", 0, 8],
+      ]),
+    );
+    expect(byRemaining?.subregion).toBe("Middle Africa");
+    // Both ratio 0 and remaining 5 → alphabetical: Eastern before Western.
+    const byAlpha = pickSpotlight(
+      mastery([
+        ["Western Africa", 0, 5],
+        ["Eastern Africa", 0, 5],
+      ]),
+    );
+    expect(byAlpha?.subregion).toBe("Eastern Africa");
+  });
+
+  it("returns null when no subregion clears the gate", () => {
+    const result = pickSpotlight(
+      mastery([
+        ["Northern America", 1, 3], // remaining 2 < 3
+        ["Australia and New Zealand", 0, 2], // remaining 2 < 3
+      ]),
+    );
+    expect(result).toBeNull();
+  });
+
+  it("returns null for an empty map", () => {
+    expect(pickSpotlight(new Map())).toBeNull();
   });
 });

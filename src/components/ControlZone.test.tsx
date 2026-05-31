@@ -55,6 +55,8 @@ function makeGame(overrides: {
       newIntroducedThisStretch: 0,
       pendingGrade: false,
       autoGradePending: null,
+      spotlightSubregion: null,
+      transientMessage: null,
     },
     unlearnedCount: 0,
     totalInScope: 0,
@@ -81,6 +83,9 @@ function makeGame(overrides: {
     grade: vi.fn(),
     resetSrs: vi.fn(),
     closeSummary: vi.fn(),
+    setSpotlight: vi.fn(),
+    clearSpotlight: vi.fn(),
+    setTransientMessage: vi.fn(),
     reset: vi.fn(),
   };
 }

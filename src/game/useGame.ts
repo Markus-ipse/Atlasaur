@@ -24,6 +24,7 @@ import {
   type Phase,
   type RetryEntry,
   type SrsStore,
+  type Subregion,
 } from "../types";
 
 const COUNTRIES = countriesData as Country[];
@@ -104,6 +105,7 @@ function saveShowLabels(value: boolean): void {
 }
 
 const FEEDBACK_DURATION = { correct: 600 } as const;
+const TOAST_DURATION = 3000;
 const RETRY_GAP_MIN = 3;
 const RETRY_GAP_MAX = 5;
 
@@ -149,6 +151,14 @@ export type State = {
   // clears this and writes its own ease instead, so override after a
   // correct answer means "Easy", not "Good then Easy".
   autoGradePending: Ease | null;
+  // Study-only temporary lens: when set, Study picks are narrowed to this
+  // subregion. Not persisted — always null on reload. Cleared by
+  // setContinents, setPracticeMode("quiz"), clearSpotlight, and the
+  // depletion fallback.
+  spotlightSubregion: Subregion | null;
+  // One-shot toast message (e.g. "Spotlight cleared"). Auto-dismissed by a
+  // timer in the useGame hook; null when nothing is showing.
+  transientMessage: string | null;
 };
 
 export type Action =
@@ -163,6 +173,10 @@ export type Action =
   | { type: "grade"; ease: Ease; now?: Date }
   | { type: "resetSrs" }
   | { type: "closeSummary"; now?: Date }
+  | { type: "setSpotlight"; subregion: Subregion; now?: Date }
+  | { type: "clearSpotlight" }
+  | { type: "setTransientMessage"; message: string }
+  | { type: "clearTransientMessage" }
   | { type: "reset" };
 
 function nowOf(action: Action): Date {
@@ -226,6 +240,8 @@ export function initialState(
     newIntroducedThisStretch: 0,
     pendingGrade: false,
     autoGradePending: null,
+    spotlightSubregion: null,
+    transientMessage: null,
   };
 }
 
@@ -251,8 +267,15 @@ function pickInitialCountry(
 
 function nextCurrent(state: State, now: Date = new Date()): Country {
   if (state.practiceMode === "study") {
+    // Spotlight narrows the Study pool to one subregion (the narrowing
+    // lives here, not in filterPool/pickNextStudy, so it can't leak into
+    // Quiz's shared pickNext path).
+    let pool = filterPool(state.selectedContinents);
+    if (state.spotlightSubregion !== null) {
+      pool = pool.filter((c) => c.subregion === state.spotlightSubregion);
+    }
     const picked = pickNextStudy({
-      pool: filterPool(state.selectedContinents),
+      pool,
       byIso3: COUNTRY_BY_ISO3,
       excludeIso3: state.current.iso3,
       srsStore: state.srsStore,
@@ -272,6 +295,39 @@ function nextCurrent(state: State, now: Date = new Date()): Country {
     phase: state.phase,
     completedSet: state.completedSet,
   });
+}
+
+const SPOTLIGHT_CLEARED_MESSAGE = "Spotlight cleared — back to full scope";
+
+// Pick the next Study country, falling back to the full continent pool when
+// a spotlight has been exhausted. Returns the next `current`, the resulting
+// spotlight (cleared to null on depletion), and a transient toast message.
+// Callers MUST pass the post-grade state so the re-pick runs against the
+// up-to-date SRS store and doesn't re-surface a just-graded country.
+function pickStudyWithSpotlightFallback(
+  state: State,
+  now: Date,
+): { current: Country; spotlightSubregion: Subregion | null; transientMessage: string | null } {
+  const picked = nextCurrent(state, now);
+  // Depletion: the narrowed pool yielded nothing new (picked fell back to
+  // the unchanged current). Clear the spotlight, re-pick from full scope.
+  // The reference check is exact because pickNextStudy always excludes
+  // state.current.iso3 (so a real pick is never === current by identity)
+  // and byIso3 returns module-singleton Country objects — picked === current
+  // can only mean nextCurrent hit its `picked ?? state.current` null branch.
+  if (state.spotlightSubregion !== null && picked === state.current) {
+    const widened: State = { ...state, spotlightSubregion: null };
+    return {
+      current: nextCurrent(widened, now),
+      spotlightSubregion: null,
+      transientMessage: SPOTLIGHT_CLEARED_MESSAGE,
+    };
+  }
+  return {
+    current: picked,
+    spotlightSubregion: state.spotlightSubregion,
+    transientMessage: null,
+  };
 }
 
 function applyQuizSrsWriteThrough(
@@ -440,7 +496,11 @@ function dismissFeedback(state: State, now: Date): State {
       pendingGrade: false,
       autoGradePending: null,
     };
-    return { ...updated, current: nextCurrent(updated, now) };
+    // Run the pick against the post-grade state; a depleted spotlight
+    // auto-clears here and surfaces a toast.
+    const { current, spotlightSubregion, transientMessage } =
+      pickStudyWithSpotlightFallback(updated, now);
+    return { ...updated, current, spotlightSubregion, transientMessage };
   }
   if (state.phase === "review" && state.retryQueue.length === 0) {
     return { ...state, feedback: null, phase: "normal", sessionDone: true };
@@ -515,6 +575,8 @@ export function reducer(state: State, action: Action): State {
         newIntroducedThisStretch: 0,
         pendingGrade: false,
         autoGradePending: null,
+        // Flipping into Quiz must never inherit a silently narrowed pool.
+        spotlightSubregion: null,
       };
       return { ...next, current: nextCurrent(next, now) };
     }
@@ -546,6 +608,8 @@ export function reducer(state: State, action: Action): State {
         // longer see.
         pendingGrade: false,
         autoGradePending: null,
+        // Scope change supersedes any active spotlight lens.
+        spotlightSubregion: null,
         phase: reviewEmpty ? "normal" : state.phase,
         sessionDone: reviewEmpty || poolDone ? true : state.sessionDone,
       };
@@ -627,9 +691,49 @@ export function reducer(state: State, action: Action): State {
     case "closeSummary": {
       // Clear the summary without nuking session state. Re-pick so the
       // user lands on a fresh prompt (or the most-overdue fallback in
-      // Study when nothing's due).
+      // Study when nothing's due). Route Study through the spotlight
+      // fallback so an already-depleted focus region clears + toasts.
       const next: State = { ...state, sessionDone: false, feedback: null };
+      if (state.practiceMode === "study") {
+        const { current, spotlightSubregion, transientMessage } =
+          pickStudyWithSpotlightFallback(next, now);
+        return { ...next, current, spotlightSubregion, transientMessage };
+      }
       return { ...next, current: nextCurrent(next, now) };
+    }
+    case "setSpotlight": {
+      // Study-only lens. The CTA only renders in StudySummary, but guard
+      // here too (symmetric with `grade`) so a stray dispatch can't seed a
+      // spotlight into Quiz state — which the map would then tint even
+      // though Quiz picks ignore it.
+      if (state.practiceMode !== "study") return state;
+      // Self-contained transition: close any open summary and pick the
+      // first focused country in one step (the summary's Focus CTA calls
+      // only this — no trailing closeSummary, so there's a single pick).
+      // Activating a spotlight is a fresh study stretch: reset the
+      // per-stretch new-introduction cap so the focused region can
+      // actually introduce cards (the natural trigger is dueCount === 0,
+      // which is often when the cap is already exhausted). The fallback
+      // handles the (defensive) already-depleted-region case.
+      const next: State = {
+        ...state,
+        spotlightSubregion: action.subregion,
+        newIntroducedThisStretch: 0,
+        sessionDone: false,
+        feedback: null,
+      };
+      const { current, spotlightSubregion, transientMessage } =
+        pickStudyWithSpotlightFallback(next, now);
+      return { ...next, current, spotlightSubregion, transientMessage };
+    }
+    case "clearSpotlight": {
+      return { ...state, spotlightSubregion: null };
+    }
+    case "setTransientMessage": {
+      return { ...state, transientMessage: action.message };
+    }
+    case "clearTransientMessage": {
+      return { ...state, transientMessage: null };
     }
     case "reset": {
       return initialState({
@@ -669,6 +773,13 @@ export type GameApi = {
   grade: (ease: Ease) => void;
   resetSrs: () => void;
   closeSummary: () => void;
+  setSpotlight: (subregion: Subregion) => void;
+  clearSpotlight: () => void;
+  // Exposed for the toast auto-dismiss timer test; production code reaches
+  // the toast via the depletion fallback, not this setter. The matching
+  // clearTransientMessage action is dispatched by the hook's timer directly,
+  // so it isn't surfaced here.
+  setTransientMessage: (message: string) => void;
   reset: () => void;
 };
 
@@ -695,6 +806,15 @@ export function useGame(): GameApi {
     );
     return () => window.clearTimeout(id);
   }, [state.feedback]);
+
+  useEffect(() => {
+    if (!state.transientMessage) return;
+    const id = window.setTimeout(
+      () => dispatch({ type: "clearTransientMessage" }),
+      TOAST_DURATION,
+    );
+    return () => window.clearTimeout(id);
+  }, [state.transientMessage]);
 
   useEffect(() => {
     saveContinents(state.selectedContinents);
@@ -791,6 +911,11 @@ export function useGame(): GameApi {
     grade: (ease) => dispatch({ type: "grade", ease, now: new Date() }),
     resetSrs: () => dispatch({ type: "resetSrs" }),
     closeSummary: () => dispatch({ type: "closeSummary", now: new Date() }),
+    setSpotlight: (subregion) =>
+      dispatch({ type: "setSpotlight", subregion, now: new Date() }),
+    clearSpotlight: () => dispatch({ type: "clearSpotlight" }),
+    setTransientMessage: (message) =>
+      dispatch({ type: "setTransientMessage", message }),
     reset: () => dispatch({ type: "reset" }),
   };
 }

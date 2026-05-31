@@ -1,10 +1,12 @@
 import { useEffect, useRef } from "react";
-import type { Country, PracticeMode, SrsStore } from "../types";
+import type { Country, PracticeMode, SrsStore, Subregion } from "../types";
 import {
   lifetimeAccuracy as srsLifetimeAccuracy,
   learnedCount as srsLearnedCount,
+  masteryBySubregion,
   totalReviews as srsTotalReviews,
 } from "../game/srs";
+import { pickSpotlight } from "../game/pickCountry";
 
 type Props = {
   practiceMode: PracticeMode;
@@ -18,10 +20,12 @@ type Props = {
   newAvailableCount: number;
   srsStore: SrsStore;
   scopeIso3s: ReadonlySet<string>;
+  countries: readonly Country[];
   onReview: () => void;
   onPlayAgain: () => void;
   onStartQuiz: () => void;
   onKeepStudying: () => void;
+  onSetSpotlight: (subregion: Subregion) => void;
 };
 
 export function SessionSummary(props: Props) {
@@ -125,16 +129,24 @@ function StudySummary({
   totalInScope,
   srsStore,
   scopeIso3s,
+  countries,
   onStartQuiz,
   onKeepStudying,
+  onSetSpotlight,
 }: Props) {
   const learned = srsLearnedCount(srsStore, scopeIso3s);
   const reviews = srsTotalReviews(srsStore);
   const accuracy = srsLifetimeAccuracy(srsStore);
-  const quizRef = useRef<HTMLButtonElement>(null);
+  // Recommend the most-neglected subregion in scope, if any clears the gate.
+  const spotlight = pickSpotlight(
+    masteryBySubregion(srsStore, countries, scopeIso3s),
+  );
+  // Auto-focus the recommended action: the Focus CTA when a spotlight is
+  // offered, otherwise Start quiz.
+  const focusRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    quizRef.current?.focus();
+    focusRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -150,14 +162,15 @@ function StudySummary({
   const secondaryClass =
     "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
 
-  const hint =
-    dueCount > 0
-      ? `You have ${dueCount} due — keep going, or test yourself.`
-      : newAvailableCount > 0
-      ? `You can introduce ${newAvailableCount} more ${
-          newAvailableCount === 1 ? "country" : "countries"
-        }, or switch to quiz.`
-      : "All caught up for now — try a quiz, or take a break and come back later.";
+  const hint = spotlight
+    ? `${spotlight.subregion} has ${spotlight.remaining} left to learn — focus there?`
+    : dueCount > 0
+    ? `You have ${dueCount} due — keep going, or test yourself.`
+    : newAvailableCount > 0
+    ? `You can introduce ${newAvailableCount} more ${
+        newAvailableCount === 1 ? "country" : "countries"
+      }, or switch to quiz.`
+    : "All caught up for now — try a quiz, or take a break and come back later.";
 
   const scopeLabel = `${totalInScope} ${totalInScope === 1 ? "country" : "countries"}`;
 
@@ -195,14 +208,35 @@ function StudySummary({
           {hint}
         </p>
         <div className="flex flex-col gap-2">
+          {spotlight && (
+            <button
+              ref={focusRef}
+              type="button"
+              onClick={() => onSetSpotlight(spotlight.subregion)}
+              className={primaryClass}
+            >
+              <span>Focus on {spotlight.subregion}</span>
+            </button>
+          )}
           <button
-            ref={quizRef}
+            ref={spotlight ? undefined : focusRef}
             type="button"
             onClick={onStartQuiz}
-            className={primaryClass}
+            className={
+              spotlight
+                ? secondaryClass +
+                  " flex flex-col items-center justify-center leading-tight"
+                : primaryClass
+            }
           >
             <span>Start quiz</span>
-            <span className="text-xs font-normal text-parchment-base/70">
+            <span
+              className={
+                spotlight
+                  ? "text-xs font-normal text-ink-faded"
+                  : "text-xs font-normal text-parchment-base/70"
+              }
+            >
               {scopeLabel}
             </span>
           </button>

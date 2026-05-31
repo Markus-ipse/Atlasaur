@@ -10,6 +10,7 @@ import {
   learnedCount,
   lifetimeAccuracy,
   loadStore,
+  masteryBySubregion,
   newAvailableCount,
   previewIntervalDays,
   saveStore,
@@ -208,6 +209,75 @@ describe("aggregate helpers", () => {
       records: { FRA: grade(null, "Good", T0) },
     };
     expect(newAvailableCount(store, new Set(["FRA", "DEU", "JPN"]))).toBe(2);
+  });
+});
+
+describe("masteryBySubregion", () => {
+  function country(iso3: string, subregion: Country["subregion"]): Country {
+    return {
+      numeric: "000",
+      iso3,
+      name: iso3,
+      aliases: [],
+      continent: "Africa",
+      subregion,
+      capital: "—",
+      capitalLonLat: [0, 0],
+      neighbors: [],
+      sizeTier: 0,
+      notabilityTier: 0,
+    };
+  }
+
+  // A record with state 2 (Review) — the "learned" predicate. Construct
+  // directly so the assertion is structural and deterministic.
+  function learnedRecord(): SrsRecord {
+    return {
+      due: T0.toISOString(),
+      stability: 10,
+      difficulty: 5,
+      elapsed_days: 0,
+      scheduled_days: 10,
+      learning_steps: 0,
+      reps: 3,
+      lapses: 0,
+      state: 2,
+    };
+  }
+
+  const COUNTRIES: Country[] = [
+    country("ZAF", "Southern Africa"),
+    country("NAM", "Southern Africa"),
+    country("BWA", "Southern Africa"),
+    country("NGA", "Western Africa"),
+    country("GHA", "Western Africa"),
+  ];
+
+  it("aggregates learned/total per subregion, matching learnedCount's state>=2", () => {
+    const store: SrsStore = {
+      version: 1,
+      records: {
+        ZAF: learnedRecord(),
+        NGA: learnedRecord(),
+        GHA: grade(null, "Again", T0), // state < 2, not learned
+      },
+    };
+    const scope = new Set(["ZAF", "NAM", "BWA", "NGA", "GHA"]);
+    const map = masteryBySubregion(store, COUNTRIES, scope);
+    expect(map.get("Southern Africa")).toEqual({ learned: 1, total: 3 });
+    expect(map.get("Western Africa")).toEqual({ learned: 1, total: 2 });
+    // The "learned" count uses the same predicate as learnedCount.
+    expect(map.get("Southern Africa")!.learned).toBe(
+      learnedCount(store, new Set(["ZAF", "NAM", "BWA"])),
+    );
+  });
+
+  it("ignores out-of-scope countries and emits only subregions with ≥1 in scope", () => {
+    const store: SrsStore = { version: 1, records: {} };
+    const scope = new Set(["ZAF", "NAM"]); // Southern Africa only
+    const map = masteryBySubregion(store, COUNTRIES, scope);
+    expect(map.get("Southern Africa")).toEqual({ learned: 0, total: 2 });
+    expect(map.has("Western Africa")).toBe(false);
   });
 });
 

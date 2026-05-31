@@ -14,6 +14,7 @@ export type Palette = {
   wrong: string; // wrong-clicked country fill
   skipped: string; // correct country fill on skip
   neighbor: string; // miss-reveal land neighbors
+  spotlight: string; // ambient tint for the focused spotlight subregion
   border: string; // country path stroke
   oceanTint: string; // SVG/map background
   oceanLabel: string; // ocean label text
@@ -31,6 +32,7 @@ const PALETTE_TOKENS: Record<keyof Palette, string> = {
   wrong: "--color-vermillion-faded",
   skipped: "--color-skipped",
   neighbor: "--color-neighbor",
+  spotlight: "--color-spotlight",
   border: "--color-map-border",
   oceanTint: "--color-ocean-tint",
   oceanLabel: "--color-ink-mid",
@@ -70,6 +72,8 @@ export function readPaletteFromCss(): Palette {
   return out;
 }
 
+const EMPTY_SET: ReadonlySet<string> = new Set();
+
 export function fillFor(
   args: {
     iso3: string | undefined;
@@ -77,10 +81,12 @@ export function fillFor(
     feedback: Feedback | null;
     inScope: boolean;
     neighborSet: ReadonlySet<string>;
+    spotlightSet?: ReadonlySet<string>;
   },
   palette: Palette,
 ): string {
   const { iso3, highlightedIso3, feedback, inScope, neighborSet } = args;
+  const spotlightSet = args.spotlightSet ?? EMPTY_SET;
   if (!iso3) return palette.inert;
   if (feedback) {
     // The correct country always lights up — sap green when answered
@@ -102,6 +108,13 @@ export function fillFor(
     if (neighborSet.has(iso3)) return palette.neighbor;
   }
   if (highlightedIso3 === iso3) return palette.highlight;
+  // Ambient spotlight tint — lowest-priority overlay, so it never competes
+  // with feedback/neighbor/highlight signals. Note the `if (feedback)` block
+  // above only early-returns for the correct/wrong/neighbor countries, so
+  // during a miss-reveal a spotlight country that isn't one of those still
+  // shows the tint here. That's intended (spotlight is a persistent ambient
+  // cue, not a transient reveal).
+  if (spotlightSet.has(iso3)) return palette.spotlight;
   if (!inScope) return palette.inert;
   return palette.default;
 }

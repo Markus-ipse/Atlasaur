@@ -4,6 +4,7 @@ import { WorldMap } from "./components/WorldMap";
 import { ControlZone } from "./components/ControlZone";
 import { SessionSummary } from "./components/SessionSummary";
 import { StatusBar } from "./components/StatusBar";
+import { Toast } from "./components/Toast";
 import { STUDY_NEW_CAP } from "./game/pickCountry";
 import countriesData from "./data/countries.json";
 import type { Country } from "./types";
@@ -15,6 +16,10 @@ const ALL_COUNTRIES = countriesData as Country[];
 // Stable empty reference so WorldMap's neighborSet memo doesn't churn while
 // no feedback is showing.
 const NO_NEIGHBORS: readonly string[] = [];
+
+// Stable empty reference for when no spotlight is active, so the map's fill
+// computation sees a constant set rather than a fresh one each render.
+const NO_SPOTLIGHT: ReadonlySet<string> = new Set();
 
 export default function App() {
   const game = useGame();
@@ -47,6 +52,17 @@ export default function App() {
   const revealCapitalLonLat = isMissReveal
     ? state.current.capitalLonLat
     : null;
+
+  // Countries inside the active spotlight subregion — drives the ambient
+  // map tint. Empty stable set when no spotlight is active.
+  const spotlightIso3Set = useMemo(() => {
+    if (state.spotlightSubregion === null) return NO_SPOTLIGHT;
+    const out = new Set<string>();
+    for (const c of ALL_COUNTRIES) {
+      if (c.subregion === state.spotlightSubregion) out.add(c.iso3);
+    }
+    return out;
+  }, [state.spotlightSubregion]);
 
   const scopeIso3s = useMemo(() => {
     const cset = new Set(state.selectedContinents);
@@ -90,6 +106,7 @@ export default function App() {
             state.practiceMode === "study" ? true : game.showLabelsOnReveal
           }
           correctNeighborIso3s={correctNeighborIso3s}
+          spotlightIso3Set={spotlightIso3Set}
           revealCapitalLonLat={revealCapitalLonLat}
           selectedContinents={state.selectedContinents}
           isoFromNumeric={game.isoFromNumeric}
@@ -120,12 +137,15 @@ export default function App() {
           newAvailableCount={game.newAvailableCount}
           srsStore={state.srsStore}
           scopeIso3s={scopeIso3s}
+          countries={ALL_COUNTRIES}
           onReview={game.startReview}
           onPlayAgain={game.reset}
           onStartQuiz={() => game.setPracticeMode("quiz")}
           onKeepStudying={game.closeSummary}
+          onSetSpotlight={game.setSpotlight}
         />
       )}
+      {state.transientMessage && <Toast message={state.transientMessage} />}
     </div>
   );
 }

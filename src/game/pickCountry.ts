@@ -1,7 +1,13 @@
-import type { Country, Phase, RetryEntry, SrsStore } from "../types";
+import type { Country, Phase, RetryEntry, SrsStore, Subregion } from "../types";
 import { introductionOrder, isDue } from "./srs";
 
 export const STUDY_NEW_CAP = 10;
+
+// Smallest "real" subregions present at 110m resolution are Antarctica (2),
+// Australia and New Zealand (2), Northern America (3); next up are
+// Central Asia / Melanesia / Southern Africa (5). A gate of 3 keeps the
+// 2-country regions out while preserving the 5-country ones.
+export const SPOTLIGHT_MIN_REMAINING = 3;
 
 export function pickRandom(
   pool: readonly Country[],
@@ -134,4 +140,31 @@ export function pickNextStudy(args: {
 
   // 3b. Truly empty: caller handles the caught-up empty state.
   return null;
+}
+
+// Recommend the most-neglected subregion for an end-of-session spotlight.
+// Filter, THEN rank: gating before ranking is load-bearing — a tiny region
+// with the lowest ratio but remaining below the gate must not be picked,
+// fail the gate, and return null while a larger above-gate region exists.
+export function pickSpotlight(
+  masteryMap: ReadonlyMap<Subregion, { learned: number; total: number }>,
+): { subregion: Subregion; remaining: number } | null {
+  const candidates: {
+    subregion: Subregion;
+    remaining: number;
+    ratio: number;
+  }[] = [];
+  for (const [subregion, { learned, total }] of masteryMap) {
+    const remaining = total - learned;
+    if (remaining < SPOTLIGHT_MIN_REMAINING) continue;
+    candidates.push({ subregion, remaining, ratio: learned / total });
+  }
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => {
+    if (a.ratio !== b.ratio) return a.ratio - b.ratio; // lowest mastery first
+    if (a.remaining !== b.remaining) return b.remaining - a.remaining; // largest pool
+    return a.subregion.localeCompare(b.subregion); // deterministic
+  });
+  const top = candidates[0];
+  return { subregion: top.subregion, remaining: top.remaining };
 }
