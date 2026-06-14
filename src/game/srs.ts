@@ -110,19 +110,6 @@ export function grade(record: SrsRecord | null, ease: Ease, now: Date): SrsRecor
   return toJSON(next);
 }
 
-// Lightweight preview helpers for ease-button tooltips. Compute the
-// projected interval (rounded days) for each ease without persisting.
-export function previewIntervalDays(
-  record: SrsRecord | null,
-  ease: Ease,
-  now: Date,
-): number {
-  const card = record ? fromJSON(record) : createEmptyCard(now);
-  const { card: next } = scheduler.next(card, now, EASE_TO_RATING[ease]);
-  const ms = next.due.getTime() - now.getTime();
-  return Math.max(0, Math.round(ms / 86_400_000));
-}
-
 export function isDue(record: SrsRecord, now: Date): boolean {
   return new Date(record.due).getTime() <= now.getTime();
 }
