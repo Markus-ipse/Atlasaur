@@ -480,41 +480,57 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
   };
 }
 
+// Commit a deferred Study auto-grade to the SRS store and update the
+// in-session resurface queue. `scheduleStep` is the step a re-queued miss
+// schedules its `dueAt` against, so it resurfaces ~gap cards from then. The
+// single home for this so dismissFeedback and endSession can't drift.
+function commitStudyGrade(
+  state: State,
+  ease: Ease,
+  scheduleStep: number,
+  now: Date,
+): Pick<State, "srsStore" | "newIntroducedThisStretch" | "studyResurfaceQueue"> {
+  const iso3 = state.current.iso3;
+  const isNew = !state.srsStore.records[iso3];
+  const next = srsGrade(state.srsStore.records[iso3] ?? null, ease, now);
+  return {
+    srsStore: {
+      ...state.srsStore,
+      records: { ...state.srsStore.records, [iso3]: next },
+    },
+    newIntroducedThisStretch: isNew
+      ? state.newIntroducedThisStretch + 1
+      : state.newIntroducedThisStretch,
+    // In-session resurface: a miss comes back a few cards later; a correct
+    // answer drops any pending resurface for this card. withoutIso3 dedupes
+    // a repeat miss so the queue holds at most one entry per country.
+    studyResurfaceQueue:
+      ease === "Again"
+        ? [
+            ...withoutIso3(state.studyResurfaceQueue, iso3),
+            { iso3, dueAt: scheduleStep + randInt(RETRY_GAP_MIN, RETRY_GAP_MAX) },
+          ]
+        : withoutIso3(state.studyResurfaceQueue, iso3),
+  };
+}
+
 function dismissFeedback(state: State, now: Date): State {
   if (state.practiceMode === "study") {
     // Commit the deferred auto-grade (Good on correct, Again on miss).
     // Picking the next country runs against the post-grade store so we
-    // don't re-surface the same iso3.
-    const iso3 = state.current.iso3;
-    let srsStore = state.srsStore;
-    let newIntroducedThisStretch = state.newIntroducedThisStretch;
-    let studyResurfaceQueue = state.studyResurfaceQueue;
+    // don't re-surface the same iso3. studyStep advances by one card here;
+    // a re-queued miss schedules against that new step.
     const newStep = state.studyStep + 1;
-    if (state.autoGradePending) {
-      const isNew = !srsStore.records[iso3];
-      const next = srsGrade(srsStore.records[iso3] ?? null, state.autoGradePending, now);
-      srsStore = {
-        ...srsStore,
-        records: { ...srsStore.records, [iso3]: next },
-      };
-      if (isNew) newIntroducedThisStretch += 1;
-      // In-session resurface: a miss comes back a few cards later;
-      // a correct answer drops any pending resurface for this card.
-      // withoutIso3 dedupes a repeat miss so the queue holds at most
-      // one entry per country.
-      studyResurfaceQueue =
-        state.autoGradePending === "Again"
-          ? [
-              ...withoutIso3(studyResurfaceQueue, iso3),
-              { iso3, dueAt: newStep + randInt(RETRY_GAP_MIN, RETRY_GAP_MAX) },
-            ]
-          : withoutIso3(studyResurfaceQueue, iso3);
-    }
+    const committed = state.autoGradePending
+      ? commitStudyGrade(state, state.autoGradePending, newStep, now)
+      : null;
     const updated: State = {
       ...state,
-      srsStore,
-      newIntroducedThisStretch,
-      studyResurfaceQueue,
+      srsStore: committed?.srsStore ?? state.srsStore,
+      newIntroducedThisStretch:
+        committed?.newIntroducedThisStretch ?? state.newIntroducedThisStretch,
+      studyResurfaceQueue:
+        committed?.studyResurfaceQueue ?? state.studyResurfaceQueue,
       studyStep: newStep,
       feedback: null,
       autoGradePending: null,
@@ -635,26 +651,21 @@ export function reducer(state: State, action: Action): State {
       };
     }
     case "endSession": {
-      // If Study has an auto-grade in flight (correct-flash or skip
-      // waiting on dismiss), commit it before bowing out — otherwise
-      // the user's last interaction silently produces no SRS record.
+      // If Study has an auto-grade in flight (correct-flash or miss
+      // waiting on dismiss), commit it before bowing out — otherwise the
+      // user's last interaction silently produces no SRS record. No card
+      // is advanced here, so a re-queued miss schedules against the
+      // current studyStep — it resurfaces ~gap cards after "Keep studying".
       if (state.practiceMode === "study" && state.autoGradePending) {
-        const iso3 = state.current.iso3;
-        const isNew = !state.srsStore.records[iso3];
-        const next = srsGrade(
-          state.srsStore.records[iso3] ?? null,
+        const committed = commitStudyGrade(
+          state,
           state.autoGradePending,
+          state.studyStep,
           now,
         );
         return {
           ...state,
-          srsStore: {
-            ...state.srsStore,
-            records: { ...state.srsStore.records, [iso3]: next },
-          },
-          newIntroducedThisStretch: isNew
-            ? state.newIntroducedThisStretch + 1
-            : state.newIntroducedThisStretch,
+          ...committed,
           autoGradePending: null,
           sessionDone: true,
           feedback: null,

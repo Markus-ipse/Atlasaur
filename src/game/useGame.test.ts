@@ -705,6 +705,26 @@ describe("reducer — resetSrs / closeSummary", () => {
     expect(s.srsStore.records["FRA"]).toBeDefined();
   });
 
+  it("endSession in Study resurfaces an in-flight miss for the resumed session", () => {
+    function studyState(): State {
+      return withCurrent(
+        { ...initialState(), practiceMode: "study" as const },
+        "FRA",
+      );
+    }
+    let s = studyState();
+    // Miss, then bow out via "Done for now" before dismissing the reveal.
+    s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
+    expect(s.autoGradePending).toBe("Again");
+    s = reducer(s, { type: "endSession" });
+    // The Again is committed AND the card is queued so it returns if the
+    // user resumes via "Keep studying".
+    expect(s.srsStore.records["FRA"]).toBeDefined();
+    const entry = s.studyResurfaceQueue.find((e) => e.iso3 === "FRA");
+    expect(entry).toBeDefined();
+    expect(entry!.dueAt).toBeGreaterThanOrEqual(s.studyStep + 3);
+  });
+
   it("setContinents clears in-flight Study grade flags", () => {
     function studyState(): State {
       return withCurrent(
