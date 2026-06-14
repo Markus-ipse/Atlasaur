@@ -313,6 +313,32 @@ describe("pickNextStudy", () => {
     expect(picked?.iso3).toBe("DEU");
   });
 
+  it("ignores a due resurface entry that is not in the (spotlight-narrowed) pool", () => {
+    // JPN was missed before a spotlight narrowed the pool to Europe-only.
+    // It's due (dueAt <= step) but out of scope, so it must NOT surface —
+    // it stays queued for when the scope widens again.
+    const fra = tierCountry("FRA", 0, 0);
+    const jpn = tierCountry("JPN", 2, 1);
+    const europePool = [fra];
+    const byIso3 = new Map([
+      ["FRA", fra],
+      ["JPN", jpn],
+    ]);
+    const srsStore: SrsStore = { version: 1, records: {} };
+    const picked = pickNextStudy({
+      pool: europePool,
+      byIso3,
+      excludeIso3: "",
+      srsStore,
+      now: NOW,
+      newIntroducedThisStretch: 0,
+      resurfaceQueue: [{ iso3: "JPN", dueAt: 0 }],
+      step: 5,
+    });
+    // Falls through to the in-pool new introduction, not JPN.
+    expect(picked?.iso3).toBe("FRA");
+  });
+
   it("skips a resurface entry equal to excludeIso3 (never re-picks current)", () => {
     const fra = tierCountry("FRA", 2, 2);
     const deu = tierCountry("DEU", 1, 1);

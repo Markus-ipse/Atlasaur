@@ -155,9 +155,9 @@ export type State = {
   // resurface queue's `dueAt` compares against. Volatile like the queue.
   studyStep: number;
   // Study-only: a grade scheduled to commit when feedback dismisses
-  // (auto-Good on correct, auto-Again on skip). User-initiated grade
-  // clears this and writes its own ease instead, so override after a
-  // correct answer means "Easy", not "Good then Easy".
+  // (auto-Good on correct, auto-Again on any miss — wrong or "Don't know").
+  // Grading is automatic; the user never self-grades. dismissFeedback is
+  // the single commit point.
   autoGradePending: Ease | null;
   // Study-only temporary lens: when set, Study picks are narrowed to this
   // subregion. Not persisted — always null on reload. Cleared by
@@ -696,9 +696,9 @@ export function reducer(state: State, action: Action): State {
     }
     case "setSpotlight": {
       // Study-only lens. The CTA only renders in StudySummary, but guard
-      // here too (symmetric with `grade`) so a stray dispatch can't seed a
-      // spotlight into Quiz state — which the map would then tint even
-      // though Quiz picks ignore it.
+      // here too (symmetric with the other Study-only actions) so a stray
+      // dispatch can't seed a spotlight into Quiz state — which the map
+      // would then tint even though Quiz picks ignore it.
       if (state.practiceMode !== "study") return state;
       // Self-contained transition: close any open summary and pick the
       // first focused country in one step (the summary's Focus CTA calls

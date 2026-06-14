@@ -102,13 +102,19 @@ export function pickNextStudy(args: {
 
   // 0. In-session resurface: a recent miss whose gap has elapsed comes
   //    back before any FSRS pick. iso3 !== excludeIso3 so we never re-pick
-  //    the card the user is leaving.
-  const resurfaced = resurfaceQueue.find(
-    (e) => e.dueAt <= step && e.iso3 !== excludeIso3,
-  );
-  if (resurfaced) {
-    const country = byIso3.get(resurfaced.iso3);
-    if (country) return country;
+  //    the card the user is leaving. The entry must be in `pool` — an
+  //    active spotlight narrows the pool to one subregion without pruning
+  //    the queue, so an out-of-scope miss stays queued and resurfaces only
+  //    once the scope widens again (mirrors how due records behave).
+  if (resurfaceQueue.length > 0) {
+    const inPool = new Set(pool.map((c) => c.iso3));
+    const resurfaced = resurfaceQueue.find(
+      (e) => e.dueAt <= step && e.iso3 !== excludeIso3 && inPool.has(e.iso3),
+    );
+    if (resurfaced) {
+      const country = byIso3.get(resurfaced.iso3);
+      if (country) return country;
+    }
   }
 
   // 1. Due records, oldest-due first.
