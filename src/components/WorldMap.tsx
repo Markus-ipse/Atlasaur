@@ -440,15 +440,19 @@ export function WorldMap({
     const finalTarget = toTransform(
       computeRevealTarget(label, null, neighborBounds),
     );
-    const sel = select(svgEl).interrupt("reveal");
+    // Unnamed transitions on purpose: d3-zoom's gesture handlers call the
+    // default-name interrupt(this), so a user pan/pinch mid-reveal cancels
+    // the animation and takes over. They also supersede each other, so the
+    // dismiss/base effects' transitions naturally take over when feedback
+    // clears — no manual interrupt/cleanup needed.
+    const sel = select(svgEl);
 
     if (stage1Fit && !reduced) {
       // Two-stage: frame both countries, hold, then settle on correct +
       // neighbors. The chained transition starts when the first ends; the
-      // delay is the hold at the both-countries frame. The chained
-      // .transition() inherits the "reveal" name from its parent.
+      // delay is the hold at the both-countries frame.
       sel
-        .transition("reveal")
+        .transition()
         .duration(REVEAL_STAGE1_MS)
         .call(zoomB.transform, toTransform(stage1Fit))
         .transition()
@@ -459,13 +463,10 @@ export function WorldMap({
       // Far miss / skip / reduced motion: one smooth transition to the final
       // frame (no intermediate both-countries stop, no hold).
       sel
-        .transition("reveal")
+        .transition()
         .duration(reduced ? 0 : REVEAL_STAGE2_MS)
         .call(zoomB.transform, finalTarget);
     }
-    return () => {
-      select(svgEl).interrupt("reveal");
-    };
   }, [revealCorrectIso3, revealWrongIso3, correctNeighborIso3s, numericFromIso3]);
 
   const baseTransform = useMemo<ZoomTransform>(
