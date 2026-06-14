@@ -145,7 +145,15 @@ export type State = {
   sessionDone: boolean;
   srsStore: SrsStore;
   newIntroducedThisStretch: number;
-  pendingGrade: boolean;
+  // Study-only in-session resurface: missed cards come back a few cards
+  // later within the same session (the Study analog of Quiz's retryQueue).
+  // Kept distinct from retryQueue so it never pollutes unlearnedCount or
+  // the Quiz "Review N" affordance. Volatile / in-memory only — not
+  // persisted; resets on setPracticeMode and reload.
+  studyResurfaceQueue: RetryEntry[];
+  // Monotonic count of Study cards advanced this stretch — the clock the
+  // resurface queue's `dueAt` compares against. Volatile like the queue.
+  studyStep: number;
   // Study-only: a grade scheduled to commit when feedback dismisses
   // (auto-Good on correct, auto-Again on skip). User-initiated grade
   // clears this and writes its own ease instead, so override after a
@@ -170,7 +178,6 @@ export type Action =
   | { type: "setContinents"; continents: readonly Continent[] }
   | { type: "endSession" }
   | { type: "startReview" }
-  | { type: "grade"; ease: Ease; now?: Date }
   | { type: "resetSrs" }
   | { type: "closeSummary"; now?: Date }
   | { type: "setSpotlight"; subregion: Subregion; now?: Date }
@@ -238,7 +245,8 @@ export function initialState(
     sessionDone: false,
     srsStore,
     newIntroducedThisStretch: 0,
-    pendingGrade: false,
+    studyResurfaceQueue: [],
+    studyStep: 0,
     autoGradePending: null,
     spotlightSubregion: null,
     transientMessage: null,
@@ -259,6 +267,8 @@ function pickInitialCountry(
       srsStore,
       now: new Date(),
       newIntroducedThisStretch: 0,
+      resurfaceQueue: [],
+      step: 0,
     });
     if (picked) return picked;
   }
@@ -281,6 +291,8 @@ function nextCurrent(state: State, now: Date = new Date()): Country {
       srsStore: state.srsStore,
       now,
       newIntroducedThisStretch: state.newIntroducedThisStretch,
+      resurfaceQueue: state.studyResurfaceQueue,
+      step: state.studyStep,
     });
     // null = caught-up empty state. Caller surfaces the empty UI; we
     // keep `current` pointing at something to avoid undefined access.
@@ -370,14 +382,12 @@ function applyMiss(
   const feedback: Feedback = { kind, answerIso3, correctIso3 };
 
   if (state.practiceMode === "study") {
-    // Study mode doesn't touch session counters or retryQueue.
-    // Wrong → user must grade (pendingGrade=true, no auto-grade).
-    // Skip → auto-Again scheduled for dismiss-time, so an Easy/Hard
-    // override doesn't compound on top of an already-written Again.
-    if (kind === "skipped") {
-      return { ...state, feedback, pendingGrade: false, autoGradePending: "Again" };
-    }
-    return { ...state, feedback, pendingGrade: true, autoGradePending: null };
+    // Study mode doesn't touch session counters or retryQueue. Both a
+    // wrong answer and a skip ("Don't know") schedule an auto-Again for
+    // dismiss-time; the reveal advances on a single "Got it" with no
+    // self-grading. The resurface enqueue happens at commit time in
+    // dismissFeedback, keyed off autoGradePending === "Again".
+    return { ...state, feedback, autoGradePending: "Again" };
   }
 
   // Quiz mode.
@@ -432,14 +442,13 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
     : new Set(state.completedSet).add(correctIso3);
 
   if (state.practiceMode === "study") {
-    // Auto-Good is *scheduled* for dismiss-time; not committed yet.
-    // If the user presses an ease before the timer fires, the grade
-    // action writes their pick instead.
+    // Auto-Good is *scheduled* for dismiss-time, committed by the 600ms
+    // correct-flash timer in dismissFeedback. Grading is automatic — the
+    // user never self-grades.
     return {
       ...state,
       completedSet,
       feedback,
-      pendingGrade: false,
       autoGradePending: "Good",
     };
   }
@@ -473,13 +482,15 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
 
 function dismissFeedback(state: State, now: Date): State {
   if (state.practiceMode === "study") {
-    // Commit a deferred auto-grade (Good on correct, Again on skip) if
-    // the user didn't override. Picking the next country runs against
-    // the post-grade store so we don't re-surface the same iso3.
+    // Commit the deferred auto-grade (Good on correct, Again on miss).
+    // Picking the next country runs against the post-grade store so we
+    // don't re-surface the same iso3.
+    const iso3 = state.current.iso3;
     let srsStore = state.srsStore;
     let newIntroducedThisStretch = state.newIntroducedThisStretch;
+    let studyResurfaceQueue = state.studyResurfaceQueue;
+    const newStep = state.studyStep + 1;
     if (state.autoGradePending) {
-      const iso3 = state.current.iso3;
       const isNew = !srsStore.records[iso3];
       const next = srsGrade(srsStore.records[iso3] ?? null, state.autoGradePending, now);
       srsStore = {
@@ -487,13 +498,25 @@ function dismissFeedback(state: State, now: Date): State {
         records: { ...srsStore.records, [iso3]: next },
       };
       if (isNew) newIntroducedThisStretch += 1;
+      // In-session resurface: a miss comes back a few cards later;
+      // a correct answer drops any pending resurface for this card.
+      // withoutIso3 dedupes a repeat miss so the queue holds at most
+      // one entry per country.
+      studyResurfaceQueue =
+        state.autoGradePending === "Again"
+          ? [
+              ...withoutIso3(studyResurfaceQueue, iso3),
+              { iso3, dueAt: newStep + randInt(RETRY_GAP_MIN, RETRY_GAP_MAX) },
+            ]
+          : withoutIso3(studyResurfaceQueue, iso3);
     }
     const updated: State = {
       ...state,
       srsStore,
       newIntroducedThisStretch,
+      studyResurfaceQueue,
+      studyStep: newStep,
       feedback: null,
-      pendingGrade: false,
       autoGradePending: null,
     };
     // Run the pick against the post-grade state; a depleted spotlight
@@ -534,14 +557,6 @@ export function reducer(state: State, action: Action): State {
     }
     case "dismiss": {
       if (!state.feedback) return state;
-      // Study: if a miss hasn't been graded yet, dismiss falls back
-      // to Again — queue it for dismissFeedback to commit.
-      if (state.practiceMode === "study" && state.pendingGrade) {
-        return dismissFeedback(
-          { ...state, pendingGrade: false, autoGradePending: "Again" },
-          now,
-        );
-      }
       return dismissFeedback(state, now);
     }
     case "setMode": {
@@ -573,7 +588,10 @@ export function reducer(state: State, action: Action): State {
         feedback: null,
         sessionDone: false,
         newIntroducedThisStretch: 0,
-        pendingGrade: false,
+        // A mode flip is a fresh stretch — drop the in-session resurface
+        // queue and reset its clock.
+        studyResurfaceQueue: [],
+        studyStep: 0,
         autoGradePending: null,
         // Flipping into Quiz must never inherit a silently narrowed pool.
         spotlightSubregion: null,
@@ -585,6 +603,9 @@ export function reducer(state: State, action: Action): State {
       const pool = filterPool(action.continents);
       const inScope = new Set(pool.map((c) => c.iso3));
       const retryQueue = state.retryQueue.filter((e) => inScope.has(e.iso3));
+      const studyResurfaceQueue = state.studyResurfaceQueue.filter((e) =>
+        inScope.has(e.iso3),
+      );
       const current = inScope.has(state.current.iso3)
         ? state.current
         : pickRandom(pool, null);
@@ -601,12 +622,11 @@ export function reducer(state: State, action: Action): State {
         selectedContinents: action.continents,
         current,
         retryQueue,
+        studyResurfaceQueue,
         feedback: null,
         // Wipe in-flight Study-mode grade state: feedback is gone and
-        // `current` may have changed, so leftover pendingGrade /
-        // autoGradePending would target a country the user can no
-        // longer see.
-        pendingGrade: false,
+        // `current` may have changed, so a leftover autoGradePending
+        // would target a country the user can no longer see.
         autoGradePending: null,
         // Scope change supersedes any active spotlight lens.
         spotlightSubregion: null,
@@ -653,33 +673,6 @@ export function reducer(state: State, action: Action): State {
         feedback: null,
         current: country,
       };
-    }
-    case "grade": {
-      if (state.practiceMode !== "study") return state;
-      const iso3 = state.current.iso3;
-      const isNew = !state.srsStore.records[iso3];
-      const next = srsGrade(
-        state.srsStore.records[iso3] ?? null,
-        action.ease,
-        now,
-      );
-      const graded: State = {
-        ...state,
-        srsStore: {
-          ...state.srsStore,
-          records: { ...state.srsStore.records, [iso3]: next },
-        },
-        newIntroducedThisStretch: isNew
-          ? state.newIntroducedThisStretch + 1
-          : state.newIntroducedThisStretch,
-        pendingGrade: false,
-        // The user's ease supersedes any auto-grade that was queued.
-        autoGradePending: null,
-      };
-      if (state.feedback) {
-        return dismissFeedback(graded, now);
-      }
-      return graded;
     }
     case "resetSrs": {
       return {
@@ -770,7 +763,6 @@ export type GameApi = {
   setContinents: (continents: readonly Continent[]) => void;
   endSession: () => void;
   startReview: () => void;
-  grade: (ease: Ease) => void;
   resetSrs: () => void;
   closeSummary: () => void;
   setSpotlight: (subregion: Subregion) => void;
@@ -908,7 +900,6 @@ export function useGame(): GameApi {
       dispatch({ type: "setContinents", continents }),
     endSession: () => dispatch({ type: "endSession" }),
     startReview: () => dispatch({ type: "startReview" }),
-    grade: (ease) => dispatch({ type: "grade", ease, now: new Date() }),
     resetSrs: () => dispatch({ type: "resetSrs" }),
     closeSummary: () => dispatch({ type: "closeSummary", now: new Date() }),
     setSpotlight: (subregion) =>

@@ -553,28 +553,17 @@ describe("reducer — Study mode grade flow", () => {
     );
   }
 
-  it("answer-wrong sets pendingGrade and shows feedback (no auto-grade)", () => {
+  it("answer-wrong schedules auto-Again and shows feedback (no immediate write)", () => {
     const s0 = studyState();
     const s1 = reducer(s0, { type: "answer", iso3: "DEU", now: NOW });
     expect(s1.feedback?.kind).toBe("wrong");
-    expect(s1.pendingGrade).toBe(true);
+    expect(s1.autoGradePending).toBe("Again");
     expect(s1.srsStore.records["FRA"]).toBeUndefined();
-  });
-
-  it("grade(Good) after a wrong answer writes Good and clears pendingGrade", () => {
-    let s = studyState();
-    s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
-    s = reducer(s, { type: "grade", ease: "Good", now: NOW });
-    expect(s.pendingGrade).toBe(false);
-    expect(s.srsStore.records["FRA"]).toBeDefined();
-    expect(s.srsStore.records["FRA"].reps).toBe(1);
-    expect(s.feedback).toBeNull();
   });
 
   it("answer-correct in Study defers auto-Good until dismiss", () => {
     const s0 = studyState();
     const s1 = reducer(s0, { type: "answer", iso3: "FRA", now: NOW });
-    expect(s1.pendingGrade).toBe(false);
     expect(s1.autoGradePending).toBe("Good");
     expect(s1.srsStore.records["FRA"]).toBeUndefined();
     expect(s1.feedback?.kind).toBe("correct");
@@ -584,30 +573,9 @@ describe("reducer — Study mode grade flow", () => {
     expect(s2.autoGradePending).toBeNull();
   });
 
-  it("override after correct uses the user's ease, not Good-then-ease", () => {
-    let s = studyState();
-    s = reducer(s, { type: "answer", iso3: "FRA", now: NOW });
-    expect(s.autoGradePending).toBe("Good");
-    // User overrides with Easy while feedback is showing.
-    s = reducer(s, { type: "grade", ease: "Easy", now: NOW });
-    const overridden = s.srsStore.records["FRA"];
-    expect(overridden).toBeDefined();
-    expect(overridden.reps).toBe(1); // single grade, not two
-    expect(s.autoGradePending).toBeNull();
-    // Compare against a single-Easy baseline on a fresh card.
-    const baseline = studyState();
-    const baselineSingleEasy = reducer(baseline, {
-      type: "grade",
-      ease: "Easy",
-      now: NOW,
-    });
-    expect(overridden).toEqual(baselineSingleEasy.srsStore.records["FRA"]);
-  });
-
   it("skip in Study defers auto-Again until dismiss", () => {
     const s0 = studyState();
     const s1 = reducer(s0, { type: "skip", now: NOW });
-    expect(s1.pendingGrade).toBe(false);
     expect(s1.autoGradePending).toBe("Again");
     expect(s1.srsStore.records["FRA"]).toBeUndefined();
     expect(s1.feedback?.kind).toBe("skipped");
@@ -617,14 +585,15 @@ describe("reducer — Study mode grade flow", () => {
     expect(s2.autoGradePending).toBeNull();
   });
 
-  it("dismiss after a wrong with pendingGrade defaults to Again", () => {
+  it("dismiss after a wrong commits Again and advances", () => {
     let s = studyState();
     s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
-    expect(s.pendingGrade).toBe(true);
+    expect(s.autoGradePending).toBe("Again");
     s = reducer(s, { type: "dismiss", now: NOW });
-    expect(s.pendingGrade).toBe(false);
     expect(s.srsStore.records["FRA"]).toBeDefined();
+    expect(s.srsStore.records["FRA"].reps).toBe(1);
     expect(s.feedback).toBeNull();
+    expect(s.current.iso3).not.toBe("FRA");
   });
 
   it("increments newIntroducedThisStretch only on first-time grades", () => {
@@ -642,13 +611,67 @@ describe("reducer — Study mode grade flow", () => {
     expect(s.newIntroducedThisStretch).toBe(1);
   });
 
-  it("introduction count rises when a wrong-then-grade creates a new record", () => {
+  it("introduction count rises when a wrong miss creates a new record", () => {
     let s = studyState();
     s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
-    expect(s.pendingGrade).toBe(true);
     expect(s.newIntroducedThisStretch).toBe(0);
-    s = reducer(s, { type: "grade", ease: "Again", now: NOW });
+    s = reducer(s, { type: "dismiss", now: NOW });
     expect(s.newIntroducedThisStretch).toBe(1);
+  });
+
+  it("in-session resurface: a miss is queued a few cards out on dismiss", () => {
+    let s = studyState();
+    s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
+    s = reducer(s, { type: "dismiss", now: NOW });
+    expect(s.studyStep).toBe(1);
+    const entry = s.studyResurfaceQueue.find((e) => e.iso3 === "FRA");
+    expect(entry).toBeDefined();
+    // dueAt = newStep (1) + randInt(3, 5) → in [4, 6].
+    expect(entry!.dueAt).toBeGreaterThanOrEqual(4);
+    expect(entry!.dueAt).toBeLessThanOrEqual(6);
+  });
+
+  it("in-session resurface: a correct answer drops a queued card", () => {
+    let s = studyState();
+    s = { ...s, studyResurfaceQueue: [{ iso3: "FRA", dueAt: 0 }] };
+    s = reducer(s, { type: "answer", iso3: "FRA", now: NOW });
+    s = reducer(s, { type: "dismiss", now: NOW });
+    expect(s.studyResurfaceQueue.some((e) => e.iso3 === "FRA")).toBe(false);
+  });
+
+  it("in-session resurface: a repeat miss keeps a single entry", () => {
+    let s = studyState();
+    s = { ...s, studyResurfaceQueue: [{ iso3: "FRA", dueAt: 0 }] };
+    s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
+    s = reducer(s, { type: "dismiss", now: NOW });
+    const fraEntries = s.studyResurfaceQueue.filter((e) => e.iso3 === "FRA");
+    expect(fraEntries).toHaveLength(1);
+    expect(fraEntries[0].dueAt).toBeGreaterThanOrEqual(4);
+  });
+
+  it("setContinents prunes the resurface queue to scope", () => {
+    let s = studyState();
+    s = {
+      ...s,
+      studyResurfaceQueue: [
+        { iso3: "JPN", dueAt: 0 },
+        { iso3: "FRA", dueAt: 0 },
+      ],
+    };
+    s = reducer(s, { type: "setContinents", continents: ["Europe"] });
+    expect(s.studyResurfaceQueue.map((e) => e.iso3)).toEqual(["FRA"]);
+  });
+
+  it("setPracticeMode resets the resurface queue and step", () => {
+    let s = studyState();
+    s = {
+      ...s,
+      studyStep: 5,
+      studyResurfaceQueue: [{ iso3: "FRA", dueAt: 9 }],
+    };
+    s = reducer(s, { type: "setPracticeMode", mode: "quiz", now: NOW });
+    expect(s.studyStep).toBe(0);
+    expect(s.studyResurfaceQueue).toEqual([]);
   });
 });
 
@@ -690,11 +713,10 @@ describe("reducer — resetSrs / closeSummary", () => {
       );
     }
     let s = studyState();
-    // A wrong answer leaves pendingGrade=true.
+    // A wrong answer schedules an auto-Again.
     s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
-    expect(s.pendingGrade).toBe(true);
+    expect(s.autoGradePending).toBe("Again");
     s = reducer(s, { type: "setContinents", continents: ALL_CONTINENTS });
-    expect(s.pendingGrade).toBe(false);
     expect(s.autoGradePending).toBeNull();
     expect(s.feedback).toBeNull();
   });

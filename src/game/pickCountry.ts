@@ -86,9 +86,30 @@ export function pickNextStudy(args: {
   srsStore: SrsStore;
   now: Date;
   newIntroducedThisStretch: number;
+  resurfaceQueue?: readonly RetryEntry[];
+  step?: number;
 }): Country | null {
-  const { pool, byIso3, excludeIso3, srsStore, now, newIntroducedThisStretch } =
-    args;
+  const {
+    pool,
+    byIso3,
+    excludeIso3,
+    srsStore,
+    now,
+    newIntroducedThisStretch,
+    resurfaceQueue = [],
+    step = 0,
+  } = args;
+
+  // 0. In-session resurface: a recent miss whose gap has elapsed comes
+  //    back before any FSRS pick. iso3 !== excludeIso3 so we never re-pick
+  //    the card the user is leaving.
+  const resurfaced = resurfaceQueue.find(
+    (e) => e.dueAt <= step && e.iso3 !== excludeIso3,
+  );
+  if (resurfaced) {
+    const country = byIso3.get(resurfaced.iso3);
+    if (country) return country;
+  }
 
   // 1. Due records, oldest-due first.
   const dueList: { iso3: string; due: number }[] = [];

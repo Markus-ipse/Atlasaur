@@ -12,7 +12,6 @@ import {
   loadStore,
   masteryBySubregion,
   newAvailableCount,
-  previewIntervalDays,
   saveStore,
   toJSON,
   totalReviews,
@@ -278,15 +277,5 @@ describe("masteryBySubregion", () => {
     const map = masteryBySubregion(store, COUNTRIES, scope);
     expect(map.get("Southern Africa")).toEqual({ learned: 0, total: 2 });
     expect(map.has("Western Africa")).toBe(false);
-  });
-});
-
-describe("previewIntervalDays", () => {
-  it("returns a non-negative integer for each ease", () => {
-    for (const ease of ["Again", "Hard", "Good", "Easy"] as const) {
-      const n = previewIntervalDays(null, ease, T0);
-      expect(Number.isInteger(n)).toBe(true);
-      expect(n).toBeGreaterThanOrEqual(0);
-    }
   });
 });

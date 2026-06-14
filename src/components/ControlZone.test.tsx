@@ -3,7 +3,13 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, act } from "@testing-library/react";
 import { ControlZone } from "./ControlZone";
 import type { GameApi } from "../game/useGame";
-import { ALL_CONTINENTS, type Country, type Feedback, type QuestionMode } from "../types";
+import {
+  ALL_CONTINENTS,
+  type Country,
+  type Feedback,
+  type PracticeMode,
+  type QuestionMode,
+} from "../types";
 
 const SAMPLE: Country = {
   numeric: "250",
@@ -32,13 +38,14 @@ const NAMES_BY_ISO3: Record<string, string> = {
 
 function makeGame(overrides: {
   mode?: QuestionMode;
+  practiceMode?: PracticeMode;
   feedback?: Feedback | null;
   current?: Country;
 }): GameApi {
   return {
     state: {
       mode: overrides.mode ?? "name-to-click",
-      practiceMode: "quiz",
+      practiceMode: overrides.practiceMode ?? "quiz",
       selectedContinents: ALL_CONTINENTS,
       current: overrides.current ?? SAMPLE,
       feedback: overrides.feedback ?? null,
@@ -53,7 +60,8 @@ function makeGame(overrides: {
       sessionDone: false,
       srsStore: { version: 1, records: {} },
       newIntroducedThisStretch: 0,
-      pendingGrade: false,
+      studyResurfaceQueue: [],
+      studyStep: 0,
       autoGradePending: null,
       spotlightSubregion: null,
       transientMessage: null,
@@ -80,7 +88,6 @@ function makeGame(overrides: {
     setContinents: vi.fn(),
     endSession: vi.fn(),
     startReview: vi.fn(),
-    grade: vi.fn(),
     resetSrs: vi.fn(),
     closeSummary: vi.fn(),
     setSpotlight: vi.fn(),
@@ -470,5 +477,31 @@ describe("ControlZone", () => {
       />,
     );
     expect(screen.getByPlaceholderText(/type the country name/i)).toBeTruthy();
+  });
+
+  it("Study miss renders a 'Got it' dismiss button and no ease buttons", () => {
+    const wrong: Feedback = {
+      kind: "wrong",
+      answerIso3: "DEU",
+      correctIso3: "FRA",
+    };
+    const game = makeGame({ practiceMode: "study", feedback: wrong });
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
+    expect(screen.getByRole("button", { name: "Got it" })).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "Grade" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Knew it|Forgot|Easy|Hard/ })).toBeNull();
+  });
+
+  it("Study correct flash renders no ease buttons and no dismiss button", () => {
+    const correct: Feedback = {
+      kind: "correct",
+      answerIso3: "FRA",
+      correctIso3: "FRA",
+    };
+    const game = makeGame({ practiceMode: "study", feedback: correct });
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
+    expect(screen.queryByRole("group", { name: "Grade" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Got it" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
   });
 });
