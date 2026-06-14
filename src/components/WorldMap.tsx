@@ -24,6 +24,7 @@ import {
   computeRevealTarget,
   tryFitUnion,
   type Bounds,
+  type Target,
 } from "./revealZoom";
 import {
   COLLISION_PADDING,
@@ -64,6 +65,14 @@ function prefersReducedMotion(): boolean {
     window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
   );
 }
+
+// Two-stage reveal-zoom timing for a wrong click that fits both countries on
+// screen: animate to the both-countries frame (stage 1), hold, then settle on
+// the correct country + its neighbors (stage 2). A far miss / skip / reduced
+// motion skips stage 1 and uses REVEAL_STAGE2_MS for a single transition.
+const REVEAL_STAGE1_MS = 700;
+const REVEAL_HOLD_MS = 500;
+const REVEAL_STAGE2_MS = 700;
 
 // Ocean labels: target on-screen size scales linearly with rendered SVG
 // width between these caps. Min keeps mobile legible; max stops them
@@ -394,7 +403,9 @@ export function WorldMap({
 
   useEffect(() => {
     if (!revealCorrectIso3) return;
-    if (!svgRef.current || !zoomRef.current) return;
+    const svgEl = svgRef.current;
+    const zoomB = zoomRef.current;
+    if (!svgEl || !zoomB) return;
     const numeric = numericFromIso3(revealCorrectIso3);
     if (!numeric) return;
     // Frame the largest clipped ring rather than pathGen.bounds(feat) —
@@ -417,16 +428,44 @@ export function WorldMap({
       if (lab) neighborBounds.push(lab);
     }
 
-    const { k, cx, cy } = computeRevealTarget(label, wrongLabel, neighborBounds);
-    const target = zoomIdentity
-      .translate(W / 2 - cx * k, H / 2 - cy * k)
-      .scale(k);
+    const toTransform = (t: Target) =>
+      zoomIdentity.translate(W / 2 - t.cx * t.k, H / 2 - t.cy * t.k).scale(t.k);
 
-    const duration = prefersReducedMotion() ? 0 : 700;
-    select(svgRef.current)
-      .transition()
-      .duration(duration)
-      .call(zoomRef.current.transform, target);
+    const reduced = prefersReducedMotion();
+    // Stage-1 frame for a wrong click — only when the clicked and correct
+    // countries fit together at a meaningful zoom (tryFitUnion returns null
+    // when the union would need k < MIN_ZOOM). The final frame is always the
+    // correct country + its neighbors.
+    const stage1Fit = wrongLabel ? tryFitUnion([label, wrongLabel]) : null;
+    const finalTarget = toTransform(
+      computeRevealTarget(label, null, neighborBounds),
+    );
+    const sel = select(svgEl).interrupt("reveal");
+
+    if (stage1Fit && !reduced) {
+      // Two-stage: frame both countries, hold, then settle on correct +
+      // neighbors. The chained transition starts when the first ends; the
+      // delay is the hold at the both-countries frame. The chained
+      // .transition() inherits the "reveal" name from its parent.
+      sel
+        .transition("reveal")
+        .duration(REVEAL_STAGE1_MS)
+        .call(zoomB.transform, toTransform(stage1Fit))
+        .transition()
+        .delay(REVEAL_HOLD_MS)
+        .duration(REVEAL_STAGE2_MS)
+        .call(zoomB.transform, finalTarget);
+    } else {
+      // Far miss / skip / reduced motion: one smooth transition to the final
+      // frame (no intermediate both-countries stop, no hold).
+      sel
+        .transition("reveal")
+        .duration(reduced ? 0 : REVEAL_STAGE2_MS)
+        .call(zoomB.transform, finalTarget);
+    }
+    return () => {
+      select(svgEl).interrupt("reveal");
+    };
   }, [revealCorrectIso3, revealWrongIso3, correctNeighborIso3s, numericFromIso3]);
 
   const baseTransform = useMemo<ZoomTransform>(
