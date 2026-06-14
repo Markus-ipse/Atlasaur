@@ -491,8 +491,9 @@ function commitStudyGrade(
   now: Date,
 ): Pick<State, "srsStore" | "newIntroducedThisStretch" | "studyResurfaceQueue"> {
   const iso3 = state.current.iso3;
-  const isNew = !state.srsStore.records[iso3];
-  const next = srsGrade(state.srsStore.records[iso3] ?? null, ease, now);
+  const rec = state.srsStore.records[iso3];
+  const isNew = !rec;
+  const next = srsGrade(rec ?? null, ease, now);
   return {
     srsStore: {
       ...state.srsStore,
@@ -526,11 +527,7 @@ function dismissFeedback(state: State, now: Date): State {
       : null;
     const updated: State = {
       ...state,
-      srsStore: committed?.srsStore ?? state.srsStore,
-      newIntroducedThisStretch:
-        committed?.newIntroducedThisStretch ?? state.newIntroducedThisStretch,
-      studyResurfaceQueue:
-        committed?.studyResurfaceQueue ?? state.studyResurfaceQueue,
+      ...(committed ?? {}),
       studyStep: newStep,
       feedback: null,
       autoGradePending: null,
