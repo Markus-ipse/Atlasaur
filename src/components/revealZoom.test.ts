@@ -144,4 +144,13 @@ describe("tryFitUnion", () => {
     expect(r).not.toBeNull();
     expect(r!.k).toBe(MAX_ZOOM);
   });
+
+  // The two-stage reveal uses a non-null result here as its trigger: a near
+  // miss frames both countries (stage 1); a far-apart pair (union too wide,
+  // null) skips stage 1 for a single smooth transition to the answer.
+  it("returns null for a far-apart pair (the far-miss / skip-stage-1 signal)", () => {
+    const clickedWest = { x0: 60, y0: 200, x1: 90, y1: 230 };
+    const correctEast = { x0: 720, y0: 120, x1: 750, y1: 150 };
+    expect(tryFitUnion([clickedWest, correctEast])).toBeNull();
+  });
 });
