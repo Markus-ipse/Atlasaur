@@ -74,6 +74,20 @@ const REVEAL_STAGE1_MS = 700;
 const REVEAL_HOLD_MS = 500;
 const REVEAL_STAGE2_MS = 700;
 
+// When feedback clears, the map settles back to the resting frame. A miss
+// snaps back briskly; a correct answer eases back at twice the duration so the
+// celebration unwinds gently rather than yanking the view away.
+const RESET_MS = 450;
+const RESET_CORRECT_MS = 900;
+
+// The "✔ Correct!" badge is centered on the click point, then lifted up a touch
+// so it clears a fingertip on touch. Clamp the click point this far in from the
+// container edges so the whole (centered, lifted) badge stays on-screen: ≈ half
+// the badge's rendered size horizontally, and half-height + the lift vertically.
+const BADGE_INSET_X = 60;
+const BADGE_INSET_Y = 44;
+const BADGE_LIFT_Y = 18;
+
 // Ocean labels: target on-screen size scales linearly with rendered SVG
 // width between these caps. Min keeps mobile legible; max stops them
 // ballooning on large desktops.
@@ -338,7 +352,14 @@ export function WorldMap({
     [correctNeighborIso3s],
   );
   const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  // The on-map "✔ Correct!" badge appears at the click point. Captured in
+  // container-pixel space at click time and left there — per the design we
+  // ignore any later zoom/pan, so it lives outside the SVG zoom <g>.
+  const [clickPoint, setClickPoint] = useState<{ x: number; y: number } | null>(
+    null,
+  );
   // Seed from the resting frame so the first paint already matches what
   // the mount effect will sync into d3-zoom — otherwise `isPanned` would
   // briefly be true and flash the Reset button on load with a filtered
@@ -475,17 +496,24 @@ export function WorldMap({
   );
 
   const hasFeedback = feedback !== null;
-  const prevHadFeedbackRef = useRef(false);
+  // Track the kind that was showing so the settle-back duration can depend on
+  // it (correct eases back at 2× a miss). Updated every run; the guard below
+  // fires only on the shown→cleared transition.
+  const prevFeedbackKindRef = useRef<Feedback["kind"] | null>(null);
   useEffect(() => {
-    const wasShown = prevHadFeedbackRef.current;
-    prevHadFeedbackRef.current = hasFeedback;
-    if (!wasShown || hasFeedback) return;
+    const prevKind = prevFeedbackKindRef.current;
+    prevFeedbackKindRef.current = feedback?.kind ?? null;
+    if (prevKind === null || hasFeedback) return;
     if (!svgRef.current || !zoomRef.current) return;
-    const duration = prefersReducedMotion() ? 0 : 450;
+    const base = prevKind === "correct" ? RESET_CORRECT_MS : RESET_MS;
+    const duration = prefersReducedMotion() ? 0 : base;
     select(svgRef.current)
       .transition()
       .duration(duration)
       .call(zoomRef.current.transform, baseTransform);
+    // feedback?.kind read via the ref, not deps — we fire only on the
+    // hasFeedback transition, not on kind identity changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasFeedback, baseTransform]);
 
   // Apply the resting frame on first mount (instant, so the map appears
@@ -633,6 +661,7 @@ export function WorldMap({
 
   return (
     <div
+      ref={containerRef}
       className="parchment-grain relative h-full w-full overflow-hidden [overscroll-behavior:none]"
       style={{ backgroundColor: palette.oceanTint }}
     >
@@ -690,7 +719,29 @@ export function WorldMap({
                 strokeWidth={0.5}
                 vectorEffect="non-scaling-stroke"
                 className={className}
-                onClick={clickable && iso3 ? () => onCountryClick(iso3) : undefined}
+                data-numeric={p.numericId}
+                onClick={
+                  clickable && iso3
+                    ? (e) => {
+                        // Record where the user clicked (container-pixel space,
+                        // clamped to keep the centered badge on-screen) before
+                        // dispatching the answer.
+                        const r = containerRef.current?.getBoundingClientRect();
+                        if (r) {
+                          const x = Math.min(
+                            Math.max(e.clientX - r.left, BADGE_INSET_X),
+                            r.width - BADGE_INSET_X,
+                          );
+                          const y = Math.min(
+                            Math.max(e.clientY - r.top, BADGE_INSET_Y),
+                            r.height - BADGE_INSET_Y,
+                          );
+                          setClickPoint({ x, y });
+                        }
+                        onCountryClick(iso3);
+                      }
+                    : undefined
+                }
                 style={{ transition: "fill 200ms ease, filter 100ms ease" }}
               />
             );
@@ -777,6 +828,21 @@ export function WorldMap({
         >
           Reset
         </button>
+      )}
+      {/* On-map "✔ Correct!" flourish at the click point (name-to-click only;
+          shape-to-name has no click). Outer owns positioning/centering; inner
+          runs the scale keyframe so the two don't fight. The key remounts it
+          per click so the animation reliably replays. */}
+      {feedback?.kind === "correct" && mode === "name-to-click" && clickPoint && (
+        <div
+          key={`${clickPoint.x},${clickPoint.y}`}
+          className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+          style={{ left: clickPoint.x, top: clickPoint.y - BADGE_LIFT_Y }}
+        >
+          <span className="correct-burst inline-block whitespace-nowrap rounded-full bg-parchment-base/95 px-3 py-1 font-display text-sm uppercase tracking-wide text-sap-green shadow-md">
+            ✔ Correct!
+          </span>
+        </div>
       )}
     </div>
   );

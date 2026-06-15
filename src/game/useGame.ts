@@ -104,7 +104,11 @@ function saveShowLabels(value: boolean): void {
   }
 }
 
-const FEEDBACK_DURATION = { correct: 900 } as const;
+// name-to-click correct answers hold longer: the on-map "✔ Correct!" badge +
+// glow get a beat to land at the click point, and the map's return-to-base
+// settle (which fires on dismiss) is delayed with it. shape-to-name (typing)
+// keeps the shorter hold — there's no click/zoom there to wait on.
+const FEEDBACK_DURATION = { correct: 900, correctNameToClick: 1300 } as const;
 const TOAST_DURATION = 3000;
 const RETRY_GAP_MIN = 3;
 const RETRY_GAP_MAX = 5;
@@ -800,12 +804,16 @@ export function useGame(): GameApi {
 
   useEffect(() => {
     if (!state.feedback || state.feedback.kind !== "correct") return;
+    const ms =
+      state.mode === "name-to-click"
+        ? FEEDBACK_DURATION.correctNameToClick
+        : FEEDBACK_DURATION.correct;
     const id = window.setTimeout(
       () => dispatch({ type: "dismiss", now: new Date() }),
-      FEEDBACK_DURATION.correct,
+      ms,
     );
     return () => window.clearTimeout(id);
-  }, [state.feedback]);
+  }, [state.feedback, state.mode]);
 
   useEffect(() => {
     if (!state.transientMessage) return;

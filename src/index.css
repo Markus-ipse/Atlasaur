@@ -279,9 +279,32 @@ body {
 .correct-pulse {
   animation: correct-pulse 600ms ease-out;
 }
+
+/* On-map "✔ Correct!" badge: scale in with a mild overshoot for a poppy feel.
+   `transform-origin: center` so it grows from its middle; the centering
+   translate lives on the parent element, so this only animates scale. */
+@keyframes correct-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.correct-burst {
+  transform-origin: center;
+  animation: correct-burst 250ms ease-out;
+}
 @media (prefers-reduced-motion: reduce) {
   .correct-pop,
-  .correct-pulse {
+  .correct-pulse,
+  .correct-burst {
     animation: none;
   }
 }

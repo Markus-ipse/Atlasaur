@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from "vitest";
-import { render, cleanup } from "@testing-library/react";
+import { render, cleanup, fireEvent } from "@testing-library/react";
 import { WorldMap } from "./WorldMap";
 import type { Palette } from "./fillFor";
 import { ALL_CONTINENTS, type Feedback } from "../types";
@@ -113,5 +113,62 @@ describe("WorldMap — capital marker", () => {
       />,
     );
     expect(capitalDotCircles(container)).toHaveLength(0);
+  });
+});
+
+describe("WorldMap — floating Correct! badge", () => {
+  afterEach(cleanup);
+
+  const CORRECT: Feedback = {
+    kind: "correct",
+    answerIso3: "FRA",
+    correctIso3: "FRA",
+  };
+  // Make France's path clickable: the base fixture's isoFromNumeric returns
+  // undefined for everything, which leaves every path inert (Boolean(iso3) is
+  // false). Map FRA's numeric → "FRA" so clicking it sets the click point.
+  const isoFromNumeric = (numeric: string) =>
+    numeric === FRA_NUMERIC ? "FRA" : undefined;
+
+  it("shows the badge after a correct click in name-to-click mode", () => {
+    const { container, rerender } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        feedback={null}
+        revealCapitalLonLat={null}
+      />,
+    );
+    const fra = container.querySelector<SVGPathElement>(
+      `path[data-numeric="${FRA_NUMERIC}"]`,
+    );
+    expect(fra).not.toBeNull();
+    // A real click carries the position the badge needs; dispatch through the
+    // path's handler (not the reducer) so clickPoint is actually set.
+    fireEvent.click(fra!);
+    expect(container.textContent).not.toContain("Correct!"); // no feedback yet
+
+    rerender(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        feedback={CORRECT}
+        revealCapitalLonLat={null}
+      />,
+    );
+    expect(container.textContent).toContain("Correct!");
+  });
+
+  it("shows no badge on a correct answer in shape-to-name mode (no click point)", () => {
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        mode="shape-to-name"
+        isoFromNumeric={isoFromNumeric}
+        feedback={CORRECT}
+        revealCapitalLonLat={null}
+      />,
+    );
+    expect(container.textContent).not.toContain("Correct!");
   });
 });
