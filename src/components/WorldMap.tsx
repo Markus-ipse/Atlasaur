@@ -670,6 +670,18 @@ export function WorldMap({
               palette,
             );
             const clickable = isClickMode && Boolean(iso3) && inScope;
+            // Glow pulse on the country the user just got right — the map
+            // half of the correct-answer celebration (the panel shows
+            // CorrectHero). Animates `filter` only, so it doesn't fight the
+            // zoom <g>'s transform.
+            const correctPulse =
+              feedback?.kind === "correct" && iso3 === feedback.correctIso3;
+            const className = [
+              clickable && "country-clickable cursor-pointer",
+              correctPulse && "correct-pulse",
+            ]
+              .filter(Boolean)
+              .join(" ");
             return (
               <path
                 key={p.key}
@@ -678,7 +690,7 @@ export function WorldMap({
                 stroke={palette.border}
                 strokeWidth={0.5}
                 vectorEffect="non-scaling-stroke"
-                className={clickable ? "country-clickable cursor-pointer" : ""}
+                className={className}
                 onClick={clickable && iso3 ? () => onCountryClick(iso3) : undefined}
                 style={{ transition: "fill 200ms ease, filter 100ms ease" }}
               />

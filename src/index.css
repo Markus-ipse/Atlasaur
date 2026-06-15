@@ -246,6 +246,46 @@ body {
   }
 }
 
+/* Correct-answer celebration. The panel hero pops in; the country on the
+   map glows. Both one-shot and reduced-motion gated — the affirmation text
+   still appears instantly, just without the motion. */
+@keyframes correct-pop {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.correct-pop {
+  animation: correct-pop 200ms ease-out;
+}
+
+/* `filter` only — the country sits inside the zoom <g>, so a transform here
+   would fight the group transform. Glow color is the theme-dependent token. */
+@keyframes correct-pulse {
+  0% {
+    filter: drop-shadow(0 0 0 var(--color-sap-green)) brightness(1);
+  }
+  35% {
+    filter: drop-shadow(0 0 6px var(--color-sap-green)) brightness(1.15);
+  }
+  100% {
+    filter: drop-shadow(0 0 0 var(--color-sap-green)) brightness(1);
+  }
+}
+.correct-pulse {
+  animation: correct-pulse 600ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .correct-pop,
+  .correct-pulse {
+    animation: none;
+  }
+}
+
 button,
 a {
   -webkit-tap-highlight-color: transparent;

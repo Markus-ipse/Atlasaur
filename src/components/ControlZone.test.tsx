@@ -296,7 +296,7 @@ describe("ControlZone", () => {
     expect(screen.getByRole("status").textContent).not.toContain("You missed");
   });
 
-  it("renders no feedback message on a correct answer", () => {
+  it("affirms the country on a correct answer", () => {
     const correct: Feedback = {
       kind: "correct",
       answerIso3: "FRA",
@@ -304,7 +304,11 @@ describe("ControlZone", () => {
     };
     const game = makeGame({ feedback: correct });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
-    expect(screen.queryByRole("status")).toBeNull();
+    const status = screen.getByRole("status");
+    expect(status.textContent).toContain("Correct");
+    expect(status.textContent).toContain("France");
+    // No Continue button — correct auto-advances on the timer.
+    expect(screen.queryByRole("button", { name: /continue|got it/i })).toBeNull();
   });
 
   it("renders plural Capitals: with one alternate (Bolivia)", () => {

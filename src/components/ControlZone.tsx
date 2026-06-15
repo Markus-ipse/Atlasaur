@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Prompt } from "./Prompt";
 import { AnswerInput } from "./AnswerInput";
 import { RevealHero } from "./RevealHero";
+import { CorrectHero } from "./CorrectHero";
 import { StatusBar } from "./StatusBar";
 import { StudyIntro } from "./StudyIntro";
 import { CaughtUp } from "./CaughtUp";
@@ -30,11 +31,13 @@ export function ControlZone({
   const isStudy = state.practiceMode === "study";
   const heroFeedback =
     state.feedback && state.feedback.kind !== "correct" ? state.feedback : null;
+  const correctFeedback =
+    state.feedback?.kind === "correct" ? state.feedback : null;
 
   // Continue dismisses any miss reveal (wrong/skipped) in both Quiz and
-  // Study mode. Correct feedback gets auto-dismissed on the 600ms timer
-  // instead, so we hide Continue there to avoid a button that lives for
-  // one blink. In Study the dismiss commits the queued auto-Again.
+  // Study mode. Correct feedback gets auto-dismissed on the correct-flash
+  // timer instead, so we hide Continue there to avoid a button that lives
+  // for one blink. In Study the dismiss commits the queued auto-Again.
   const showContinue =
     state.feedback !== null && state.feedback.kind !== "correct";
 
@@ -47,7 +50,7 @@ export function ControlZone({
   }, [showContinue]);
 
   // Intro shows whenever the user is paused on a Study miss reveal (wrong
-  // or skip). The 600ms correct flash is too short to read.
+  // or skip). The correct flash is too brief to read.
   const showStudyIntro =
     isStudy && heroFeedback !== null && !game.seenSrsIntro;
   const skipLabel = isStudy ? "Don't know" : "Skip";
@@ -71,6 +74,8 @@ export function ControlZone({
             mode={state.mode}
             nameFromIso3={game.nameFromIso3}
           />
+        ) : correctFeedback ? (
+          <CorrectHero current={state.current} />
         ) : (
           <Prompt mode={state.mode} current={state.current} phase={state.phase} />
         )}

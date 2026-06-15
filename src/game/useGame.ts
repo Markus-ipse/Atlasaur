@@ -104,7 +104,7 @@ function saveShowLabels(value: boolean): void {
   }
 }
 
-const FEEDBACK_DURATION = { correct: 600 } as const;
+const FEEDBACK_DURATION = { correct: 900 } as const;
 const TOAST_DURATION = 3000;
 const RETRY_GAP_MIN = 3;
 const RETRY_GAP_MAX = 5;
@@ -442,7 +442,7 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
     : new Set(state.completedSet).add(correctIso3);
 
   if (state.practiceMode === "study") {
-    // Auto-Good is *scheduled* for dismiss-time, committed by the 600ms
+    // Auto-Good is *scheduled* for dismiss-time, committed by the
     // correct-flash timer in dismissFeedback. Grading is automatic — the
     // user never self-grades.
     return {
