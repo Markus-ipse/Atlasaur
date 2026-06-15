@@ -112,6 +112,45 @@ describe("computeRevealTarget", () => {
       computeRevealTarget(primary, null),
     );
   });
+
+  // The real bug: a small answer country (Estonia) bordering a giant (Russia).
+  // The giant clears MIN_ZOOM when framed alongside the answer — so the old
+  // cascade kept it and collapsed the answer to a speck — but it must be
+  // dropped so the answer stays visible.
+  it("drops a neighbor that clears MIN_ZOOM but would dwarf the answer (Estonia/Russia)", () => {
+    const primary = { x0: 395, y0: 195, x1: 405, y1: 205 }; // ~speck, solo k≈22
+    const giant = { x0: 405, y0: 195, x1: 655, y1: 205 };
+    const unionFit = tryFitUnion([primary, giant]);
+    // Framing both is a *valid* fit (≥ MIN_ZOOM) — that's why the old code used
+    // it — yet it shrinks the answer far below the visibility floor.
+    expect(unionFit).not.toBeNull();
+    expect(unionFit!.k).toBeGreaterThan(MIN_ZOOM);
+    const result = computeRevealTarget(primary, null, [giant]);
+    // Giant dropped → answer framed alone, prominently.
+    expect(result).toEqual(computeRevealTarget(primary, null));
+    expect(result.k).toBeGreaterThan(unionFit!.k);
+  });
+
+  // Contrast / lower bracket of REVEAL_NEIGHBOR_K_FLOOR: a neighbor comparable
+  // in size to the answer (Latvia) is kept and widens the frame.
+  it("keeps a neighbor comparable in size to the answer (Estonia/Latvia)", () => {
+    const primary = { x0: 395, y0: 195, x1: 405, y1: 205 };
+    const sibling = { x0: 405, y0: 195, x1: 425, y1: 205 };
+    const result = computeRevealTarget(primary, null, [sibling]);
+    const alone = computeRevealTarget(primary, null);
+    expect(result.k).toBeLessThan(alone.k);
+  });
+
+  // Both neighbors are giants (Mongolia between Russia and China) → neither
+  // survives the filter → the answer is framed alone.
+  it("frames the answer alone when every neighbor is a giant (Mongolia)", () => {
+    const primary = { x0: 380, y0: 180, x1: 420, y1: 220 };
+    const russia = { x0: 0, y0: 0, x1: 380, y1: H - 1 };
+    const china = { x0: 420, y0: 0, x1: W - 1, y1: H - 1 };
+    expect(computeRevealTarget(primary, null, [russia, china])).toEqual(
+      computeRevealTarget(primary, null),
+    );
+  });
 });
 
 describe("tryFitUnion", () => {

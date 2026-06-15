@@ -676,12 +676,11 @@ export function WorldMap({
             // zoom <g>'s transform.
             const correctPulse =
               feedback?.kind === "correct" && iso3 === feedback.correctIso3;
-            const className = [
-              clickable && "country-clickable cursor-pointer",
-              correctPulse && "correct-pulse",
-            ]
-              .filter(Boolean)
-              .join(" ");
+            // Plain concat (no array/filter/join) — this runs for every path
+            // on every render; correctPulse is true for at most one country.
+            let className = clickable ? "country-clickable cursor-pointer" : "";
+            if (correctPulse)
+              className += className ? " correct-pulse" : "correct-pulse";
             return (
               <path
                 key={p.key}
