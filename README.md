@@ -82,9 +82,10 @@ After editing, run `npm run build:countries` to regenerate
 │   └── components/
 │       ├── WorldMap.tsx          # SVG world map with d3-geo + d3-zoom
 │       ├── ControlZone.tsx       # Prompt, AnswerInput, Reveal, Skip/Continue
-│       ├── StatusBar.tsx         # ScorePanel + SettingsMenu
-│       ├── ScorePanel.tsx        # Done x/y, misses, streak
-│       ├── SettingsMenu.tsx      # Mode, continents, reveal-labels, End session
+│       ├── StatusBar.tsx         # Round chip, study chips, Done, SettingsMenu
+│       ├── ScorePanel.tsx        # Test round: done x/y, missed
+│       ├── SettingsMenu.tsx      # Question mode, continents, theme, data
+│       ├── RoundBreak.tsx        # Interstitial every twelve cards
 │       ├── Prompt.tsx            # Country prompt (name or highlighted shape)
 │       ├── AnswerInput.tsx       # Typed input for shape-to-name mode
 │       ├── RevealHero.tsx        # Wrong/skipped reveal panel with capital + neighbors
@@ -118,6 +119,6 @@ subpath (here, `/Atlasaur/`) without hardcoding the repo name.
 - `d3-geo` + `d3-zoom` + `d3-selection` for the map
 - `topojson-client` + `world-atlas` for country shapes (`countries-110m.json`)
 
-No backend, no auth. Selected continents and the reveal-labels preference
-persist in localStorage; in-session progress (Done count, streak, missed list)
-resets on reload.
+No backend, no auth. Selected continents and spaced-repetition records
+persist in localStorage; in-session progress (round counters, test-round
+score and missed list) resets on reload.

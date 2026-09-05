@@ -31,7 +31,6 @@ const numericFromIso3 = (iso3: string) =>
 const BASE_PROPS = {
   mode: "name-to-click" as const,
   highlightedIso3: null,
-  showLabelsOnReveal: true,
   correctNeighborIso3s: [] as readonly string[],
   spotlightIso3Set: new Set<string>(),
   selectedContinents: ALL_CONTINENTS,

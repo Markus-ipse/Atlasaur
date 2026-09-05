@@ -302,7 +302,6 @@ type Props = {
   mode: QuestionMode;
   highlightedIso3: string | null;
   feedback: Feedback | null;
-  showLabelsOnReveal: boolean;
   // Neighbors of the correct country, painted in a muted tone during a
   // wrong/skipped reveal. Empty when feedback is null or the correct
   // country has no land neighbors (islands).
@@ -335,7 +334,6 @@ export function WorldMap({
   mode,
   highlightedIso3,
   feedback,
-  showLabelsOnReveal,
   correctNeighborIso3s,
   spotlightIso3Set,
   revealCapitalLonLat,
@@ -610,7 +608,7 @@ export function WorldMap({
   // don't redo the O(N²) collision pass.
   const visibleLabels = useMemo(
     () =>
-      revealCorrectIso3 && showLabelsOnReveal
+      revealCorrectIso3
         ? computeVisibleLabels(LABELS, {
             k: transform.k,
             em: labelEm,
@@ -623,7 +621,6 @@ export function WorldMap({
         : [],
     [
       revealCorrectIso3,
-      showLabelsOnReveal,
       transform.k,
       labelEm,
       effectiveScale,

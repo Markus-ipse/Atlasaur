@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import {
   ALL_CONTINENTS,
   type Continent,
-  type PracticeMode,
   type QuestionMode,
 } from "../types";
 import type { ThemePref } from "../theme";
@@ -17,12 +16,8 @@ type PopupCoords = {
 type Props = {
   mode: QuestionMode;
   onSetMode: (mode: QuestionMode) => void;
-  practiceMode: PracticeMode;
   selectedContinents: readonly Continent[];
   onSetContinents: (continents: readonly Continent[]) => void;
-  showLabelsOnReveal: boolean;
-  onSetShowLabelsOnReveal: (value: boolean) => void;
-  onEndSession: () => void;
   // SRS surface
   dueCount: number;
   newAvailableCount: number;
@@ -38,12 +33,8 @@ type Props = {
 export function SettingsMenu({
   mode,
   onSetMode,
-  practiceMode,
   selectedContinents,
   onSetContinents,
-  showLabelsOnReveal,
-  onSetShowLabelsOnReveal,
-  onEndSession,
   dueCount,
   newAvailableCount,
   learnedCount,
@@ -120,11 +111,6 @@ export function SettingsMenu({
   const handleSetMode = (next: QuestionMode) => {
     onSetMode(next);
     close();
-  };
-
-  const handleEndSession = () => {
-    onEndSession();
-    setOpen(false);
   };
 
   const selectedSet = new Set(selectedContinents);
@@ -206,20 +192,6 @@ export function SettingsMenu({
                 })}
               </div>
             </div>
-            {practiceMode !== "study" && (
-              <div>
-                <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Reveal</p>
-                <label className="flex items-center gap-2 text-sm text-ink-deep cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showLabelsOnReveal}
-                    onChange={(e) => onSetShowLabelsOnReveal(e.target.checked)}
-                    className="h-4 w-4 rounded border-ink-faded text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep"
-                  />
-                  Show country names after a wrong answer
-                </label>
-              </div>
-            )}
             <div>
               <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Theme</p>
               <div
@@ -247,9 +219,9 @@ export function SettingsMenu({
                 </ModeButton>
               </div>
             </div>
-            <div>
-              <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Stats</p>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-mid tabular-nums">
+            <div className="pt-2 mt-1 border-t border-ink-faded/30">
+              <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Data</p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-mid tabular-nums mb-3">
                 <span>Known</span>
                 <span className="text-ink-deep font-medium text-right">
                   {learnedCount}
@@ -277,19 +249,10 @@ export function SettingsMenu({
                     : `${Math.round(lifetimeAccuracy * 100)}%`}
                 </span>
               </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleEndSession}
-              className="min-h-11 px-3 rounded border border-ink-faded text-ink-mid text-sm hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
-            >
-              {practiceMode === "study" ? "Done for now" : "End session"}
-            </button>
-            <div className="pt-2 mt-1 border-t border-ink-faded/30">
               {confirmReset ? (
                 <div className="flex flex-col gap-2">
                   <p className="text-xs text-ink-mid">
-                    This will erase all spaced-repetition progress.
+                    This erases every country's record. There is no undo.
                   </p>
                   <div className="flex gap-2">
                     <button
@@ -300,7 +263,7 @@ export function SettingsMenu({
                       }}
                       className="flex-1 min-h-11 px-3 rounded bg-vermillion text-parchment-base text-sm font-medium hover:bg-wax-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion focus-visible:ring-offset-1"
                     >
-                      Reset SRS
+                      Erase
                     </button>
                     <button
                       type="button"
@@ -317,7 +280,7 @@ export function SettingsMenu({
                   onClick={() => setConfirmReset(true)}
                   className="w-full min-h-11 px-3 rounded border border-vermillion/40 text-vermillion text-sm hover:bg-vermillion/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion focus-visible:ring-offset-1"
                 >
-                  Reset SRS data…
+                  Erase all progress…
                 </button>
               )}
             </div>
