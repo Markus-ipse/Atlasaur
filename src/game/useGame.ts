@@ -33,26 +33,12 @@ const NUMERIC_BY_ISO3 = new Map(COUNTRIES.map((c) => [c.iso3, c.numeric]));
 const COUNTRY_BY_ISO3 = new Map(COUNTRIES.map((c) => [c.iso3, c]));
 
 const CONTINENTS_STORAGE_KEY = "atlasaur:selectedContinents";
-const SHOW_LABELS_STORAGE_KEY = "atlasaur:showLabelsOnReveal";
-const PRACTICE_MODE_STORAGE_KEY = "atlasaur:practiceMode";
 
-function loadPracticeMode(): PracticeMode {
-  try {
-    const raw = window.localStorage.getItem(PRACTICE_MODE_STORAGE_KEY);
-    if (raw === "study" || raw === "training") return "study";
-    return "quiz";
-  } catch {
-    return "quiz";
-  }
-}
-
-function savePracticeMode(mode: PracticeMode): void {
-  try {
-    window.localStorage.setItem(PRACTICE_MODE_STORAGE_KEY, mode);
-  } catch {
-    // ignore
-  }
-}
+// A round is a presentation boundary, not a scheduling one: every
+// ROUND_SIZE cards the app pauses on a small interstitial (RoundBreak) with
+// "Keep going" / "Done for now". FSRS picks and the Quiz retry queue are
+// untouched by it.
+export const ROUND_SIZE = 12;
 
 function filterPool(continents: readonly Continent[]): Country[] {
   const set = new Set(continents);
@@ -81,24 +67,6 @@ function saveContinents(continents: readonly Continent[]): void {
       CONTINENTS_STORAGE_KEY,
       JSON.stringify(continents),
     );
-  } catch {
-    // localStorage may be unavailable (private mode, SSR); ignore.
-  }
-}
-
-function loadShowLabels(): boolean {
-  try {
-    const raw = window.localStorage.getItem(SHOW_LABELS_STORAGE_KEY);
-    if (raw === null) return true;
-    return raw === "true";
-  } catch {
-    return true;
-  }
-}
-
-function saveShowLabels(value: boolean): void {
-  try {
-    window.localStorage.setItem(SHOW_LABELS_STORAGE_KEY, String(value));
   } catch {
     // localStorage may be unavailable (private mode, SSR); ignore.
   }
@@ -171,6 +139,19 @@ export type State = {
   // One-shot toast message (e.g. "Spotlight cleared"). Auto-dismissed by a
   // timer in the useGame hook; null when nothing is showing.
   transientMessage: string | null;
+  // Round accounting (both practice modes). A card counts when its feedback
+  // is dismissed, so the correct flash / miss reveal always plays out before
+  // a round boundary. All volatile — reset on closeSummary, startReview,
+  // setPracticeMode, setMode, reset and reload.
+  roundCards: number;
+  roundRight: number;
+  // Study only: cards introduced for the first time this round.
+  roundNew: number;
+  // True while the RoundBreak interstitial is up. Never true alongside
+  // sessionDone — the summary wins.
+  roundDone: boolean;
+  // Rounds finished this session. The unit R1.3's cross-day streak counts.
+  roundsCompleted: number;
 };
 
 export type Action =
@@ -181,6 +162,7 @@ export type Action =
   | { type: "setPracticeMode"; mode: PracticeMode; now?: Date }
   | { type: "setContinents"; continents: readonly Continent[] }
   | { type: "endSession" }
+  | { type: "continueRound"; now?: Date }
   | { type: "startReview" }
   | { type: "resetSrs" }
   | { type: "closeSummary"; now?: Date }
@@ -222,6 +204,8 @@ export function initialState(
         }
       : modeOrOptions;
   const mode = options.mode ?? "name-to-click";
+  // Tests default to "quiz" (the original loop); production always passes
+  // an explicit practiceMode from useGame, where Study is the home.
   const practiceMode = options.practiceMode ?? "quiz";
   const selectedContinents = options.selectedContinents ?? ALL_CONTINENTS;
   const srsStore = options.srsStore ?? emptyStore();
@@ -254,6 +238,37 @@ export function initialState(
     autoGradePending: null,
     spotlightSubregion: null,
     transientMessage: null,
+    ...FRESH_ROUND,
+    roundsCompleted: 0,
+  };
+}
+
+const FRESH_ROUND = {
+  roundCards: 0,
+  roundRight: 0,
+  roundNew: 0,
+  roundDone: false,
+} as const;
+
+// Count the card whose feedback just dismissed against the current round,
+// and open the interstitial when the round fills. A state that has already
+// ended the session (Quiz pool complete, review queue drained) keeps its
+// summary; the round is still counted so a "Done for now" straight after
+// still credits it.
+function withRoundAdvance(
+  state: State,
+  kind: FeedbackKind,
+  isNew: boolean,
+): State {
+  const roundCards = state.roundCards + 1;
+  const filled = roundCards >= ROUND_SIZE;
+  return {
+    ...state,
+    roundCards,
+    roundRight: state.roundRight + (kind === "correct" ? 1 : 0),
+    roundNew: state.roundNew + (isNew ? 1 : 0),
+    roundDone: filled && !state.sessionDone,
+    roundsCompleted: filled ? state.roundsCompleted + 1 : state.roundsCompleted,
   };
 }
 
@@ -520,6 +535,15 @@ function commitStudyGrade(
 }
 
 function dismissFeedback(state: State, now: Date): State {
+  const kind = state.feedback?.kind ?? "correct";
+  const isNew =
+    state.practiceMode === "study" &&
+    state.autoGradePending !== null &&
+    !state.srsStore.records[state.current.iso3];
+  return withRoundAdvance(advanceCard(state, now), kind, isNew);
+}
+
+function advanceCard(state: State, now: Date): State {
   if (state.practiceMode === "study") {
     // Commit the deferred auto-grade (Good on correct, Again on miss).
     // Picking the next country runs against the post-grade store so we
@@ -562,14 +586,14 @@ export function reducer(state: State, action: Action): State {
   const now = nowOf(action);
   switch (action.type) {
     case "answer": {
-      if (state.feedback || state.sessionDone) return state;
+      if (state.feedback || state.sessionDone || state.roundDone) return state;
       const correctIso3 = state.current.iso3;
       return action.iso3 === correctIso3
         ? applyCorrect(state, correctIso3, now)
         : applyMiss(state, state.current, "wrong", action.iso3, now);
     }
     case "skip": {
-      if (state.feedback || state.sessionDone) return state;
+      if (state.feedback || state.sessionDone || state.roundDone) return state;
       return applyMiss(state, state.current, "skipped", "", now);
     }
     case "dismiss": {
@@ -612,6 +636,8 @@ export function reducer(state: State, action: Action): State {
         autoGradePending: null,
         // Flipping into Quiz must never inherit a silently narrowed pool.
         spotlightSubregion: null,
+        // A new round type starts a fresh round.
+        ...FRESH_ROUND,
       };
       return { ...next, current: nextCurrent(next, now) };
     }
@@ -649,6 +675,8 @@ export function reducer(state: State, action: Action): State {
         spotlightSubregion: null,
         phase: reviewEmpty ? "normal" : state.phase,
         sessionDone: reviewEmpty || poolDone ? true : state.sessionDone,
+        // The summary wins over the round break.
+        roundDone: reviewEmpty || poolDone ? false : state.roundDone,
       };
     }
     case "endSession": {
@@ -670,9 +698,14 @@ export function reducer(state: State, action: Action): State {
           autoGradePending: null,
           sessionDone: true,
           feedback: null,
+          roundDone: false,
         };
       }
-      return { ...state, sessionDone: true, feedback: null };
+      return { ...state, sessionDone: true, feedback: null, roundDone: false };
+    }
+    case "continueRound": {
+      if (!state.roundDone) return state;
+      return { ...state, ...FRESH_ROUND };
     }
     case "startReview": {
       if (state.retryQueue.length === 0) return state;
@@ -684,6 +717,7 @@ export function reducer(state: State, action: Action): State {
         sessionDone: false,
         feedback: null,
         current: country,
+        ...FRESH_ROUND,
       };
     }
     case "resetSrs": {
@@ -698,7 +732,12 @@ export function reducer(state: State, action: Action): State {
       // user lands on a fresh prompt (or the most-overdue fallback in
       // Study when nothing's due). Route Study through the spotlight
       // fallback so an already-depleted focus region clears + toasts.
-      const next: State = { ...state, sessionDone: false, feedback: null };
+      const next: State = {
+        ...state,
+        sessionDone: false,
+        feedback: null,
+        ...FRESH_ROUND,
+      };
       if (state.practiceMode === "study") {
         const { current, spotlightSubregion, transientMessage } =
           pickStudyWithSpotlightFallback(next, now);
@@ -726,6 +765,9 @@ export function reducer(state: State, action: Action): State {
         newIntroducedThisStretch: 0,
         sessionDone: false,
         feedback: null,
+        // Leaving the summary into a focus region starts a fresh round,
+        // like closeSummary does.
+        ...FRESH_ROUND,
       };
       const { current, spotlightSubregion, transientMessage } =
         pickStudyWithSpotlightFallback(next, now);
@@ -760,8 +802,6 @@ export type GameApi = {
   newAvailableCount: number;
   seenSrsIntro: boolean;
   markSrsIntroSeen: () => void;
-  showLabelsOnReveal: boolean;
-  setShowLabelsOnReveal: (value: boolean) => void;
   isoFromNumeric: (numeric: string) => string | undefined;
   numericFromIso3: (iso3: string) => string | undefined;
   nameFromIso3: (iso3: string) => string;
@@ -774,6 +814,7 @@ export type GameApi = {
   setPracticeMode: (mode: PracticeMode) => void;
   setContinents: (continents: readonly Continent[]) => void;
   endSession: () => void;
+  continueRound: () => void;
   startReview: () => void;
   resetSrs: () => void;
   closeSummary: () => void;
@@ -791,12 +832,14 @@ export function useGame(): GameApi {
   const [state, dispatch] = useReducer(reducer, undefined, () =>
     initialState({
       mode: "name-to-click",
-      practiceMode: loadPracticeMode(),
+      // Study is the home. A "Test me on these" round is entered
+      // deliberately from the Study summary and is never persisted, so a
+      // reload always lands back on Study.
+      practiceMode: "study",
       selectedContinents: loadContinents(),
       srsStore: loadStore(),
     }),
   );
-  const [showLabelsOnReveal, setShowLabelsOnReveal] = useState(loadShowLabels);
   const [seenSrsIntro, setSeenSrsIntro] = useState(loadSeenIntro);
   // Tick on visibility change + hourly to recompute due counts when the
   // day rolls over for users who leave the tab open.
@@ -827,14 +870,6 @@ export function useGame(): GameApi {
   useEffect(() => {
     saveContinents(state.selectedContinents);
   }, [state.selectedContinents]);
-
-  useEffect(() => {
-    saveShowLabels(showLabelsOnReveal);
-  }, [showLabelsOnReveal]);
-
-  useEffect(() => {
-    savePracticeMode(state.practiceMode);
-  }, [state.practiceMode]);
 
   useEffect(() => {
     saveStore(state.srsStore);
@@ -899,8 +934,6 @@ export function useGame(): GameApi {
     seenSrsIntro,
     markSrsIntroSeen,
     completedInScopeCount,
-    showLabelsOnReveal,
-    setShowLabelsOnReveal,
     isoFromNumeric,
     numericFromIso3,
     nameFromIso3,
@@ -915,6 +948,7 @@ export function useGame(): GameApi {
     setContinents: (continents) =>
       dispatch({ type: "setContinents", continents }),
     endSession: () => dispatch({ type: "endSession" }),
+    continueRound: () => dispatch({ type: "continueRound", now: new Date() }),
     startReview: () => dispatch({ type: "startReview" }),
     resetSrs: () => dispatch({ type: "resetSrs" }),
     closeSummary: () => dispatch({ type: "closeSummary", now: new Date() }),

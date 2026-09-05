@@ -24,7 +24,8 @@ type Props = {
   countries: readonly Country[];
   onReview: () => void;
   onPlayAgain: () => void;
-  onStartQuiz: () => void;
+  onStartTest: () => void;
+  onBackToStudy: () => void;
   onKeepStudying: () => void;
   onSetSpotlight: (subregion: Subregion) => void;
 };
@@ -33,11 +34,12 @@ export function SessionSummary(props: Props) {
   return props.practiceMode === "study" ? (
     <StudySummary {...props} />
   ) : (
-    <QuizSummary {...props} />
+    <TestSummary {...props} />
   );
 }
 
-function QuizSummary({
+// Summary for a "Test me on these" round (practiceMode "quiz" in code).
+function TestSummary({
   score,
   total,
   missed,
@@ -47,13 +49,14 @@ function QuizSummary({
   dueCount,
   onReview,
   onPlayAgain,
+  onBackToStudy,
 }: Props) {
   const accuracy = total === 0 ? 0 : Math.round((score / total) * 100);
   const reviewRef = useRef<HTMLButtonElement>(null);
   const playAgainRef = useRef<HTMLButtonElement>(null);
   const showReview = unlearnedCount > 0;
   const cleared = unlearnedCount === 0 && completedCount === totalInScope;
-  const title = cleared ? "Complete!" : "Session ended";
+  const title = cleared ? "Complete!" : "Test over";
 
   useEffect(() => {
     (showReview ? reviewRef : playAgainRef).current?.focus();
@@ -77,12 +80,12 @@ function QuizSummary({
         </h2>
         <div className="grid grid-cols-3 gap-4 text-center">
           <Tile label="Done" value={`${completedCount}/${totalInScope}`} />
-          <Tile label="Accuracy" value={`${accuracy}%`} />
-          <Tile label="Misses" value={String(missed.length)} />
+          <Tile label="Right" value={`${accuracy}%`} />
+          <Tile label="Missed" value={String(missed.length)} />
         </div>
         {dueCount > 0 && (
           <p className="text-xs text-ink-mid text-center">
-            {dueCount} due in your SRS — switch to Study to review.
+            {dueCount} to review when you go back to studying.
           </p>
         )}
         {missed.length > 0 ? (
@@ -116,7 +119,14 @@ function QuizSummary({
             onClick={onPlayAgain}
             className={showReview ? secondaryClass : primaryClass}
           >
-            Play again
+            Test again
+          </button>
+          <button
+            type="button"
+            onClick={onBackToStudy}
+            className={secondaryClass}
+          >
+            Back to studying
           </button>
         </div>
       </div>
@@ -131,7 +141,7 @@ function StudySummary({
   srsStore,
   scopeIso3s,
   countries,
-  onStartQuiz,
+  onStartTest,
   onKeepStudying,
   onSetSpotlight,
 }: Props) {
@@ -167,12 +177,12 @@ function StudySummary({
   const hint = spotlight
     ? `${spotlight.subregion} has ${spotlight.remaining} left to learn — focus there?`
     : dueCount > 0
-    ? `You have ${dueCount} due — keep going, or test yourself.`
+    ? `${dueCount} to review — keep going, or test yourself on what you know.`
     : newAvailableCount > 0
-    ? `You can introduce ${newAvailableCount} more ${
+    ? `${newAvailableCount} ${
         newAvailableCount === 1 ? "country" : "countries"
-      }, or switch to quiz.`
-    : "All caught up for now — try a quiz, or take a break and come back later.";
+      } still to meet — keep going, or test yourself.`
+    : "All caught up for now — test yourself, or come back tomorrow.";
 
   const scopeLabel = `${totalInScope} ${totalInScope === 1 ? "country" : "countries"}`;
 
@@ -224,7 +234,7 @@ function StudySummary({
           <button
             ref={spotlight ? undefined : focusRef}
             type="button"
-            onClick={onStartQuiz}
+            onClick={onStartTest}
             className={
               spotlight
                 ? secondaryClass +
@@ -232,7 +242,7 @@ function StudySummary({
                 : primaryClass
             }
           >
-            <span>Start quiz</span>
+            <span>Test me on these</span>
             <span
               className={
                 spotlight

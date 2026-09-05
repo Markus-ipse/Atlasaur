@@ -54,6 +54,7 @@ export function ControlZone({
   const showStudyIntro =
     isStudy && heroFeedback !== null && !game.seenSrsIntro;
   const skipLabel = isStudy ? "Don't know" : "Skip";
+  const roundBreak = state.roundDone && !state.sessionDone;
 
   return (
     <aside className="flex flex-col shrink-0 bg-parchment-base border-ink-faded/40 portrait:border-t portrait:p-3 portrait:gap-3 portrait:overflow-y-auto landscape:border-l landscape:p-4 landscape:gap-4 landscape:w-72 lg:landscape:w-80 landscape:h-full landscape:overflow-y-auto">
@@ -85,6 +86,7 @@ export function ControlZone({
         <AnswerInput
           current={state.current}
           feedback={state.feedback}
+          paused={roundBreak}
           matchTypedAnswer={game.matchTypedAnswer}
           onAnswer={game.answer}
         />
@@ -94,7 +96,7 @@ export function ControlZone({
         <StudyIntro onDismiss={game.markSrsIntroSeen} />
       )}
 
-      {!showCaughtUp && (
+      {!showCaughtUp && !roundBreak && (
         <div className="flex gap-2">
           {showContinue ? (
             <button

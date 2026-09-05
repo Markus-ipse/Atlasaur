@@ -6,9 +6,9 @@ export function StudyIntro({ onDismiss }: Props) {
   return (
     <div className="relative rounded border border-ochre/40 bg-ochre/15 p-3 pr-8 text-xs leading-snug text-ink-deep">
       <p>
-        <span className="font-medium">Study mode.</span> Atlasaur grades
-        you automatically and schedules each country to come back at the
-        right time. Miss one and you'll see it again shortly.
+        <span className="font-medium">No grading to do.</span> Atlasaur
+        marks each answer itself and brings every country back at the right
+        time. Miss one and you'll see it again shortly.
       </p>
       <button
         type="button"

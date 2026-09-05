@@ -4,6 +4,11 @@ import type { Country, Feedback } from "../types";
 type Props = {
   current: Country;
   feedback: Feedback | null;
+  // True while the round break is up. The input is disabled underneath
+  // the dialog and takes focus back when the break closes — nothing else
+  // (current, feedback) changes on "Keep going", so the other refocus
+  // effects would not fire.
+  paused?: boolean;
   matchTypedAnswer: (input: string) => string;
   onAnswer: (iso3: string) => void;
 };
@@ -11,6 +16,7 @@ type Props = {
 export function AnswerInput({
   current,
   feedback,
+  paused = false,
   matchTypedAnswer,
   onAnswer,
 }: Props) {
@@ -26,9 +32,13 @@ export function AnswerInput({
     if (!feedback) inputRef.current?.focus({ preventScroll: true });
   }, [feedback]);
 
+  useEffect(() => {
+    if (!paused) inputRef.current?.focus({ preventScroll: true });
+  }, [paused]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (feedback) return;
+    if (feedback || paused) return;
     const trimmed = value.trim();
     if (!trimmed) return;
     const iso3 = matchTypedAnswer(trimmed);
@@ -43,7 +53,7 @@ export function AnswerInput({
         type="text"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        disabled={Boolean(feedback)}
+        disabled={Boolean(feedback) || paused}
         placeholder="Type the country name…"
         autoFocus
         autoCapitalize="none"
@@ -56,7 +66,7 @@ export function AnswerInput({
       />
       <button
         type="submit"
-        disabled={Boolean(feedback) || !value.trim()}
+        disabled={Boolean(feedback) || paused || !value.trim()}
         className="min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Submit

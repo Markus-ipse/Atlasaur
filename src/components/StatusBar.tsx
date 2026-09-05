@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { ScorePanel } from "./ScorePanel";
 import { SettingsMenu } from "./SettingsMenu";
-import { PracticeModeToggle } from "./PracticeModeToggle";
 import { STUDY_NEW_CAP } from "../game/pickCountry";
+import { ROUND_SIZE } from "../game/useGame";
 import {
   learnedCount as srsLearnedCount,
   lifetimeAccuracy as srsLifetimeAccuracy,
@@ -10,7 +10,7 @@ import {
   totalReviews as srsTotalReviews,
 } from "../game/srs";
 import countriesData from "../data/countries.json";
-import type { Continent, Country } from "../types";
+import type { Continent, Country, Phase, PracticeMode } from "../types";
 import type { GameApi } from "../game/useGame";
 import type { ThemePref } from "../theme";
 
@@ -61,9 +61,10 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
       }
     >
       <div className="flex items-center gap-2 min-w-0 flex-wrap">
-        <PracticeModeToggle
-          mode={state.practiceMode}
-          onChange={game.setPracticeMode}
+        <RoundChip
+          practiceMode={state.practiceMode}
+          phase={state.phase}
+          roundCards={state.roundCards}
         />
         {isStudy ? (
           <StudyChips
@@ -77,31 +78,35 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
               completedCount={game.completedInScopeCount}
               totalInScope={game.totalInScope}
               missedCount={state.missed.length}
-              streak={state.streak}
             />
             {game.dueCount > 0 && (
               <button
                 type="button"
                 onClick={() => game.setPracticeMode("study")}
-                title="Switch to Study mode to review"
+                title="Back to studying"
                 className="shrink-0 text-xs text-ink-mid tabular-nums px-1.5 py-0.5 rounded hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink-deep"
               >
                 <span className="font-semibold text-ink-deep">{game.dueCount}</span>{" "}
-                due
+                to review
               </button>
             )}
           </>
         )}
       </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          type="button"
+          onClick={game.endSession}
+          disabled={state.sessionDone}
+          className="min-h-11 px-2.5 rounded text-xs text-ink-mid hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep disabled:opacity-50"
+        >
+          Done
+        </button>
       <SettingsMenu
         mode={state.mode}
         onSetMode={game.setMode}
-        practiceMode={state.practiceMode}
         selectedContinents={state.selectedContinents}
         onSetContinents={game.setContinents}
-        showLabelsOnReveal={game.showLabelsOnReveal}
-        onSetShowLabelsOnReveal={game.setShowLabelsOnReveal}
-        onEndSession={game.endSession}
         dueCount={game.dueCount}
         newAvailableCount={game.newAvailableCount}
         learnedCount={learned}
@@ -112,7 +117,31 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
         themePref={themePref}
         onSetThemePref={onSetThemePref}
       />
+      </div>
     </header>
+  );
+}
+
+// Where the learner is in the current round. A test round is a run over the
+// whole scope with its own Done count, so the round chip is Study-only; a
+// review pass (Quiz phase "review") likewise has its own badge in Prompt.
+function RoundChip({
+  practiceMode,
+  phase,
+  roundCards,
+}: {
+  practiceMode: PracticeMode;
+  phase: Phase;
+  roundCards: number;
+}) {
+  if (practiceMode !== "study" || phase === "review") return null;
+  return (
+    <span
+      className="shrink-0 font-display text-xs uppercase tracking-wide text-ink-mid tabular-nums"
+      aria-label={`Card ${Math.min(roundCards + 1, ROUND_SIZE)} of ${ROUND_SIZE} this round`}
+    >
+      {Math.min(roundCards + 1, ROUND_SIZE)}/{ROUND_SIZE}
+    </span>
   );
 }
 

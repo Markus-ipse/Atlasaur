@@ -3,6 +3,7 @@ import { useGame } from "./game/useGame";
 import { WorldMap } from "./components/WorldMap";
 import { ControlZone } from "./components/ControlZone";
 import { SessionSummary } from "./components/SessionSummary";
+import { RoundBreak } from "./components/RoundBreak";
 import { StatusBar } from "./components/StatusBar";
 import { Toast } from "./components/Toast";
 import { STUDY_NEW_CAP } from "./game/pickCountry";
@@ -73,19 +74,30 @@ export default function App() {
     return out;
   }, [state.selectedContinents]);
 
-  // CaughtUp banner state — lifted so the map can also gate clicks
-  // while it's showing. Auto-clears once the user picks up work
-  // (something becomes due, or they flip practice mode).
-  const caughtUpEligible =
+  // Nothing due and today's new cards introduced: the scheduler has no
+  // more work. Surfaced two ways — the RoundBreak's "That's everything for
+  // today" variant at a round boundary, and the CaughtUp banner when a
+  // fresh round starts in that state (e.g. after closing the summary). The
+  // banner never interrupts a round in progress: the picker's most-overdue
+  // fallback fills the remaining cards instead.
+  const caughtUp =
     state.practiceMode === "study" &&
-    !state.feedback &&
     game.dueCount === 0 &&
     state.newIntroducedThisStretch >= STUDY_NEW_CAP;
+  const caughtUpEligible =
+    caughtUp && !state.feedback && state.roundCards === 0 && !state.roundDone;
   const [caughtUpAck, setCaughtUpAck] = useState(false);
   useEffect(() => {
     if (!caughtUpEligible) setCaughtUpAck(false);
   }, [caughtUpEligible]);
   const showCaughtUp = caughtUpEligible && !caughtUpAck;
+  const showRoundBreak = state.roundDone && !state.sessionDone;
+  const keepGoing = () => {
+    // "Keep going anyway" from a caught-up break already answered the
+    // question the banner would ask; don't ask twice.
+    if (caughtUp) setCaughtUpAck(true);
+    game.continueRound();
+  };
 
   return (
     <div className="h-dvh w-full flex overflow-hidden bg-parchment-base text-ink-deep portrait:flex-col landscape:flex-row pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
@@ -101,10 +113,6 @@ export default function App() {
           mode={state.mode}
           highlightedIso3={highlightedIso3}
           feedback={state.feedback}
-          showLabelsOnReveal={
-            // Study mode forces reveal labels on for elaborative encoding.
-            state.practiceMode === "study" ? true : game.showLabelsOnReveal
-          }
           correctNeighborIso3s={correctNeighborIso3s}
           spotlightIso3Set={spotlightIso3Set}
           revealCapitalLonLat={revealCapitalLonLat}
@@ -113,7 +121,7 @@ export default function App() {
           numericFromIso3={game.numericFromIso3}
           isInScope={game.isInScope}
           onCountryClick={game.answer}
-          interactive={!showCaughtUp}
+          interactive={!showCaughtUp && !state.roundDone}
           palette={palette}
         />
       </div>
@@ -140,9 +148,22 @@ export default function App() {
           countries={ALL_COUNTRIES}
           onReview={game.startReview}
           onPlayAgain={game.reset}
-          onStartQuiz={() => game.setPracticeMode("quiz")}
+          onStartTest={() => game.setPracticeMode("quiz")}
+          onBackToStudy={() => game.setPracticeMode("study")}
           onKeepStudying={game.closeSummary}
           onSetSpotlight={game.setSpotlight}
+        />
+      )}
+      {showRoundBreak && (
+        <RoundBreak
+          practiceMode={state.practiceMode}
+          roundsCompleted={state.roundsCompleted}
+          roundCards={state.roundCards}
+          roundRight={state.roundRight}
+          roundNew={state.roundNew}
+          caughtUp={caughtUp}
+          onKeepGoing={keepGoing}
+          onDone={game.endSession}
         />
       )}
       {state.transientMessage && <Toast message={state.transientMessage} />}

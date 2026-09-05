@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { reducer, initialState, type State } from "./useGame";
+import { reducer, initialState, ROUND_SIZE, type State } from "./useGame";
 import { STUDY_NEW_CAP } from "./pickCountry";
 import { grade as srsGrade } from "./srs";
 import countriesData from "../data/countries.json";
@@ -892,5 +892,135 @@ describe("reducer — spotlight subregion", () => {
     const next = reducer(seeded, { type: "closeSummary", now: NOW });
     // Quiz pick is continent-scoped, not narrowed to the spotlight subregion.
     expect(next.current.iso3).toBe("EGY");
+  });
+});
+
+describe("reducer — rounds of twelve", () => {
+  const NOW = new Date("2026-05-16T12:00:00Z");
+
+  // Answer the current card correctly and dismiss it, as the correct-flash
+  // timer would. One full card advance in either practice mode.
+  function playCorrect(s: State): State {
+    const answered = reducer(s, { type: "answer", iso3: s.current.iso3, now: NOW });
+    return reducer(answered, { type: "dismiss", now: NOW });
+  }
+  function playMiss(s: State): State {
+    const answered = reducer(s, { type: "skip", now: NOW });
+    return reducer(answered, { type: "dismiss", now: NOW });
+  }
+
+  it("counts a card only when its feedback dismisses", () => {
+    const s0 = initialState({ practiceMode: "study" });
+    const s1 = reducer(s0, { type: "answer", iso3: s0.current.iso3, now: NOW });
+    expect(s1.roundCards).toBe(0);
+    const s2 = reducer(s1, { type: "dismiss", now: NOW });
+    expect(s2.roundCards).toBe(1);
+    expect(s2.roundRight).toBe(1);
+    expect(s2.roundNew).toBe(1);
+    expect(s2.roundDone).toBe(false);
+  });
+
+  it("a miss counts the card but not as right, and a repeat is not new", () => {
+    let s = initialState({ practiceMode: "study" });
+    s = playMiss(s);
+    expect(s.roundCards).toBe(1);
+    expect(s.roundRight).toBe(0);
+    expect(s.roundNew).toBe(1);
+    // Force the same card back and answer it: seen before, so not new.
+    const iso3 = Object.keys(s.srsStore.records)[0];
+    const seen = playCorrect(withCurrent(s, iso3));
+    expect(seen.roundNew).toBe(1);
+    expect(seen.roundRight).toBe(1);
+  });
+
+  it("opens the round break on the twelfth card and blocks answers until continued", () => {
+    let s = initialState({ practiceMode: "study" });
+    for (let i = 0; i < ROUND_SIZE - 1; i++) s = playCorrect(s);
+    expect(s.roundDone).toBe(false);
+    expect(s.roundsCompleted).toBe(0);
+    s = playCorrect(s);
+    expect(s.roundCards).toBe(ROUND_SIZE);
+    expect(s.roundDone).toBe(true);
+    expect(s.roundsCompleted).toBe(1);
+    expect(s.feedback).toBeNull();
+    // Input is ignored while the break is up.
+    const blocked = reducer(s, { type: "answer", iso3: s.current.iso3, now: NOW });
+    expect(blocked).toBe(s);
+    const skipped = reducer(s, { type: "skip", now: NOW });
+    expect(skipped).toBe(s);
+    // Keep going: counters reset, rounds completed persists, card kept.
+    const next = reducer(s, { type: "continueRound", now: NOW });
+    expect(next.roundDone).toBe(false);
+    expect(next.roundCards).toBe(0);
+    expect(next.roundRight).toBe(0);
+    expect(next.roundNew).toBe(0);
+    expect(next.roundsCompleted).toBe(1);
+    expect(next.current).toBe(s.current);
+  });
+
+  it("continueRound is a no-op when no round break is up", () => {
+    const s = initialState({ practiceMode: "study" });
+    expect(reducer(s, { type: "continueRound", now: NOW })).toBe(s);
+  });
+
+  it("Done for now from the break ends the session and credits the round", () => {
+    let s = initialState({ practiceMode: "study" });
+    for (let i = 0; i < ROUND_SIZE; i++) s = playCorrect(s);
+    const ended = reducer(s, { type: "endSession" });
+    expect(ended.sessionDone).toBe(true);
+    expect(ended.roundDone).toBe(false);
+    expect(ended.roundsCompleted).toBe(1);
+    // Closing the summary starts a fresh round.
+    const back = reducer(ended, { type: "closeSummary", now: NOW });
+    expect(back.roundCards).toBe(0);
+    expect(back.roundDone).toBe(false);
+  });
+
+  it("rounds also run in a test round (quiz) and the summary wins over the break", () => {
+    let s = initialState({ practiceMode: "quiz", selectedContinents: ["Europe"] });
+    for (let i = 0; i < ROUND_SIZE; i++) s = playCorrect(s);
+    expect(s.roundDone).toBe(true);
+    expect(s.roundRight).toBe(ROUND_SIZE);
+    expect(s.score).toBe(ROUND_SIZE);
+    // The round break never shows on top of a finished session: a scope
+    // that completes on the twelfth card goes straight to the summary.
+    const pool = ALL_COUNTRIES.filter((c) => c.continent === "Antarctica");
+    expect(pool.length).toBeLessThan(ROUND_SIZE);
+    let a = initialState({ practiceMode: "quiz", selectedContinents: ["Antarctica"] });
+    while (!a.sessionDone) a = playCorrect(a);
+    expect(a.roundDone).toBe(false);
+  });
+
+  it("Focus on a subregion from the summary starts a fresh round", () => {
+    let s = initialState({ practiceMode: "study" });
+    for (let i = 0; i < ROUND_SIZE; i++) s = playCorrect(s);
+    const ended = reducer(s, { type: "endSession" });
+    const focused = reducer(ended, {
+      type: "setSpotlight",
+      subregion: "Western Africa",
+      now: NOW,
+    });
+    expect(focused.spotlightSubregion).toBe("Western Africa");
+    expect(focused.roundCards).toBe(0);
+    expect(focused.roundDone).toBe(false);
+    expect(focused.roundsCompleted).toBe(1);
+    // One more card is card 1 of a new round, not card 13 of the old one.
+    const one = playCorrect(focused);
+    expect(one.roundCards).toBe(1);
+    expect(one.roundDone).toBe(false);
+  });
+
+  it("a practice-mode flip and startReview both start a fresh round", () => {
+    let s = initialState({ practiceMode: "study" });
+    for (let i = 0; i < 5; i++) s = playCorrect(s);
+    const flipped = reducer(s, { type: "setPracticeMode", mode: "quiz", now: NOW });
+    expect(flipped.roundCards).toBe(0);
+    let q = initialState({ practiceMode: "quiz" });
+    q = playMiss(q);
+    q = playCorrect(q);
+    const ended = reducer(q, { type: "endSession" });
+    const review = reducer(ended, { type: "startReview" });
+    expect(review.phase).toBe("review");
+    expect(review.roundCards).toBe(0);
   });
 });
