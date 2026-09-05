@@ -113,6 +113,7 @@ Neighbors are added to `revealIso3s` so their **labels** render too (alongside t
 ## Stack notes
 
 - Tailwind v4 via `@tailwindcss/vite` — no `postcss.config` / `tailwind.config`. Styles are imported via `@import "tailwindcss"` in `src/index.css`.
+- **Installable / offline (R1.5).** `vite-plugin-pwa` in `vite.config.ts` generates `manifest.webmanifest` and a Workbox service worker (`generateSW`, `registerType: "prompt"`) that precaches every built asset (hashed JS/CSS, `public/fonts` including `OFL.txt`, `public/icons`, `index.html`) with `navigateFallback: "index.html"`. `src/main.tsx` calls `registerSW({ immediate: true, onRegisterError })` and passes **no** `onNeedRefresh`: a new service worker waits and takes over on the next visit (all tabs closed) rather than reloading a learner mid-card — do not switch to `autoUpdate`, which force-reloads open tabs when a deploy lands. The plugin's dev SW is off, so nothing registers under `npm run dev`; test with `npm run build` and a static server (the GitHub Pages subpath works because `start_url`/`scope` are `./`, like `base`). There is deliberately no runtime caching, no push, no update prompt. The manifest's `background_color`/`theme_color` literals mirror `--color-parchment-base`/`--color-ink-deep` — the same contract as the pre-paint script in `index.html`. Icons live in `public/icons/` (192, 512, 512 maskable, 180 apple-touch, 64 favicon), rendered from the cartouche "A" in IM Fell English SC; regenerate all five together if the mark changes.
 - Vite `base: "./"` so the build works under any subpath; required for the GitHub Pages deploy at `/Atlasaur/` (workflow: `.github/workflows/deploy.yml`, triggers on push to `main`). `.github/workflows/ci.yml` runs lint, typecheck, tests and a build on every pull request and on pushes to `main`.
 - React 19, TypeScript ~5.7, ESLint 9 flat config. Tests run in jsdom via Vitest 4.
 
@@ -126,7 +127,7 @@ When adding a new color, add it to `@theme` first so a Tailwind utility (`bg-foo
 
 The one unavoidable duplication is the pre-paint script in `index.html` that sets the mobile-chrome `theme-color` meta — it runs before stylesheets are parsed, so it can't read CSS vars. Those two hex literals must mirror `--color-parchment-base` (dark) and `--color-ink-deep` (light); the script has a comment marking this contract.
 
-Typography: the only loaded face is **IM Fell English** by Igino Marini (OFL 1.1, self-hosted under `public/fonts/`). Regular + italic only — no bold, no small-caps face. For emphasis use italic or size, not synthetic bold. The token is `--font-serif`; Tailwind exposes it as `font-serif`. If you add another face, update `public/fonts/OFL.txt` with the license/attribution.
+Typography: the only loaded face is **IM Fell English** by Igino Marini (OFL 1.1, self-hosted under `public/fonts/`). Regular + italic, plus the separate **IM Fell English SC** small-caps face used for `--font-display` (eyebrow labels, the wordmark, the app icon). No bold: for emphasis use italic, size or small caps, not synthetic bold. The token is `--font-serif`; Tailwind exposes it as `font-serif`. If you add another face, update `public/fonts/OFL.txt` with the license/attribution.
 
 ## Fonts (`public/fonts/`)
 
