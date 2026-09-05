@@ -614,12 +614,17 @@ export function reducer(state: State, action: Action): State {
     }
     case "setPracticeMode": {
       if (state.practiceMode === action.mode) return state;
-      // Preserve retryQueue + completedSet (so a quick Study detour
-      // doesn't nuke the Quiz in-session review queue), but reset
-      // session counters and the soft cap.
+      // Reset session counters and the soft cap. Entering a test round
+      // ("Test me on these") also starts it clean: completedSet and
+      // retryQueue from an earlier test would otherwise make pickNext skip
+      // countries and poolComplete end the new test early. Going back to
+      // studying keeps them, which is harmless — Study reads neither.
+      const startingTest = action.mode === "quiz";
       const next: State = {
         ...state,
         practiceMode: action.mode,
+        completedSet: startingTest ? new Set() : state.completedSet,
+        retryQueue: startingTest ? [] : state.retryQueue,
         score: 0,
         streak: 0,
         total: 0,

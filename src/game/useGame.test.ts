@@ -515,6 +515,18 @@ describe("reducer — setPracticeMode", () => {
     expect(next.missed).toHaveLength(0);
   });
 
+  it("starting a test round clears completedSet and retryQueue from an earlier test", () => {
+    const s0 = withCurrent(initialState({ practiceMode: "study" }), "FRA");
+    const seeded: State = {
+      ...s0,
+      retryQueue: [{ iso3: "FRA", dueAt: 5 }],
+      completedSet: new Set(["DEU", "ITA"]),
+    };
+    const next = reducer(seeded, { type: "setPracticeMode", mode: "quiz", now: NOW });
+    expect(next.retryQueue).toEqual([]);
+    expect(next.completedSet.size).toBe(0);
+  });
+
   it("preserves retryQueue and completedSet across the flip", () => {
     const s0 = withCurrent(initialState(), "FRA");
     const seeded: State = {

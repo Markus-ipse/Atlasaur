@@ -92,6 +92,7 @@ export default function App() {
   }, [caughtUpEligible]);
   const showCaughtUp = caughtUpEligible && !caughtUpAck;
   const showRoundBreak = state.roundDone && !state.sessionDone;
+  const modalOpen = state.sessionDone || showRoundBreak;
   const keepGoing = () => {
     // "Keep going anyway" from a caught-up break already answered the
     // question the banner would ask; don't ask twice.
@@ -102,6 +103,11 @@ export default function App() {
   return (
     <div className="h-dvh w-full flex overflow-hidden bg-parchment-base text-ink-deep portrait:flex-col landscape:flex-row pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       <h1 className="sr-only">Atlasaur</h1>
+      {/* Everything behind a dialog is inert while one is up, so Tab can't
+          reach the status bar or settings under the scrim and a keyboard
+          user can only take one of the dialog's own actions. `contents`
+          keeps the flex layout of the three children intact. */}
+      <div className="contents" inert={modalOpen}>
       <StatusBar
         game={game}
         className="hidden portrait:flex px-3 pt-3 bg-parchment-base"
@@ -132,6 +138,7 @@ export default function App() {
         themePref={themePref}
         onSetThemePref={setThemePref}
       />
+      </div>
       {state.sessionDone && (
         <SessionSummary
           practiceMode={state.practiceMode}
