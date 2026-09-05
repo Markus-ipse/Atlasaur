@@ -97,6 +97,7 @@
     "subregion": "Antarctica",
     "capital": null,
     "notabilityTier": 2,
+    "territory": true,
     "sizeTier": 3,
     "neighbors": [],
     "capitalLonLat": null
@@ -1103,6 +1104,7 @@
       -51.7
     ],
     "notabilityTier": 0,
+    "territory": true,
     "sizeTier": 0,
     "neighbors": []
   },
@@ -1184,6 +1186,7 @@
       4.94
     ],
     "notabilityTier": 0,
+    "territory": true,
     "sizeTier": 1,
     "neighbors": [
       "BRA",
@@ -1199,6 +1202,7 @@
     "subregion": "Antarctica",
     "capital": null,
     "notabilityTier": 0,
+    "territory": true,
     "sizeTier": 0,
     "neighbors": [],
     "capitalLonLat": null
@@ -1348,6 +1352,7 @@
       64.18
     ],
     "notabilityTier": 1,
+    "territory": true,
     "sizeTier": 3,
     "neighbors": []
   },
@@ -2324,6 +2329,7 @@
       -22.27
     ],
     "notabilityTier": 0,
+    "territory": true,
     "sizeTier": 0,
     "neighbors": []
   },
@@ -2716,6 +2722,7 @@
       18.47
     ],
     "notabilityTier": 1,
+    "territory": true,
     "sizeTier": 0,
     "neighbors": []
   },
@@ -3688,6 +3695,7 @@
       27.15
     ],
     "notabilityTier": 0,
+    "territory": true,
     "sizeTier": 1,
     "neighbors": [
       "DZA",

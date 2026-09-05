@@ -43,6 +43,23 @@ const NUMERIC_BY_ISO3 = new Map(COUNTRIES.map((c) => [c.iso3, c.numeric]));
 const COUNTRY_BY_ISO3 = new Map(COUNTRIES.map((c) => [c.iso3, c]));
 
 const CONTINENTS_STORAGE_KEY = "atlasaur:selectedContinents";
+const TERRITORIES_STORAGE_KEY = "atlasaur:includeTerritories";
+
+function loadIncludeTerritories(): boolean {
+  try {
+    return window.localStorage.getItem(TERRITORIES_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function saveIncludeTerritories(value: boolean): void {
+  try {
+    window.localStorage.setItem(TERRITORIES_STORAGE_KEY, String(value));
+  } catch {
+    // ignore
+  }
+}
 
 // A round is a presentation boundary, not a scheduling one: every
 // ROUND_SIZE cards the app pauses on a small interstitial (RoundBreak) with
@@ -50,9 +67,36 @@ const CONTINENTS_STORAGE_KEY = "atlasaur:selectedContinents";
 // untouched by it.
 export const ROUND_SIZE = 12;
 
-function filterPool(continents: readonly Continent[]): Country[] {
+// The learnable pool: the selected continents, minus dependent territories
+// and uninhabited land unless the learner has opted them in. The single
+// scope predicate — every count, picker and map fill derives from it.
+function filterPool(
+  continents: readonly Continent[],
+  includeTerritories: boolean,
+): Country[] {
   const set = new Set(continents);
-  return COUNTRIES.filter((c) => set.has(c.continent));
+  return COUNTRIES.filter(
+    (c) => set.has(c.continent) && (includeTerritories || !c.territory),
+  );
+}
+
+// The selection is the learner's choice of continents and is kept as-is
+// across the territories toggle (Antarctica stays selected while hidden, so
+// switching territories back on restores exactly what they had). The one
+// correction: a selection whose pool is empty (Antarctica alone, territories
+// off) falls back to the whole world rather than stranding the learner.
+// Used at load and on every scope change, so persisted state from before
+// the setting existed loads cleanly too.
+function normalizeScope(
+  continents: readonly Continent[],
+  includeTerritories: boolean,
+): { continents: readonly Continent[]; pool: Country[] } {
+  const pool = filterPool(continents, includeTerritories);
+  if (pool.length > 0) return { continents, pool };
+  return {
+    continents: ALL_CONTINENTS,
+    pool: filterPool(ALL_CONTINENTS, includeTerritories),
+  };
 }
 
 function loadContinents(): readonly Continent[] {
@@ -110,10 +154,13 @@ function matchTypedAnswer(input: string): string {
   return "";
 }
 
+
 export type State = {
   mode: QuestionMode;
   practiceMode: PracticeMode;
   selectedContinents: readonly Continent[];
+  // Persisted (atlasaur:includeTerritories), default off. See filterPool.
+  includeTerritories: boolean;
   current: Country;
   score: number;
   streak: number;
@@ -171,6 +218,7 @@ export type Action =
   | { type: "setMode"; mode: QuestionMode }
   | { type: "setPracticeMode"; mode: PracticeMode; now?: Date }
   | { type: "setContinents"; continents: readonly Continent[]; now?: Date }
+  | { type: "setIncludeTerritories"; value: boolean; now?: Date }
   | { type: "endSession" }
   | { type: "continueRound"; now?: Date }
   | { type: "startReview" }
@@ -192,6 +240,7 @@ type InitOptions = {
   mode?: QuestionMode;
   practiceMode?: PracticeMode;
   selectedContinents?: readonly Continent[];
+  includeTerritories?: boolean;
   srsStore?: SrsStore;
   retryQueue?: RetryEntry[];
   completedSet?: Set<string>;
@@ -217,9 +266,12 @@ export function initialState(
   // Tests default to "quiz" (the original loop); production always passes
   // an explicit practiceMode from useGame, where Study is the home.
   const practiceMode = options.practiceMode ?? "quiz";
-  const selectedContinents = options.selectedContinents ?? ALL_CONTINENTS;
+  const includeTerritories = options.includeTerritories ?? false;
+  const { continents: selectedContinents, pool } = normalizeScope(
+    options.selectedContinents ?? ALL_CONTINENTS,
+    includeTerritories,
+  );
   const srsStore = options.srsStore ?? emptyStore();
-  const pool = filterPool(selectedContinents);
   const current = pickInitialCountry(
     pool,
     practiceMode,
@@ -230,6 +282,7 @@ export function initialState(
     mode,
     practiceMode,
     selectedContinents,
+    includeTerritories,
     current,
     score: 0,
     streak: 0,
@@ -309,7 +362,7 @@ function nextCurrent(state: State, now: Date = new Date()): Country {
     // Spotlight narrows the Study pool to one subregion (the narrowing
     // lives here, not in filterPool/pickNextStudy, so it can't leak into
     // Quiz's shared pickNext path).
-    let pool = filterPool(state.selectedContinents);
+    let pool = filterPool(state.selectedContinents, state.includeTerritories);
     if (state.spotlightSubregion !== null) {
       pool = pool.filter((c) => c.subregion === state.spotlightSubregion);
     }
@@ -328,7 +381,7 @@ function nextCurrent(state: State, now: Date = new Date()): Country {
     return picked ?? state.current;
   }
   return pickNext({
-    pool: filterPool(state.selectedContinents),
+    pool: filterPool(state.selectedContinents, state.includeTerritories),
     byIso3: COUNTRY_BY_ISO3,
     excludeIso3: state.current.iso3,
     total: state.total,
@@ -394,6 +447,94 @@ function poolComplete(
 ): boolean {
   if (retryQueue.length > 0) return false;
   return pool.every((c) => completedSet.has(c.iso3));
+}
+
+// Apply a new scope (continents and/or the territories setting): prune the
+// in-session queues to it, replace a current card that fell out of it, and
+// end a review or a completed Quiz pool that the narrowing finished off.
+// SRS records are never touched — out-of-scope due cards resurface when the
+// learner widens scope again.
+function applyScope(
+  state: State,
+  continents: readonly Continent[],
+  includeTerritories: boolean,
+  now: Date,
+): State {
+  // A Study reveal that is open when the scope changes still holds its
+  // deferred grade. Commit it first (as endSession does) so the answer and
+  // its resurface scheduling reach the SRS store instead of vanishing with
+  // the feedback.
+  if (state.practiceMode === "study" && state.autoGradePending) {
+    state = {
+      ...state,
+      ...commitStudyGrade(state, state.autoGradePending, state.studyStep, now),
+      autoGradePending: null,
+    };
+  }
+  const normalized = normalizeScope(continents, includeTerritories);
+  continents = normalized.continents;
+  const pool = normalized.pool;
+  const inScope = new Set(pool.map((c) => c.iso3));
+  const retryQueue = state.retryQueue.filter((e) => inScope.has(e.iso3));
+  const studyResurfaceQueue = state.studyResurfaceQueue.filter((e) =>
+    inScope.has(e.iso3),
+  );
+  // A current card that fell out of scope is replaced: during a review pass
+  // by the next queued retry (a review only ever asks queued cards); in
+  // Study by the scheduler (so "Pick a region" on the welcome still starts
+  // with the region's big ones, not a random island); in Quiz at random.
+  let current = state.current;
+  if (!inScope.has(state.current.iso3)) {
+    const reviewNext =
+      state.phase === "review" && retryQueue.length > 0
+        ? COUNTRY_BY_ISO3.get(retryQueue[0].iso3)
+        : undefined;
+    if (reviewNext) {
+      current = reviewNext;
+    } else if (state.practiceMode === "study") {
+      const scoped: State = {
+        ...state,
+        selectedContinents: continents,
+        includeTerritories,
+        studyResurfaceQueue,
+        spotlightSubregion: null,
+      };
+      const picked = nextCurrent(scoped, now);
+      // nextCurrent hands back the (out-of-scope) current when the
+      // scheduler has nothing to offer — nothing due and the new-card cap
+      // for this stretch already spent; fall back to a random pick.
+      current = picked === state.current ? pickRandom(pool, null) : picked;
+    } else {
+      current = pickRandom(pool, null);
+    }
+  }
+  // completedSet is preserved across scope changes — out-of-scope entries
+  // don't affect poolComplete (which only checks pool ∩ set) and the
+  // displayed count is derived against the active scope.
+  const reviewEmpty = state.phase === "review" && retryQueue.length === 0;
+  const poolDone =
+    state.phase === "normal" &&
+    state.practiceMode === "quiz" &&
+    poolComplete(pool, state.completedSet, retryQueue);
+  return {
+    ...state,
+    selectedContinents: continents,
+    includeTerritories,
+    current,
+    retryQueue,
+    studyResurfaceQueue,
+    feedback: null,
+    // Wipe in-flight Study-mode grade state: feedback is gone and `current`
+    // may have changed, so a leftover autoGradePending would target a
+    // country the user can no longer see.
+    autoGradePending: null,
+    // Scope change supersedes any active spotlight lens.
+    spotlightSubregion: null,
+    phase: reviewEmpty ? "normal" : state.phase,
+    sessionDone: reviewEmpty || poolDone ? true : state.sessionDone,
+    // The summary wins over the round break.
+    roundDone: reviewEmpty || poolDone ? false : state.roundDone,
+  };
 }
 
 function withoutIso3(queue: readonly RetryEntry[], iso3: string): RetryEntry[] {
@@ -582,7 +723,7 @@ function advanceCard(state: State, now: Date): State {
   if (
     state.phase === "normal" &&
     poolComplete(
-      filterPool(state.selectedContinents),
+      filterPool(state.selectedContinents, state.includeTerritories),
       state.completedSet,
       state.retryQueue,
     )
@@ -619,6 +760,7 @@ export function reducer(state: State, action: Action): State {
         mode: action.mode,
         practiceMode: state.practiceMode,
         selectedContinents: state.selectedContinents,
+        includeTerritories: state.includeTerritories,
         srsStore: state.srsStore,
       });
     }
@@ -658,59 +800,16 @@ export function reducer(state: State, action: Action): State {
     }
     case "setContinents": {
       if (action.continents.length === 0) return state;
-      const pool = filterPool(action.continents);
-      const inScope = new Set(pool.map((c) => c.iso3));
-      const retryQueue = state.retryQueue.filter((e) => inScope.has(e.iso3));
-      const studyResurfaceQueue = state.studyResurfaceQueue.filter((e) =>
-        inScope.has(e.iso3),
+      return applyScope(state, action.continents, state.includeTerritories, now);
+    }
+    case "setIncludeTerritories": {
+      if (state.includeTerritories === action.value) return state;
+      return applyScope(
+        state,
+        state.selectedContinents,
+        action.value,
+        action.now ?? new Date(),
       );
-      // A current card that fell out of scope is replaced: in Study by the
-      // scheduler (so "Pick a region" on the welcome still starts with the
-      // region's big ones, not a random island), in Quiz by a random pick.
-      let current = state.current;
-      if (!inScope.has(state.current.iso3)) {
-        if (state.practiceMode === "study") {
-          const scoped: State = {
-            ...state,
-            selectedContinents: action.continents,
-            studyResurfaceQueue,
-            spotlightSubregion: null,
-          };
-          const picked = nextCurrent(scoped, now);
-          // nextCurrent hands back the (out-of-scope) current when the
-          // scheduler has nothing to offer — nothing due and the new-card
-          // cap for this stretch already spent; fall back to a random pick.
-          current = picked === state.current ? pickRandom(pool, null) : picked;
-        } else {
-          current = pickRandom(pool, null);
-        }
-      }
-      // completedSet is preserved across continent changes — out-of-scope
-      // entries don't affect poolComplete (which only checks pool ∩ set)
-      // and the displayed count is derived against the active scope.
-      const reviewEmpty = state.phase === "review" && retryQueue.length === 0;
-      const poolDone =
-        state.phase === "normal" &&
-        state.practiceMode === "quiz" &&
-        poolComplete(pool, state.completedSet, retryQueue);
-      return {
-        ...state,
-        selectedContinents: action.continents,
-        current,
-        retryQueue,
-        studyResurfaceQueue,
-        feedback: null,
-        // Wipe in-flight Study-mode grade state: feedback is gone and
-        // `current` may have changed, so a leftover autoGradePending
-        // would target a country the user can no longer see.
-        autoGradePending: null,
-        // Scope change supersedes any active spotlight lens.
-        spotlightSubregion: null,
-        phase: reviewEmpty ? "normal" : state.phase,
-        sessionDone: reviewEmpty || poolDone ? true : state.sessionDone,
-        // The summary wins over the round break.
-        roundDone: reviewEmpty || poolDone ? false : state.roundDone,
-      };
     }
     case "endSession": {
       // If Study has an auto-grade in flight (correct-flash or miss
@@ -820,6 +919,7 @@ export function reducer(state: State, action: Action): State {
         mode: state.mode,
         practiceMode: state.practiceMode,
         selectedContinents: state.selectedContinents,
+        includeTerritories: state.includeTerritories,
         srsStore: state.srsStore,
       });
     }
@@ -851,6 +951,9 @@ export type GameApi = {
   numericFromIso3: (iso3: string) => string | undefined;
   nameFromIso3: (iso3: string) => string;
   isInScope: (iso3: string) => boolean;
+  // The learnable set (continents × territories setting). Components must
+  // read scope from here rather than recomputing it from continents.
+  scopeSet: ReadonlySet<string>;
   matchTypedAnswer: (input: string) => string;
   answer: (iso3: string) => void;
   skip: () => void;
@@ -858,6 +961,7 @@ export type GameApi = {
   setMode: (mode: QuestionMode) => void;
   setPracticeMode: (mode: PracticeMode) => void;
   setContinents: (continents: readonly Continent[]) => void;
+  setIncludeTerritories: (value: boolean) => void;
   endSession: () => void;
   continueRound: () => void;
   startReview: () => void;
@@ -882,6 +986,7 @@ export function useGame(): GameApi {
       // reload always lands back on Study.
       practiceMode: "study",
       selectedContinents: loadContinents(),
+      includeTerritories: loadIncludeTerritories(),
       srsStore: loadStore(),
     }),
   );
@@ -927,6 +1032,10 @@ export function useGame(): GameApi {
   }, [state.selectedContinents]);
 
   useEffect(() => {
+    saveIncludeTerritories(state.includeTerritories);
+  }, [state.includeTerritories]);
+
+  useEffect(() => {
     saveStore(state.srsStore);
   }, [state.srsStore]);
 
@@ -967,16 +1076,17 @@ export function useGame(): GameApi {
   }, []);
 
   const { isInScope, totalInScope, scopeSet } = useMemo(() => {
-    const continents = new Set(state.selectedContinents);
     const inScopeSet = new Set(
-      COUNTRIES.filter((c) => continents.has(c.continent)).map((c) => c.iso3),
+      filterPool(state.selectedContinents, state.includeTerritories).map(
+        (c) => c.iso3,
+      ),
     );
     return {
       isInScope: (iso3: string) => inScopeSet.has(iso3),
       totalInScope: inScopeSet.size,
-      scopeSet: inScopeSet,
+      scopeSet: inScopeSet as ReadonlySet<string>,
     };
-  }, [state.selectedContinents]);
+  }, [state.selectedContinents, state.includeTerritories]);
 
   const completedInScopeCount = useMemo(() => {
     let n = 0;
@@ -1030,6 +1140,7 @@ export function useGame(): GameApi {
     numericFromIso3,
     nameFromIso3,
     isInScope,
+    scopeSet,
     matchTypedAnswer,
     answer: (iso3) => dispatch({ type: "answer", iso3, now: new Date() }),
     skip: () => dispatch({ type: "skip", now: new Date() }),
@@ -1039,6 +1150,8 @@ export function useGame(): GameApi {
       dispatch({ type: "setPracticeMode", mode, now: new Date() }),
     setContinents: (continents) =>
       dispatch({ type: "setContinents", continents, now: new Date() }),
+    setIncludeTerritories: (value) =>
+      dispatch({ type: "setIncludeTerritories", value, now: new Date() }),
     endSession: () => dispatch({ type: "endSession" }),
     continueRound: () => dispatch({ type: "continueRound", now: new Date() }),
     startReview: () => dispatch({ type: "startReview" }),

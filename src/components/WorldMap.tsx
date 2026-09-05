@@ -303,9 +303,11 @@ for (const c of countriesData as Country[]) {
 // a flicker of the "Reset" button before the mount effect syncs d3-zoom.
 function computeBaseTransform(
   selectedContinents: readonly Continent[],
+  isInScope: (iso3: string) => boolean,
+  isoFromNumeric: (numeric: string) => string | undefined,
 ): ZoomTransform {
   if (selectedContinents.length === ALL_CONTINENTS.length) return zoomIdentity;
-  return fitContinents(selectedContinents);
+  return fitContinents(selectedContinents, isInScope, isoFromNumeric);
 }
 
 // Region frames are computed once and reused (one object per region) so the
@@ -321,10 +323,19 @@ function regionFrame(key: string, numerics: readonly string[] | undefined): Zoom
   return t;
 }
 
-function fitContinents(selectedContinents: readonly Continent[]): ZoomTransform {
+function fitContinents(
+  selectedContinents: readonly Continent[],
+  isInScope: (iso3: string) => boolean,
+  isoFromNumeric: (numeric: string) => string | undefined,
+): ZoomTransform {
   const numerics: string[] = [];
   for (const cont of selectedContinents) {
-    numerics.push(...(NUMERICS_BY_CONTINENT.get(cont) ?? []));
+    for (const n of NUMERICS_BY_CONTINENT.get(cont) ?? []) {
+      // Frame only what is learnable: an inert territory (Greenland with
+      // territories off) must not drag North America's frame to the pole.
+      const iso3 = isoFromNumeric(n);
+      if (iso3 && isInScope(iso3)) numerics.push(n);
+    }
   }
   return fitNumerics(numerics);
 }
@@ -414,7 +425,7 @@ export function WorldMap({
   // briefly be true and flash the Reset button on load with a filtered
   // continent set.
   const [transform, setTransform] = useState<ZoomTransform>(() =>
-    computeBaseTransform(selectedContinents),
+    computeBaseTransform(selectedContinents, isInScope, isoFromNumeric),
   );
   // Rendered SVG dimensions in CSS pixels — used to scale label em so
   // the on-screen label size stays readable on mobile (~375px) without
@@ -540,8 +551,8 @@ export function WorldMap({
   }, [revealCorrectIso3, revealWrongIso3, correctNeighborIso3s, numericFromIso3]);
 
   const baseTransform = useMemo<ZoomTransform>(
-    () => computeBaseTransform(selectedContinents),
-    [selectedContinents],
+    () => computeBaseTransform(selectedContinents, isInScope, isoFromNumeric),
+    [selectedContinents, isInScope, isoFromNumeric],
   );
 
   // Effective projection-to-pixel scale — see the note at `effectiveScale`

@@ -66,6 +66,11 @@ export type Country = {
   neighbors: string[];
   sizeTier: SizeTier;
   notabilityTier: NotabilityTier;
+  // Dependent territories and uninhabited land (Greenland, Puerto Rico,
+  // Antarctica…). Absent means a country in its own right. Out of the pool
+  // unless the learner turns on the Territories setting; SRS records are
+  // never deleted by the toggle.
+  territory?: true;
   // Set only for partially-recognized territories whose topology features
   // lack an ISO id; matched by world-atlas `properties.name` instead.
   topoName?: string;

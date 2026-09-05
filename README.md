@@ -128,6 +128,6 @@ on the next visit rather than interrupting a session.
 - `d3-geo` + `d3-zoom` + `d3-selection` for the map
 - `topojson-client` + `world-atlas` for country shapes (`countries-110m.json`)
 
-No backend, no auth. Selected continents, spaced-repetition records and the
-cross-day streak persist in localStorage; in-session progress (round counters, test-round
-score and missed list) resets on reload.
+No backend, no auth. Selected continents, the territories setting,
+spaced-repetition records and the cross-day streak persist in localStorage;
+in-session progress (round counters, test-round score and missed list) resets on reload.
