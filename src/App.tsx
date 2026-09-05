@@ -67,15 +67,6 @@ export default function App() {
     return out;
   }, [state.spotlightSubregion]);
 
-  const scopeIso3s = useMemo(() => {
-    const cset = new Set(state.selectedContinents);
-    const out = new Set<string>();
-    for (const c of ALL_COUNTRIES) {
-      if (cset.has(c.continent)) out.add(c.iso3);
-    }
-    return out;
-  }, [state.selectedContinents]);
-
   // Nothing due and today's new cards introduced: the scheduler has no
   // more work. Surfaced two ways — the RoundBreak's "That's everything for
   // today" variant at a round boundary, and the CaughtUp banner when a
@@ -160,7 +151,7 @@ export default function App() {
           dueCount={game.dueCount}
           newAvailableCount={game.newAvailableCount}
           srsStore={state.srsStore}
-          scopeIso3s={scopeIso3s}
+          scopeIso3s={game.scopeSet}
           countries={ALL_COUNTRIES}
           onReview={game.startReview}
           onPlayAgain={game.reset}

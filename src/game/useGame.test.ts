@@ -266,7 +266,7 @@ describe("reducer — completion tracking", () => {
   it("dismiss auto-flips sessionDone when every in-scope country is completed", () => {
     // Scope to Antarctica only (small pool: ATA, ATF). Seed completedSet with both.
     const s0 = withCurrent(
-      initialState("name-to-click", ["Antarctica"]),
+      initialState({ mode: "name-to-click", selectedContinents: ["Antarctica"], includeTerritories: true }),
       "ATA",
     );
     const seeded: State = {
@@ -282,7 +282,7 @@ describe("reducer — completion tracking", () => {
 
   it("dismiss does not flip sessionDone while retryQueue is non-empty", () => {
     const s0 = withCurrent(
-      initialState("name-to-click", ["Antarctica"]),
+      initialState({ mode: "name-to-click", selectedContinents: ["Antarctica"], includeTerritories: true }),
       "ATA",
     );
     const seeded: State = {
@@ -312,7 +312,11 @@ describe("reducer — completion tracking", () => {
   it("setContinents auto-flips sessionDone when narrowed scope is fully completed", () => {
     const s: State = {
       ...withCurrent(
-        initialState("name-to-click", ALL_CONTINENTS),
+        initialState({
+          mode: "name-to-click",
+          selectedContinents: ALL_CONTINENTS,
+          includeTerritories: true,
+        }),
         "ATA",
       ),
       completedSet: new Set(["ATA", "ATF"]),
@@ -1019,7 +1023,11 @@ describe("reducer — rounds of twelve", () => {
     // that completes on the twelfth card goes straight to the summary.
     const pool = ALL_COUNTRIES.filter((c) => c.continent === "Antarctica");
     expect(pool.length).toBeLessThan(ROUND_SIZE);
-    let a = initialState({ practiceMode: "quiz", selectedContinents: ["Antarctica"] });
+    let a = initialState({
+      practiceMode: "quiz",
+      selectedContinents: ["Antarctica"],
+      includeTerritories: true,
+    });
     while (!a.sessionDone) a = playCorrect(a);
     expect(a.roundDone).toBe(false);
   });
@@ -1055,5 +1063,91 @@ describe("reducer — rounds of twelve", () => {
     const review = reducer(ended, { type: "startReview" });
     expect(review.phase).toBe("review");
     expect(review.roundCards).toBe(0);
+  });
+});
+
+describe("reducer — territories setting", () => {
+  it("keeps territories out of the pool by default and lets them in on demand", () => {
+    // Greenland is a territory: out of scope until the setting is on, so a
+    // scope change replaces it as the current card.
+    const s0 = withCurrent(initialState({ selectedContinents: ["North America"] }), "GRL");
+    expect(s0.includeTerritories).toBe(false);
+    const narrowed = reducer(s0, { type: "setContinents", continents: ["North America"] });
+    expect(narrowed.current.iso3).not.toBe("GRL");
+    expect(narrowed.current.territory).toBeUndefined();
+
+    const on = reducer(s0, { type: "setIncludeTerritories", value: true });
+    expect(on.includeTerritories).toBe(true);
+    // Now in scope: the current card survives the same scope change.
+    const kept = reducer(withCurrent(on, "GRL"), {
+      type: "setContinents",
+      continents: ["North America"],
+    });
+    expect(kept.current.iso3).toBe("GRL");
+  });
+
+  it("is a no-op when the value does not change", () => {
+    const s = initialState();
+    expect(reducer(s, { type: "setIncludeTerritories", value: false })).toBe(s);
+  });
+
+  it("falls back to the whole world when Antarctica alone is left with territories off", () => {
+    const s0 = initialState({ selectedContinents: ["Antarctica"], includeTerritories: true });
+    expect(s0.current.continent).toBe("Antarctica");
+    const off = reducer(s0, { type: "setIncludeTerritories", value: false });
+    expect(off.selectedContinents).toEqual(ALL_CONTINENTS);
+    expect(off.current.territory).toBeUndefined();
+  });
+
+  it("loads a persisted Antarctica-only selection without crashing", () => {
+    // Before the setting existed, Antarctica alone was a valid two-country
+    // pool; with territories off it is empty. Fall back to the world.
+    const s = initialState({ selectedContinents: ["Antarctica"] });
+    expect(s.selectedContinents).toEqual(ALL_CONTINENTS);
+    expect(s.current.territory).toBeUndefined();
+  });
+
+  it("keeps the continent selection across the toggle, pool aside", () => {
+    const s0 = initialState({ selectedContinents: ["Antarctica", "Europe"], includeTerritories: true });
+    const off = reducer(s0, { type: "setIncludeTerritories", value: false });
+    // Antarctica stays selected (its chip is merely hidden) so turning
+    // territories back on restores exactly the old scope.
+    expect(off.selectedContinents).toEqual(["Antarctica", "Europe"]);
+    expect(off.current.continent).toBe("Europe");
+    const on = reducer(off, { type: "setIncludeTerritories", value: true });
+    expect(on.selectedContinents).toEqual(["Antarctica", "Europe"]);
+  });
+
+  it("keeps a review pass on queued cards when the current one leaves scope", () => {
+    const s0: State = {
+      ...withCurrent(initialState({ includeTerritories: true }), "GRL"),
+      phase: "review",
+      retryQueue: [{ iso3: "GRL", dueAt: 0 }, { iso3: "FRA", dueAt: 1 }],
+    };
+    const off = reducer(s0, { type: "setIncludeTerritories", value: false });
+    expect(off.phase).toBe("review");
+    expect(off.retryQueue.map((e) => e.iso3)).toEqual(["FRA"]);
+    expect(off.current.iso3).toBe("FRA");
+  });
+
+  it("commits a pending Study grade before the scope changes", () => {
+    const NOW = new Date("2026-09-05T12:00:00Z");
+    const s0 = withCurrent(initialState({ practiceMode: "study" }), "FRA");
+    const missed = reducer(s0, { type: "skip", now: NOW });
+    expect(missed.autoGradePending).toBe("Again");
+    const toggled = reducer(missed, { type: "setIncludeTerritories", value: true, now: NOW });
+    expect(toggled.autoGradePending).toBeNull();
+    expect(toggled.feedback).toBeNull();
+    expect(toggled.srsStore.records["FRA"]?.misses).toBe(1);
+    expect(toggled.studyResurfaceQueue.map((e) => e.iso3)).toEqual(["FRA"]);
+  });
+
+  it("prunes the retry queue to the new scope and survives mode/reset", () => {
+    const s0 = { ...initialState({ includeTerritories: true }), retryQueue: [{ iso3: "GRL", dueAt: 3 }, { iso3: "FRA", dueAt: 4 }] };
+    const off = reducer(s0, { type: "setIncludeTerritories", value: false });
+    expect(off.retryQueue.map((e) => e.iso3)).toEqual(["FRA"]);
+    expect(reducer(off, { type: "setMode", mode: "shape-to-name" }).includeTerritories).toBe(false);
+    const on = reducer(off, { type: "setIncludeTerritories", value: true });
+    expect(reducer(on, { type: "reset" }).includeTerritories).toBe(true);
   });
 });

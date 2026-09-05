@@ -22,6 +22,9 @@
 //   subregion                            (UN M49; powers MC distractor pools later)
 //   landAreaKm2                          (raw input; bucketed into sizeTier on build, NOT emitted)
 //   notabilityTier                       (0/1/2; hand-curated "well-known"-ness)
+//   territory?                           (true for dependent territories and
+//                                         uninhabited land; out of the default
+//                                         pool behind the "Territories" setting)
 //   topoName? / neighborsOverride?       (escape hatches; see below)
 //
 // `neighbors` is computed from the topology at build time (shared-arc
@@ -81,7 +84,7 @@ const COUNTRIES = {
   "008": { iso3: "ALB", name: "Albania", aliases: [], continent: "Europe", subregion: "Southern Europe", capital: "Tirana", capitalLonLat: [19.82, 41.32], landAreaKm2: 28748, notabilityTier: 1 },
   "012": { iso3: "DZA", name: "Algeria", aliases: [], continent: "Africa", subregion: "Northern Africa", capital: "Algiers", capitalLonLat: [3.05, 36.75], landAreaKm2: 2381741, notabilityTier: 1 },
   "024": { iso3: "AGO", name: "Angola", aliases: [], continent: "Africa", subregion: "Middle Africa", capital: "Luanda", capitalLonLat: [13.22, -8.83], landAreaKm2: 1246700, notabilityTier: 1 },
-  "010": { iso3: "ATA", name: "Antarctica", aliases: [], continent: "Antarctica", subregion: "Antarctica", capital: null, landAreaKm2: 14000000, notabilityTier: 2 },
+  "010": { iso3: "ATA", name: "Antarctica", aliases: [], continent: "Antarctica", subregion: "Antarctica", capital: null, landAreaKm2: 14000000, notabilityTier: 2, territory: true },
   "032": { iso3: "ARG", name: "Argentina", aliases: [], continent: "South America", subregion: "South America", capital: "Buenos Aires", capitalLonLat: [-58.67, -34.58], landAreaKm2: 2780400, notabilityTier: 2 },
   "051": { iso3: "ARM", name: "Armenia", aliases: [], continent: "Asia", subregion: "Western Asia", capital: "Yerevan", capitalLonLat: [44.5, 40.17], landAreaKm2: 29743, notabilityTier: 0 },
   "036": { iso3: "AUS", name: "Australia", aliases: [], continent: "Oceania", subregion: "Australia and New Zealand", capital: "Canberra", capitalLonLat: [149.13, -35.27], landAreaKm2: 7692024, notabilityTier: 2 },
@@ -130,19 +133,19 @@ const COUNTRIES = {
   "233": { iso3: "EST", name: "Estonia", aliases: [], continent: "Europe", subregion: "Northern Europe", capital: "Tallinn", capitalLonLat: [24.72, 59.43], landAreaKm2: 45227, notabilityTier: 1 },
   "748": { iso3: "SWZ", name: "Eswatini", aliases: ["Swaziland"], continent: "Africa", subregion: "Southern Africa", capital: "Mbabane", capitalLonLat: [31.13, -26.32], capitalAlternates: ["Lobamba"], landAreaKm2: 17364, notabilityTier: 0 },
   "231": { iso3: "ETH", name: "Ethiopia", aliases: [], continent: "Africa", subregion: "Eastern Africa", capital: "Addis Ababa", capitalLonLat: [38.7, 9.03], landAreaKm2: 1104300, notabilityTier: 1 },
-  "238": { iso3: "FLK", name: "Falkland Islands", aliases: ["Malvinas"], continent: "South America", subregion: "South America", capital: "Stanley", capitalLonLat: [-57.85, -51.7], landAreaKm2: 12173, notabilityTier: 0 },
+  "238": { iso3: "FLK", name: "Falkland Islands", aliases: ["Malvinas"], continent: "South America", subregion: "South America", capital: "Stanley", capitalLonLat: [-57.85, -51.7], landAreaKm2: 12173, notabilityTier: 0, territory: true },
   "242": { iso3: "FJI", name: "Fiji", aliases: [], continent: "Oceania", subregion: "Melanesia", capital: "Suva", capitalLonLat: [178.42, -18.13], landAreaKm2: 18272, notabilityTier: 1 },
   "246": { iso3: "FIN", name: "Finland", aliases: [], continent: "Europe", subregion: "Northern Europe", capital: "Helsinki", capitalLonLat: [24.93, 60.17], landAreaKm2: 338424, notabilityTier: 2 },
   "250": { iso3: "FRA", name: "France", aliases: ["French Republic"], continent: "Europe", subregion: "Western Europe", capital: "Paris", capitalLonLat: [2.33, 48.87], landAreaKm2: 551695, notabilityTier: 2 },
-  "254": { iso3: "GUF", name: "French Guiana", aliases: ["Guyane", "Guyane française", "French Guyana"], continent: "South America", subregion: "South America", capital: "Cayenne", capitalLonLat: [-52.33, 4.94], landAreaKm2: 83534, notabilityTier: 0 },
-  "260": { iso3: "ATF", name: "French Southern Territories", aliases: [], continent: "Antarctica", subregion: "Antarctica", capital: null, landAreaKm2: 7747, notabilityTier: 0 },
+  "254": { iso3: "GUF", name: "French Guiana", aliases: ["Guyane", "Guyane française", "French Guyana"], continent: "South America", subregion: "South America", capital: "Cayenne", capitalLonLat: [-52.33, 4.94], landAreaKm2: 83534, notabilityTier: 0, territory: true },
+  "260": { iso3: "ATF", name: "French Southern Territories", aliases: [], continent: "Antarctica", subregion: "Antarctica", capital: null, landAreaKm2: 7747, notabilityTier: 0, territory: true },
   "266": { iso3: "GAB", name: "Gabon", aliases: [], continent: "Africa", subregion: "Middle Africa", capital: "Libreville", capitalLonLat: [9.45, 0.38], landAreaKm2: 267668, notabilityTier: 0 },
   "270": { iso3: "GMB", name: "Gambia", aliases: ["The Gambia"], continent: "Africa", subregion: "Western Africa", capital: "Banjul", capitalLonLat: [-16.57, 13.45], landAreaKm2: 10689, notabilityTier: 0 },
   "268": { iso3: "GEO", name: "Georgia", aliases: [], continent: "Asia", subregion: "Western Asia", capital: "Tbilisi", capitalLonLat: [44.83, 41.68], landAreaKm2: 69700, notabilityTier: 1 },
   "276": { iso3: "DEU", name: "Germany", aliases: ["Deutschland"], continent: "Europe", subregion: "Western Europe", capital: "Berlin", capitalLonLat: [13.4, 52.52], landAreaKm2: 357596, notabilityTier: 2 },
   "288": { iso3: "GHA", name: "Ghana", aliases: [], continent: "Africa", subregion: "Western Africa", capital: "Accra", capitalLonLat: [-0.22, 5.55], landAreaKm2: 238533, notabilityTier: 1 },
   "300": { iso3: "GRC", name: "Greece", aliases: ["Hellas"], continent: "Europe", subregion: "Southern Europe", capital: "Athens", capitalLonLat: [23.73, 37.98], landAreaKm2: 131957, notabilityTier: 2 },
-  "304": { iso3: "GRL", name: "Greenland", aliases: [], continent: "North America", subregion: "Northern America", capital: "Nuuk", capitalLonLat: [-51.75, 64.18], landAreaKm2: 2166086, notabilityTier: 1 },
+  "304": { iso3: "GRL", name: "Greenland", aliases: [], continent: "North America", subregion: "Northern America", capital: "Nuuk", capitalLonLat: [-51.75, 64.18], landAreaKm2: 2166086, notabilityTier: 1, territory: true },
   "320": { iso3: "GTM", name: "Guatemala", aliases: [], continent: "North America", subregion: "Central America", capital: "Guatemala City", capitalLonLat: [-90.52, 14.62], landAreaKm2: 108889, notabilityTier: 1 },
   "324": { iso3: "GIN", name: "Guinea", aliases: [], continent: "Africa", subregion: "Western Africa", capital: "Conakry", capitalLonLat: [-13.7, 9.5], landAreaKm2: 245857, notabilityTier: 0 },
   "624": { iso3: "GNB", name: "Guinea-Bissau", aliases: [], continent: "Africa", subregion: "Western Africa", capital: "Bissau", capitalLonLat: [-15.58, 11.85], landAreaKm2: 36125, notabilityTier: 0 },
@@ -188,7 +191,7 @@ const COUNTRIES = {
   "516": { iso3: "NAM", name: "Namibia", aliases: [], continent: "Africa", subregion: "Southern Africa", capital: "Windhoek", capitalLonLat: [17.08, -22.57], landAreaKm2: 825615, notabilityTier: 1 },
   "524": { iso3: "NPL", name: "Nepal", aliases: [], continent: "Asia", subregion: "Southern Asia", capital: "Kathmandu", capitalLonLat: [85.32, 27.72], landAreaKm2: 147181, notabilityTier: 1 },
   "528": { iso3: "NLD", name: "Netherlands", aliases: ["The Netherlands", "Holland"], continent: "Europe", subregion: "Western Europe", capital: "Amsterdam", capitalLonLat: [4.92, 52.35], capitalAlternates: ["The Hague"], landAreaKm2: 41850, notabilityTier: 2 },
-  "540": { iso3: "NCL", name: "New Caledonia", aliases: [], continent: "Oceania", subregion: "Melanesia", capital: "Nouméa", capitalLonLat: [166.45, -22.27], landAreaKm2: 18575, notabilityTier: 0 },
+  "540": { iso3: "NCL", name: "New Caledonia", aliases: [], continent: "Oceania", subregion: "Melanesia", capital: "Nouméa", capitalLonLat: [166.45, -22.27], landAreaKm2: 18575, notabilityTier: 0, territory: true },
   "554": { iso3: "NZL", name: "New Zealand", aliases: ["Aotearoa"], continent: "Oceania", subregion: "Australia and New Zealand", capital: "Wellington", capitalLonLat: [174.78, -41.3], landAreaKm2: 268021, notabilityTier: 2 },
   "558": { iso3: "NIC", name: "Nicaragua", aliases: [], continent: "North America", subregion: "Central America", capital: "Managua", capitalLonLat: [-86.25, 12.13], landAreaKm2: 130373, notabilityTier: 1 },
   "562": { iso3: "NER", name: "Niger", aliases: [], continent: "Africa", subregion: "Western Africa", capital: "Niamey", capitalLonLat: [2.12, 13.52], landAreaKm2: 1267000, notabilityTier: 0 },
@@ -206,7 +209,7 @@ const COUNTRIES = {
   "608": { iso3: "PHL", name: "Philippines", aliases: ["The Philippines"], continent: "Asia", subregion: "South-eastern Asia", capital: "Manila", capitalLonLat: [120.97, 14.6], landAreaKm2: 300000, notabilityTier: 2 },
   "616": { iso3: "POL", name: "Poland", aliases: [], continent: "Europe", subregion: "Eastern Europe", capital: "Warsaw", capitalLonLat: [21, 52.25], landAreaKm2: 312696, notabilityTier: 2 },
   "620": { iso3: "PRT", name: "Portugal", aliases: [], continent: "Europe", subregion: "Southern Europe", capital: "Lisbon", capitalLonLat: [-9.13, 38.72], landAreaKm2: 92212, notabilityTier: 2 },
-  "630": { iso3: "PRI", name: "Puerto Rico", aliases: [], continent: "North America", subregion: "Caribbean", capital: "San Juan", capitalLonLat: [-66.12, 18.47], landAreaKm2: 9104, notabilityTier: 1 },
+  "630": { iso3: "PRI", name: "Puerto Rico", aliases: [], continent: "North America", subregion: "Caribbean", capital: "San Juan", capitalLonLat: [-66.12, 18.47], landAreaKm2: 9104, notabilityTier: 1, territory: true },
   "634": { iso3: "QAT", name: "Qatar", aliases: [], continent: "Asia", subregion: "Western Asia", capital: "Doha", capitalLonLat: [51.53, 25.28], landAreaKm2: 11586, notabilityTier: 2 },
   "642": { iso3: "ROU", name: "Romania", aliases: [], continent: "Europe", subregion: "Eastern Europe", capital: "Bucharest", capitalLonLat: [26.1, 44.43], landAreaKm2: 238397, notabilityTier: 1 },
   "643": { iso3: "RUS", name: "Russia", aliases: ["Russian Federation"], continent: "Europe", subregion: "Eastern Europe", capital: "Moscow", capitalLonLat: [37.6, 55.75], landAreaKm2: 17098246, notabilityTier: 2 },
@@ -252,7 +255,7 @@ const COUNTRIES = {
   // ESH: REST Countries v3.1 has capitalInfo.latlng as [-13.28, 27.14] but
   // their values are lat-then-lon-swapped at source (would put El Aaiún in
   // central Africa). Hand-corrected to El Aaiún's true [lon, lat].
-  "732": { iso3: "ESH", name: "Western Sahara", aliases: [], continent: "Africa", subregion: "Northern Africa", capital: "El Aaiún", capitalLonLat: [-13.2, 27.15], landAreaKm2: 266000, notabilityTier: 0 },
+  "732": { iso3: "ESH", name: "Western Sahara", aliases: [], continent: "Africa", subregion: "Northern Africa", capital: "El Aaiún", capitalLonLat: [-13.2, 27.15], landAreaKm2: 266000, notabilityTier: 0, territory: true },
   "887": { iso3: "YEM", name: "Yemen", aliases: [], continent: "Asia", subregion: "Western Asia", capital: "Sana'a", capitalLonLat: [44.19, 15.37], landAreaKm2: 527968, notabilityTier: 1 },
   "894": { iso3: "ZMB", name: "Zambia", aliases: [], continent: "Africa", subregion: "Eastern Africa", capital: "Lusaka", capitalLonLat: [28.28, -15.42], landAreaKm2: 752618, notabilityTier: 1 },
   "716": { iso3: "ZWE", name: "Zimbabwe", aliases: [], continent: "Africa", subregion: "Eastern Africa", capital: "Harare", capitalLonLat: [31.03, -17.82], landAreaKm2: 390757, notabilityTier: 1 },
@@ -364,6 +367,9 @@ for (const [numeric, info] of Object.entries(COUNTRIES)) {
   }
   if (typeof info.landAreaKm2 !== "number" || !(info.landAreaKm2 > 0)) {
     errors.push(`${tag}: landAreaKm2 must be a positive number.`);
+  }
+  if (info.territory !== undefined && info.territory !== true) {
+    errors.push(`${tag}: territory, when present, must be true (omit it otherwise).`);
   }
   if (![0, 1, 2].includes(info.notabilityTier)) {
     errors.push(`${tag}: notabilityTier must be 0, 1, or 2.`);

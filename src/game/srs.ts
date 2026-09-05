@@ -6,7 +6,6 @@ import {
   type Grade,
 } from "ts-fsrs";
 import type {
-  Continent,
   Country,
   Ease,
   SrsRecord,
@@ -254,18 +253,4 @@ export function seenCount(store: SrsStore, scope: ReadonlySet<string>): number {
     if (scope.has(iso3)) n++;
   }
   return n;
-}
-
-// Scope helper for callers that pass a continent set rather than an
-// iso3 set. Keeps callers from re-implementing the filter.
-export function scopeFromCountries(
-  countries: readonly Country[],
-  continents: readonly Continent[],
-): Set<string> {
-  const cset = new Set(continents);
-  const out = new Set<string>();
-  for (const c of countries) {
-    if (cset.has(c.continent)) out.add(c.iso3);
-  }
-  return out;
 }

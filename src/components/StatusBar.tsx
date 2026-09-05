@@ -9,21 +9,9 @@ import {
   seenCount as srsSeenCount,
   totalReviews as srsTotalReviews,
 } from "../game/srs";
-import countriesData from "../data/countries.json";
-import type { Continent, Country, Phase, PracticeMode } from "../types";
+import type { Phase, PracticeMode } from "../types";
 import type { GameApi } from "../game/useGame";
 import type { ThemePref } from "../theme";
-
-const ALL_COUNTRIES = countriesData as Country[];
-
-function scopeIso3s(continents: readonly Continent[]): Set<string> {
-  const cset = new Set(continents);
-  const out = new Set<string>();
-  for (const c of ALL_COUNTRIES) {
-    if (cset.has(c.continent)) out.add(c.iso3);
-  }
-  return out;
-}
 
 type Props = {
   game: GameApi;
@@ -37,12 +25,12 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
   const isStudy = state.practiceMode === "study";
 
   const learned = useMemo(
-    () => srsLearnedCount(state.srsStore, scopeIso3s(state.selectedContinents)),
-    [state.srsStore, state.selectedContinents],
+    () => srsLearnedCount(state.srsStore, game.scopeSet),
+    [state.srsStore, game.scopeSet],
   );
   const seen = useMemo(
-    () => srsSeenCount(state.srsStore, scopeIso3s(state.selectedContinents)),
-    [state.srsStore, state.selectedContinents],
+    () => srsSeenCount(state.srsStore, game.scopeSet),
+    [state.srsStore, game.scopeSet],
   );
   const reviews = useMemo(
     () => srsTotalReviews(state.srsStore),
@@ -107,6 +95,8 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
         onSetMode={game.setMode}
         selectedContinents={state.selectedContinents}
         onSetContinents={game.setContinents}
+        includeTerritories={state.includeTerritories}
+        onSetIncludeTerritories={game.setIncludeTerritories}
         dueCount={game.dueCount}
         newAvailableCount={game.newAvailableCount}
         learnedCount={learned}

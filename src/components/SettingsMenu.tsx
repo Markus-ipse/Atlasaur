@@ -19,6 +19,8 @@ type Props = {
   onSetMode: (mode: QuestionMode) => void;
   selectedContinents: readonly Continent[];
   onSetContinents: (continents: readonly Continent[]) => void;
+  includeTerritories: boolean;
+  onSetIncludeTerritories: (value: boolean) => void;
   // SRS surface
   dueCount: number;
   newAvailableCount: number;
@@ -36,6 +38,8 @@ export function SettingsMenu({
   onSetMode,
   selectedContinents,
   onSetContinents,
+  includeTerritories,
+  onSetIncludeTerritories,
   dueCount,
   newAvailableCount,
   learnedCount,
@@ -115,9 +119,16 @@ export function SettingsMenu({
   };
 
   const selectedSet = new Set(selectedContinents);
+  // Antarctica's chip is hidden while territories are off, but it can still
+  // be selected (the selection survives the toggle). The "keep at least one"
+  // lock counts visible chips only, so the last visible continent can't be
+  // switched off to leave an empty pool.
+  const visibleSelectedCount = selectedContinents.filter(
+    (c) => includeTerritories || c !== "Antarctica",
+  ).length;
   const handleToggleContinent = (continent: Continent) => {
     const isSelected = selectedSet.has(continent);
-    if (isSelected && selectedSet.size === 1) return;
+    if (isSelected && visibleSelectedCount === 1) return;
     const next = new Set(selectedSet);
     if (isSelected) next.delete(continent);
     else next.add(continent);
@@ -174,9 +185,13 @@ export function SettingsMenu({
             <div>
               <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Continents</p>
               <div role="group" aria-label="Continents" className="flex flex-wrap gap-1">
-                {ALL_CONTINENTS.map((continent) => {
+                {ALL_CONTINENTS.filter(
+                  // Antarctica holds only territories; the chip means
+                  // nothing until those are switched on.
+                  (c) => includeTerritories || c !== "Antarctica",
+                ).map((continent) => {
                   const active = selectedSet.has(continent);
-                  const lockedLast = active && selectedSet.size === 1;
+                  const lockedLast = active && visibleSelectedCount === 1;
                   return (
                     <ContinentChip
                       key={continent}
@@ -192,6 +207,20 @@ export function SettingsMenu({
                   );
                 })}
               </div>
+              <label className="mt-2 flex items-center gap-2 text-sm text-ink-deep cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeTerritories}
+                  onChange={(e) => onSetIncludeTerritories(e.target.checked)}
+                  className="h-4 w-4 rounded border-ink-faded text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep"
+                />
+                <span>
+                  Include territories
+                  <span className="block text-xs text-ink-mid">
+                    Greenland, Puerto Rico, Antarctica and the like
+                  </span>
+                </span>
+              </label>
             </div>
             <div>
               <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Theme</p>
