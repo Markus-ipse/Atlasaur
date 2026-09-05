@@ -112,6 +112,12 @@ One-time setup: in repo **Settings → Pages**, set **Source** to
 `vite.config.ts` sets `base: "./"` so the built assets work under any
 subpath (here, `/Atlasaur/`) without hardcoding the repo name.
 
+The build is an installable web app: `vite-plugin-pwa` emits a manifest and
+a service worker that precaches every asset, so once loaded it opens and
+works offline, and "Add to Home Screen" gives it an icon and its own window.
+There is no push and no background sync; a new deploy waits and takes over
+on the next visit rather than interrupting a session.
+
 ## Stack
 
 - Vite 6, React 19, TypeScript 5.7

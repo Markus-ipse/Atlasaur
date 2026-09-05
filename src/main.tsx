@@ -2,6 +2,19 @@ import { Component, type ErrorInfo, type ReactNode, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
+import { registerSW } from "virtual:pwa-register";
+
+// Service worker for installability and offline use. A new build waits
+// until the next visit and then takes over; nothing here asks the learner to
+// decide (no onNeedRefresh handler on purpose). Registration is a no-op in
+// dev (the plugin's dev SW is off). Failures (plain http, no SW support) are
+// logged and the app simply runs uninstalled.
+registerSW({
+  immediate: true,
+  onRegisterError: (error) => {
+    console.warn("Atlasaur service worker did not register:", error);
+  },
+});
 
 // Production fallback: any uncaught render error paints a visible message in
 // the otherwise-empty #root instead of leaving a blank white page on the
