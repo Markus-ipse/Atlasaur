@@ -589,7 +589,12 @@ export function WorldMap({
   // it (correct eases back at 2× a miss). Updated every run; the guard below
   // fires only on the shown→cleared transition.
   const prevFeedbackKindRef = useRef<Feedback["kind"] | null>(null);
-  const settledByFeedbackRef = useRef(false);
+  // The resting frame the return-from-feedback effect last transitioned to.
+  // Keyed on the frame object (not a boolean) so a flag can't go stale: the
+  // resting-frame effect skips only the exact frame already in flight, and a
+  // later genuine change (new continent filter, resize) is a different
+  // object and settles normally.
+  const settledByFeedbackRef = useRef<ZoomTransform | null>(null);
   useEffect(() => {
     const prevKind = prevFeedbackKindRef.current;
     prevFeedbackKindRef.current = feedback?.kind ?? null;
@@ -598,9 +603,9 @@ export function WorldMap({
     const base = prevKind === "correct" ? RESET_CORRECT_MS : RESET_MS;
     const duration = prefersReducedMotion() ? 0 : base;
     // Tell the resting-frame effect below (same commit, runs after this one)
-    // that the settle is already in flight, so it doesn't supersede this
+    // which frame is already in flight, so it doesn't supersede this
     // transition with its own and lose the correct-answer easing.
-    settledByFeedbackRef.current = true;
+    settledByFeedbackRef.current = restingTransform;
     select(svgRef.current)
       .transition()
       .duration(duration)
@@ -621,10 +626,9 @@ export function WorldMap({
   useEffect(() => {
     if (!svgRef.current || !zoomRef.current) return;
     if (hasFeedback) return;
-    if (settledByFeedbackRef.current) {
-      settledByFeedbackRef.current = false;
-      return;
-    }
+    const inFlight = settledByFeedbackRef.current;
+    settledByFeedbackRef.current = null;
+    if (inFlight === restingTransform) return;
     const sel = select(svgRef.current);
     if (!didMountRef.current) {
       didMountRef.current = true;
