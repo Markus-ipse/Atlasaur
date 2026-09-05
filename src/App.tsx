@@ -128,6 +128,7 @@ export default function App() {
           isInScope={game.isInScope}
           onCountryClick={game.answer}
           interactive={!showCaughtUp && !state.roundDone}
+          targetIso3={state.current.iso3}
           palette={palette}
         />
       </div>
