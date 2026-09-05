@@ -4,6 +4,7 @@ import { WorldMap } from "./components/WorldMap";
 import { ControlZone } from "./components/ControlZone";
 import { SessionSummary } from "./components/SessionSummary";
 import { RoundBreak } from "./components/RoundBreak";
+import { TodayCard } from "./components/TodayCard";
 import { StatusBar } from "./components/StatusBar";
 import { Toast } from "./components/Toast";
 import { STUDY_NEW_CAP } from "./game/pickCountry";
@@ -92,7 +93,9 @@ export default function App() {
   }, [caughtUpEligible]);
   const showCaughtUp = caughtUpEligible && !caughtUpAck;
   const showRoundBreak = state.roundDone && !state.sessionDone;
-  const modalOpen = state.sessionDone || showRoundBreak;
+  const showTodayCard =
+    game.showTodayCard && !state.sessionDone && !showRoundBreak;
+  const modalOpen = state.sessionDone || showRoundBreak || showTodayCard;
   const keepGoing = () => {
     // "Keep going anyway" from a caught-up break already answered the
     // question the banner would ask; don't ask twice.
@@ -127,7 +130,7 @@ export default function App() {
           numericFromIso3={game.numericFromIso3}
           isInScope={game.isInScope}
           onCountryClick={game.answer}
-          interactive={!showCaughtUp && !state.roundDone}
+          interactive={!showCaughtUp && !state.roundDone && !showTodayCard}
           targetIso3={state.current.iso3}
           palette={palette}
         />
@@ -162,10 +165,19 @@ export default function App() {
           onSetSpotlight={game.setSpotlight}
         />
       )}
+      {showTodayCard && (
+        <TodayCard
+          dueCount={game.dueCount}
+          newToday={Math.min(STUDY_NEW_CAP, game.newAvailableCount)}
+          day={game.streak.day}
+          onBegin={game.dismissTodayCard}
+        />
+      )}
       {showRoundBreak && (
         <RoundBreak
           practiceMode={state.practiceMode}
           roundsCompleted={state.roundsCompleted}
+          streakDay={game.streak.day}
           roundCards={state.roundCards}
           roundRight={state.roundRight}
           roundNew={state.roundNew}

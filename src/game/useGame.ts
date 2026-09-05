@@ -13,6 +13,14 @@ import {
   saveStore,
 } from "./srs";
 import {
+  emptyStreak,
+  loadStreak,
+  recordDay,
+  saveStreak,
+  streakInfo,
+  type StreakInfo,
+} from "./streak";
+import {
   ALL_CONTINENTS,
   type Continent,
   type Country,
@@ -807,6 +815,14 @@ export type GameApi = {
   newAvailableCount: number;
   seenSrsIntro: boolean;
   markSrsIntroSeen: () => void;
+  // Cross-day streak (days with a finished round). Derived from
+  // atlasaur:streak:v1; recorded by the hook when roundsCompleted grows.
+  streak: StreakInfo;
+  // The Today card shows once per load to a learner with existing progress,
+  // before the first prompt. Not part of reducer state: it is a greeting,
+  // not game state.
+  showTodayCard: boolean;
+  dismissTodayCard: () => void;
   isoFromNumeric: (numeric: string) => string | undefined;
   numericFromIso3: (iso3: string) => string | undefined;
   nameFromIso3: (iso3: string) => string;
@@ -846,6 +862,12 @@ export function useGame(): GameApi {
     }),
   );
   const [seenSrsIntro, setSeenSrsIntro] = useState(loadSeenIntro);
+  const [streakStore, setStreakStore] = useState(loadStreak);
+  // Returning learner = any SRS record at load. Decided once so the card
+  // doesn't appear mid-session after the first answer.
+  const [todayCardOpen, setTodayCardOpen] = useState(
+    () => Object.keys(state.srsStore.records).length > 0,
+  );
   // Tick on visibility change + hourly to recompute due counts when the
   // day rolls over for users who leave the tab open.
   const [nowBucket, setNowBucket] = useState(() => Math.floor(Date.now() / 60_000));
@@ -879,6 +901,24 @@ export function useGame(): GameApi {
   useEffect(() => {
     saveStore(state.srsStore);
   }, [state.srsStore]);
+
+  // A finished round marks today on the streak. recordDay returns the same
+  // store when today is already there, so the save effect below is quiet.
+  useEffect(() => {
+    if (state.roundsCompleted === 0) return;
+    setStreakStore((prev) => recordDay(prev, new Date()));
+  }, [state.roundsCompleted]);
+
+  useEffect(() => {
+    saveStreak(streakStore);
+  }, [streakStore]);
+
+  // Once the learner has reached a summary (keyboard users can reach the
+  // status-bar Done under the card's scrim), the greeting has had its
+  // moment; don't bring it back when the summary closes.
+  useEffect(() => {
+    if (state.sessionDone) setTodayCardOpen(false);
+  }, [state.sessionDone]);
 
   useEffect(() => {
     const tick = () => setNowBucket(Math.floor(Date.now() / 60_000));
@@ -924,6 +964,12 @@ export function useGame(): GameApi {
     [state.srsStore, scopeSet],
   );
 
+  const streak = useMemo(
+    () => streakInfo(streakStore, new Date()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [streakStore, nowBucket],
+  );
+
   const markSrsIntroSeen = () => {
     if (seenSrsIntro) return;
     setSeenSrsIntro(true);
@@ -938,6 +984,9 @@ export function useGame(): GameApi {
     newAvailableCount,
     seenSrsIntro,
     markSrsIntroSeen,
+    streak,
+    showTodayCard: todayCardOpen,
+    dismissTodayCard: () => setTodayCardOpen(false),
     completedInScopeCount,
     isoFromNumeric,
     numericFromIso3,
@@ -955,7 +1004,12 @@ export function useGame(): GameApi {
     endSession: () => dispatch({ type: "endSession" }),
     continueRound: () => dispatch({ type: "continueRound", now: new Date() }),
     startReview: () => dispatch({ type: "startReview" }),
-    resetSrs: () => dispatch({ type: "resetSrs" }),
+    resetSrs: () => {
+      // "Erase all progress" means the streak too — otherwise the next
+      // finished round would continue the old day count.
+      dispatch({ type: "resetSrs" });
+      setStreakStore(emptyStreak());
+    },
     closeSummary: () => dispatch({ type: "closeSummary", now: new Date() }),
     setSpotlight: (subregion) =>
       dispatch({ type: "setSpotlight", subregion, now: new Date() }),

@@ -4,6 +4,8 @@ import type { PracticeMode } from "../types";
 type Props = {
   practiceMode: PracticeMode;
   roundsCompleted: number;
+  // Cross-day streak day this round belongs to; shown in the eyebrow.
+  streakDay: number;
   roundCards: number;
   roundRight: number;
   roundNew: number;
@@ -22,6 +24,7 @@ type Props = {
 export function RoundBreak({
   practiceMode,
   roundsCompleted,
+  streakDay,
   roundCards,
   roundRight,
   roundNew,
@@ -77,7 +80,7 @@ export function RoundBreak({
         className="w-full max-w-sm bg-parchment-base rounded-lg shadow-lg p-6 flex flex-col gap-4"
       >
         <p className="font-display text-xs uppercase tracking-wide text-ink-mid">
-          Round {roundsCompleted}
+          Round {roundsCompleted} · Day {streakDay}
         </p>
         <h2 id="round-break-title" className="text-2xl font-bold text-ink-deep">
           {title}
