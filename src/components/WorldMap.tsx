@@ -15,7 +15,7 @@ import polylabel from "polylabel";
 import type { Topology } from "topojson-specification";
 import topologyJson from "../data/world-110m.json";
 import countriesData from "../data/countries.json";
-import { ALL_CONTINENTS, type Continent, type Country, type Feedback, type QuestionMode } from "../types";
+import { ALL_CONTINENTS, type Continent, type Country, type Feedback, type QuestionMode, type Subregion } from "../types";
 import {
   W,
   H,
@@ -38,6 +38,15 @@ import {
 } from "./labelLayout";
 import { fillFor, type Palette } from "./fillFor";
 import { Wordmark } from "./Wordmark";
+import {
+  HINT_TARGET_PX,
+  TAP_TARGET_PX,
+  hitDiscRadiusSvg,
+  screenSizePx,
+  shouldFrameContinent,
+  worthFraming,
+} from "./smallTargets";
+import { isCoarsePointer, loadSeenPinchHint, saveSeenPinchHint } from "./pinchHint";
 
 const topology = topologyJson as unknown as Topology;
 
@@ -87,6 +96,13 @@ const RESET_CORRECT_MS = 900;
 const BADGE_INSET_X = 60;
 const BADGE_INSET_Y = 44;
 const BADGE_LIFT_Y = 18;
+
+// The one-time "pinch to zoom" nudge waits for the view to settle, then
+// stays up this long.
+const PINCH_HINT_SETTLE_MS = 800;
+const PINCH_HINT_MS = 5000;
+
+type HitDisc = { numericId: string; iso3: string; cx: number; cy: number; r: number };
 
 // Ocean labels: target on-screen size scales linearly with rendered SVG
 // width between these caps. Min keeps mobile legible; max stops them
@@ -264,12 +280,19 @@ for (const f of collection.features) {
 
 // Continent → numeric ids, used to compute the resting-zoom frame from
 // `selectedContinents`. Built once at module load; the continent assignment
-// is static per country.
+// is static per country. Subregion → numerics and numeric → region feed the
+// small-country auto-frame (R1.6).
 const NUMERICS_BY_CONTINENT = new Map<Continent, string[]>();
+const NUMERICS_BY_SUBREGION = new Map<Subregion, string[]>();
+const REGION_BY_NUMERIC = new Map<string, { continent: Continent; subregion: Subregion }>();
 for (const c of countriesData as Country[]) {
   const list = NUMERICS_BY_CONTINENT.get(c.continent);
   if (list) list.push(c.numeric);
   else NUMERICS_BY_CONTINENT.set(c.continent, [c.numeric]);
+  const sub = NUMERICS_BY_SUBREGION.get(c.subregion);
+  if (sub) sub.push(c.numeric);
+  else NUMERICS_BY_SUBREGION.set(c.subregion, [c.numeric]);
+  REGION_BY_NUMERIC.set(c.numeric, { continent: c.continent, subregion: c.subregion });
 }
 
 // Resting-zoom frame: when the user has narrowed the pool with the
@@ -282,20 +305,40 @@ function computeBaseTransform(
   selectedContinents: readonly Continent[],
 ): ZoomTransform {
   if (selectedContinents.length === ALL_CONTINENTS.length) return zoomIdentity;
-  const bounds: Bounds[] = [];
+  return fitContinents(selectedContinents);
+}
+
+// Region frames are computed once and reused (one object per region) so the
+// resting-frame memo hands back the same reference for consecutive tiny
+// targets in one region and the settle effect doesn't re-fire.
+const REGION_FRAME = new Map<string, ZoomTransform>();
+function regionFrame(key: string, numerics: readonly string[] | undefined): ZoomTransform {
+  let t = REGION_FRAME.get(key);
+  if (!t) {
+    t = fitNumerics(numerics ?? []);
+    REGION_FRAME.set(key, t);
+  }
+  return t;
+}
+
+function fitContinents(selectedContinents: readonly Continent[]): ZoomTransform {
+  const numerics: string[] = [];
   for (const cont of selectedContinents) {
-    const numerics = NUMERICS_BY_CONTINENT.get(cont);
-    if (!numerics) continue;
-    for (const n of numerics) {
-      const lab = LABELS_BY_NUMERIC.get(n);
-      if (lab) bounds.push(lab);
-    }
+    numerics.push(...(NUMERICS_BY_CONTINENT.get(cont) ?? []));
+  }
+  return fitNumerics(numerics);
+}
+
+function fitNumerics(numerics: readonly string[]): ZoomTransform {
+  const bounds: Bounds[] = [];
+  for (const n of numerics) {
+    const lab = LABELS_BY_NUMERIC.get(n);
+    if (lab) bounds.push(lab);
   }
   const fit = tryFitUnion(bounds);
   if (!fit) return zoomIdentity;
-  return zoomIdentity
-    .translate(W / 2 - fit.cx * fit.k, H / 2 - fit.cy * fit.k)
-    .scale(fit.k);
+  const k = Math.min(MAX_ZOOM, fit.k);
+  return zoomIdentity.translate(W / 2 - fit.cx * k, H / 2 - fit.cy * k).scale(k);
 }
 
 type Props = {
@@ -324,6 +367,13 @@ type Props = {
   // When false, country clicks are suppressed. Used by Study mode's
   // CaughtUp banner so a stray click doesn't bypass it.
   interactive?: boolean;
+  // The card being asked about. Used only for the small-country
+  // affordances in click mode: framing its region on a narrow map when it
+  // would be too small to tap, and the one-time pinch hint. Passed through
+  // feedback too, so the resting frame (and the Reset button's notion of
+  // "panned") stays stable across a correct flash. Never drives fill — the
+  // map must not give the answer away.
+  targetIso3: string | null;
   // Active theme palette — passed in so SVG fill/stroke values stay as
   // literal hex strings (var() refs don't interpolate reliably across
   // animated attribute changes; see CLAUDE.md).
@@ -343,6 +393,7 @@ export function WorldMap({
   isInScope,
   onCountryClick,
   interactive = true,
+  targetIso3,
   palette,
 }: Props) {
   const neighborSet = useMemo(
@@ -493,11 +544,52 @@ export function WorldMap({
     [selectedContinents],
   );
 
+  // Effective projection-to-pixel scale — see the note at `effectiveScale`
+  // below; computed here too because the resting frame depends on it.
+  const scaleNow =
+    svgSize.width > 0 && svgSize.height > 0
+      ? Math.min(svgSize.width / W, svgSize.height / H)
+      : 0;
+
+  // Resting frame: the continent filter's frame, or, on a phone-width map
+  // when the current card would be too small to tap there, the frame of the
+  // card's continent — or its UN subregion when even the continent frame
+  // leaves it a speck (Europe's frame barely zooms because Russia is in it).
+  // A deliberate, bounded hint: it fires only when the alternative is an
+  // un-tappable speck, never for big countries, never on desktop widths.
+  const restingTransform = useMemo<ZoomTransform>(() => {
+    // Click mode only: in shape-to-name nothing is tapped, and a phone's
+    // keyboard resizing the map would otherwise re-frame while typing.
+    if (mode !== "name-to-click" || !targetIso3 || scaleNow === 0) {
+      return baseTransform;
+    }
+    const numeric = numericFromIso3(targetIso3);
+    const label = numeric ? LABELS_BY_NUMERIC.get(numeric) : undefined;
+    const region = numeric ? REGION_BY_NUMERIC.get(numeric) : undefined;
+    if (!label || !region) return baseTransform;
+    const sizeAtBase = screenSizePx(label, scaleNow, baseTransform.k);
+    if (!shouldFrameContinent(sizeAtBase, scaleNow * W)) return baseTransform;
+    let frame = regionFrame(
+      `c:${region.continent}`,
+      NUMERICS_BY_CONTINENT.get(region.continent),
+    );
+    if (screenSizePx(label, scaleNow, frame.k) < TAP_TARGET_PX) {
+      frame = regionFrame(
+        `s:${region.subregion}`,
+        NUMERICS_BY_SUBREGION.get(region.subregion),
+      );
+    }
+    // Only when it earns it: a filter already about as tight stays, and a
+    // frame that barely zooms is noise rather than help.
+    return worthFraming(frame.k, baseTransform.k) ? frame : baseTransform;
+  }, [mode, baseTransform, targetIso3, scaleNow, numericFromIso3]);
+
   const hasFeedback = feedback !== null;
   // Track the kind that was showing so the settle-back duration can depend on
   // it (correct eases back at 2× a miss). Updated every run; the guard below
   // fires only on the shown→cleared transition.
   const prevFeedbackKindRef = useRef<Feedback["kind"] | null>(null);
+  const settledByFeedbackRef = useRef(false);
   useEffect(() => {
     const prevKind = prevFeedbackKindRef.current;
     prevFeedbackKindRef.current = feedback?.kind ?? null;
@@ -505,43 +597,73 @@ export function WorldMap({
     if (!svgRef.current || !zoomRef.current) return;
     const base = prevKind === "correct" ? RESET_CORRECT_MS : RESET_MS;
     const duration = prefersReducedMotion() ? 0 : base;
+    // Tell the resting-frame effect below (same commit, runs after this one)
+    // that the settle is already in flight, so it doesn't supersede this
+    // transition with its own and lose the correct-answer easing.
+    settledByFeedbackRef.current = true;
     select(svgRef.current)
       .transition()
       .duration(duration)
-      .call(zoomRef.current.transform, baseTransform);
+      .call(zoomRef.current.transform, restingTransform);
     // feedback?.kind read via the ref, not deps — we fire only on the
     // hasFeedback transition, not on kind identity changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasFeedback, baseTransform]);
+  }, [hasFeedback, restingTransform]);
 
   // Apply the resting frame on first mount (instant, so the map appears
-  // already framed instead of gliding in) and on subsequent continent-
-  // filter changes (animated). Defers to the reveal-zoom effect while
-  // feedback is showing.
+  // already framed instead of gliding in — a tiny first card on a phone
+  // still glides to its region once the resize observer reports a size)
+  // and whenever it changes after that (continent filter, or a tiny card
+  // on a narrow map) — animated. Defers to the reveal-zoom effect while
+  // feedback is showing, and to the return-from-feedback effect above when
+  // that has just started the same settle.
   const didMountRef = useRef(false);
   useEffect(() => {
     if (!svgRef.current || !zoomRef.current) return;
     if (hasFeedback) return;
+    if (settledByFeedbackRef.current) {
+      settledByFeedbackRef.current = false;
+      return;
+    }
     const sel = select(svgRef.current);
     if (!didMountRef.current) {
       didMountRef.current = true;
-      sel.call(zoomRef.current.transform, baseTransform);
+      sel.call(zoomRef.current.transform, restingTransform);
       return;
     }
     const duration = prefersReducedMotion() ? 0 : 450;
-    sel.transition().duration(duration).call(zoomRef.current.transform, baseTransform);
+    sel.transition().duration(duration).call(zoomRef.current.transform, restingTransform);
     // hasFeedback intentionally excluded — when feedback clears the
     // dedicated effect above handles the return-to-base animation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [baseTransform]);
+  }, [restingTransform]);
 
   const resetView = () => {
     if (!svgRef.current || !zoomRef.current) return;
-    select(svgRef.current).call(zoomRef.current.transform, baseTransform);
+    select(svgRef.current).call(zoomRef.current.transform, restingTransform);
   };
 
   const isClickMode = interactive && mode === "name-to-click" && !feedback;
-  const isPanned = transform !== baseTransform;
+  const isPanned = transform !== restingTransform;
+
+  // Record where the user clicked (container-pixel space, clamped to keep
+  // the centered badge on-screen) before dispatching the answer. Shared by
+  // the country paths and the hit discs.
+  const handleCountryClick = (iso3: string, e: React.MouseEvent) => {
+    const r = containerRef.current?.getBoundingClientRect();
+    if (r) {
+      const x = Math.min(
+        Math.max(e.clientX - r.left, BADGE_INSET_X),
+        r.width - BADGE_INSET_X,
+      );
+      const y = Math.min(
+        Math.max(e.clientY - r.top, BADGE_INSET_Y),
+        r.height - BADGE_INSET_Y,
+      );
+      setClickPoint({ x, y });
+    }
+    onCountryClick(iso3);
+  };
 
   // The effective projection-to-pixel scale matches preserveAspectRatio
   // ="xMidYMid meet": the smaller of the two axis ratios. Using width
@@ -656,6 +778,54 @@ export function WorldMap({
     return xy;
   }, [revealCapitalLonLat, revealCorrectIso3, numericFromIso3]);
 
+  const hitDiscs = useMemo(() => {
+    if (!isClickMode || effectiveScale === 0) return [] as HitDisc[];
+    const out: HitDisc[] = [];
+    for (const l of LABELS) {
+      const iso3 = isoFromNumeric(l.numericId);
+      if (!iso3 || !isInScope(iso3)) continue;
+      const size = screenSizePx(l, effectiveScale, transform.k);
+      const r = hitDiscRadiusSvg(size, effectiveScale, transform.k);
+      if (r === null) continue;
+      out.push({ numericId: l.numericId, iso3, cx: l.cx, cy: l.cy, r });
+    }
+    return out;
+  }, [isClickMode, effectiveScale, transform.k, isoFromNumeric, isInScope]);
+
+  // One-time pinch hint: the card's country is a speck on a touch screen.
+  const targetSizePx = useMemo(() => {
+    if (!targetIso3 || effectiveScale === 0) return Infinity;
+    const numeric = numericFromIso3(targetIso3);
+    const label = numeric ? LABELS_BY_NUMERIC.get(numeric) : undefined;
+    return label ? screenSizePx(label, effectiveScale, transform.k) : Infinity;
+  }, [targetIso3, effectiveScale, transform.k, numericFromIso3]);
+  const [pinchHint, setPinchHint] = useState(false);
+  const seenPinchHintRef = useRef<boolean | null>(null);
+  // Wait for the view to settle (the auto-frame animates k) before judging
+  // the target's size; any change to k restarts the wait, and once the hint
+  // is up a change to k (the learner pinching) takes it down.
+  useEffect(() => {
+    if (seenPinchHintRef.current === null) {
+      seenPinchHintRef.current = loadSeenPinchHint();
+    }
+    setPinchHint(false);
+    if (seenPinchHintRef.current || !isClickMode) return;
+    if (targetSizePx >= HINT_TARGET_PX || !isCoarsePointer()) return;
+    const show = window.setTimeout(() => {
+      seenPinchHintRef.current = true;
+      saveSeenPinchHint();
+      setPinchHint(true);
+    }, PINCH_HINT_SETTLE_MS);
+    const hide = window.setTimeout(
+      () => setPinchHint(false),
+      PINCH_HINT_SETTLE_MS + PINCH_HINT_MS,
+    );
+    return () => {
+      window.clearTimeout(show);
+      window.clearTimeout(hide);
+    };
+  }, [isClickMode, targetSizePx]);
+
   return (
     <div
       ref={containerRef}
@@ -681,6 +851,26 @@ export function WorldMap({
             opacity={0.18}
             pointerEvents="none"
           />
+          {/* Invisible hit discs under countries too small to tap at the
+              current zoom (islands, micro-states). Drawn beneath the paths so
+              land always wins where it exists — a disc never steals a tap
+              from a bigger neighbour — while the ocean around a speck of an
+              island catches the fingertip. Discs shrink away as the user
+              zooms in. Every in-scope tiny country gets one, not just the
+              answer, so the map gives nothing away. */}
+          {hitDiscs.map((d) => (
+            <circle
+              key={d.numericId}
+              cx={d.cx}
+              cy={d.cy}
+              r={d.r}
+              fill="none"
+              pointerEvents="all"
+              className="cursor-pointer"
+              data-hit={d.numericId}
+              onClick={(e) => handleCountryClick(d.iso3, e)}
+            />
+          ))}
           {PATHS.map((p) => {
             const iso3 = p.numericId ? isoFromNumeric(p.numericId) : undefined;
             const inScope = iso3 ? isInScope(iso3) : false;
@@ -718,26 +908,7 @@ export function WorldMap({
                 className={className}
                 data-numeric={p.numericId}
                 onClick={
-                  clickable && iso3
-                    ? (e) => {
-                        // Record where the user clicked (container-pixel space,
-                        // clamped to keep the centered badge on-screen) before
-                        // dispatching the answer.
-                        const r = containerRef.current?.getBoundingClientRect();
-                        if (r) {
-                          const x = Math.min(
-                            Math.max(e.clientX - r.left, BADGE_INSET_X),
-                            r.width - BADGE_INSET_X,
-                          );
-                          const y = Math.min(
-                            Math.max(e.clientY - r.top, BADGE_INSET_Y),
-                            r.height - BADGE_INSET_Y,
-                          );
-                          setClickPoint({ x, y });
-                        }
-                        onCountryClick(iso3);
-                      }
-                    : undefined
+                  clickable && iso3 ? (e) => handleCountryClick(iso3, e) : undefined
                 }
                 style={{ transition: "fill 200ms ease, filter 100ms ease" }}
               />
@@ -816,6 +987,16 @@ export function WorldMap({
       {/* Title cartouche. DOM overlay so it sits in the actual viewport
           corner regardless of how the SVG letterboxes its content. */}
       <Wordmark />
+      {pinchHint && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4">
+          <span
+            role="status"
+            className="toast-fade rounded-full border border-ink-faded bg-parchment-base/95 px-3 py-1 font-display text-xs uppercase tracking-wide text-ink-mid shadow-sm"
+          >
+            Pinch to zoom in
+          </span>
+        </div>
+      )}
       {isPanned && (
         <button
           type="button"

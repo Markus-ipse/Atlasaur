@@ -32,6 +32,7 @@ const BASE_PROPS = {
   mode: "name-to-click" as const,
   highlightedIso3: null,
   correctNeighborIso3s: [] as readonly string[],
+  targetIso3: null as string | null,
   spotlightIso3Set: new Set<string>(),
   selectedContinents: ALL_CONTINENTS,
   isoFromNumeric: () => undefined,
