@@ -16,6 +16,7 @@ import type {
 
 const SRS_STORAGE_KEY = "atlasaur:srs:v1";
 const SRS_SEEN_INTRO_KEY = "atlasaur:srs:seenIntro";
+const SEEN_WELCOME_KEY = "atlasaur:seenWelcome";
 const STORE_VERSION = 1;
 
 const scheduler = fsrs();
@@ -85,6 +86,22 @@ export function loadSeenIntro(): boolean {
 export function saveSeenIntro(value: boolean): void {
   try {
     window.localStorage.setItem(SRS_SEEN_INTRO_KEY, String(value));
+  } catch {
+    // ignore
+  }
+}
+
+export function loadSeenWelcome(): boolean {
+  try {
+    return window.localStorage.getItem(SEEN_WELCOME_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function saveSeenWelcome(value: boolean): void {
+  try {
+    window.localStorage.setItem(SEEN_WELCOME_KEY, String(value));
   } catch {
     // ignore
   }
