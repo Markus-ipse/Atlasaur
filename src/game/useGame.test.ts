@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { reducer, initialState, ROUND_SIZE, type State } from "./useGame";
 import { STUDY_NEW_CAP } from "./pickCountry";
-import { grade as srsGrade } from "./srs";
+import { grade as srsGrade, introductionOrder } from "./srs";
 import countriesData from "../data/countries.json";
 import { ALL_CONTINENTS, type Country } from "../types";
 
@@ -904,6 +904,27 @@ describe("reducer — spotlight subregion", () => {
     const next = reducer(seeded, { type: "closeSummary", now: NOW });
     // Quiz pick is continent-scoped, not narrowed to the spotlight subregion.
     expect(next.current.iso3).toBe("EGY");
+  });
+});
+
+describe("reducer — setContinents in Study", () => {
+  it("replaces an out-of-scope card by introduction order, not at random", () => {
+    const s0 = withCurrent(initialState({ practiceMode: "study" }), "FRA");
+    const next = reducer(s0, { type: "setContinents", continents: ["Africa"] });
+    expect(next.current.continent).toBe("Africa");
+    const best = Math.max(
+      ...ALL_COUNTRIES.filter((c) => c.continent === "Africa").map(introductionOrder),
+    );
+    expect(introductionOrder(next.current)).toBe(best);
+  });
+
+  it("keeps the current card when it is still in scope", () => {
+    const s0 = initialState({ practiceMode: "study" });
+    const next = reducer(s0, {
+      type: "setContinents",
+      continents: [s0.current.continent],
+    });
+    expect(next.current).toBe(s0.current);
   });
 });
 

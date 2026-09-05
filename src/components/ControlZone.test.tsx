@@ -81,6 +81,8 @@ function makeGame(overrides: {
     streak: { length: 0, todayPlayed: false, day: 1 },
     showTodayCard: false,
     dismissTodayCard: vi.fn(),
+    showWelcome: false,
+    dismissWelcome: vi.fn(),
     isoFromNumeric: () => undefined,
     numericFromIso3: () => undefined,
     nameFromIso3: (iso3) => NAMES_BY_ISO3[iso3] ?? iso3,

@@ -7,9 +7,11 @@ import {
   emptyStore,
   grade as srsGrade,
   loadSeenIntro,
+  loadSeenWelcome,
   loadStore,
   newAvailableCount as srsNewAvailableCount,
   saveSeenIntro,
+  saveSeenWelcome,
   saveStore,
 } from "./srs";
 import {
@@ -168,7 +170,7 @@ export type Action =
   | { type: "dismiss"; now?: Date }
   | { type: "setMode"; mode: QuestionMode }
   | { type: "setPracticeMode"; mode: PracticeMode; now?: Date }
-  | { type: "setContinents"; continents: readonly Continent[] }
+  | { type: "setContinents"; continents: readonly Continent[]; now?: Date }
   | { type: "endSession" }
   | { type: "continueRound"; now?: Date }
   | { type: "startReview" }
@@ -662,9 +664,27 @@ export function reducer(state: State, action: Action): State {
       const studyResurfaceQueue = state.studyResurfaceQueue.filter((e) =>
         inScope.has(e.iso3),
       );
-      const current = inScope.has(state.current.iso3)
-        ? state.current
-        : pickRandom(pool, null);
+      // A current card that fell out of scope is replaced: in Study by the
+      // scheduler (so "Pick a region" on the welcome still starts with the
+      // region's big ones, not a random island), in Quiz by a random pick.
+      let current = state.current;
+      if (!inScope.has(state.current.iso3)) {
+        if (state.practiceMode === "study") {
+          const scoped: State = {
+            ...state,
+            selectedContinents: action.continents,
+            studyResurfaceQueue,
+            spotlightSubregion: null,
+          };
+          const picked = nextCurrent(scoped, now);
+          // nextCurrent hands back the (out-of-scope) current when the
+          // scheduler has nothing to offer — nothing due and the new-card
+          // cap for this stretch already spent; fall back to a random pick.
+          current = picked === state.current ? pickRandom(pool, null) : picked;
+        } else {
+          current = pickRandom(pool, null);
+        }
+      }
       // completedSet is preserved across continent changes — out-of-scope
       // entries don't affect poolComplete (which only checks pool ∩ set)
       // and the displayed count is derived against the active scope.
@@ -823,6 +843,10 @@ export type GameApi = {
   // not game state.
   showTodayCard: boolean;
   dismissTodayCard: () => void;
+  // First-run welcome: shown once (atlasaur:seenWelcome) to a learner with
+  // no SRS records. Existing learners upgrading past it never see it.
+  showWelcome: boolean;
+  dismissWelcome: () => void;
   isoFromNumeric: (numeric: string) => string | undefined;
   numericFromIso3: (iso3: string) => string | undefined;
   nameFromIso3: (iso3: string) => string;
@@ -867,6 +891,10 @@ export function useGame(): GameApi {
   // doesn't appear mid-session after the first answer.
   const [todayCardOpen, setTodayCardOpen] = useState(
     () => Object.keys(state.srsStore.records).length > 0,
+  );
+  const [welcomeOpen, setWelcomeOpen] = useState(
+    () =>
+      !loadSeenWelcome() && Object.keys(state.srsStore.records).length === 0,
   );
   // Tick on visibility change + hourly to recompute due counts when the
   // day rolls over for users who leave the tab open.
@@ -917,7 +945,12 @@ export function useGame(): GameApi {
   // status-bar Done under the card's scrim), the greeting has had its
   // moment; don't bring it back when the summary closes.
   useEffect(() => {
-    if (state.sessionDone) setTodayCardOpen(false);
+    if (!state.sessionDone) return;
+    setTodayCardOpen(false);
+    setWelcomeOpen((open) => {
+      if (open) saveSeenWelcome(true);
+      return false;
+    });
   }, [state.sessionDone]);
 
   useEffect(() => {
@@ -987,6 +1020,11 @@ export function useGame(): GameApi {
     streak,
     showTodayCard: todayCardOpen,
     dismissTodayCard: () => setTodayCardOpen(false),
+    showWelcome: welcomeOpen,
+    dismissWelcome: () => {
+      setWelcomeOpen(false);
+      saveSeenWelcome(true);
+    },
     completedInScopeCount,
     isoFromNumeric,
     numericFromIso3,
@@ -1000,15 +1038,17 @@ export function useGame(): GameApi {
     setPracticeMode: (mode) =>
       dispatch({ type: "setPracticeMode", mode, now: new Date() }),
     setContinents: (continents) =>
-      dispatch({ type: "setContinents", continents }),
+      dispatch({ type: "setContinents", continents, now: new Date() }),
     endSession: () => dispatch({ type: "endSession" }),
     continueRound: () => dispatch({ type: "continueRound", now: new Date() }),
     startReview: () => dispatch({ type: "startReview" }),
     resetSrs: () => {
       // "Erase all progress" means the streak too — otherwise the next
-      // finished round would continue the old day count.
+      // finished round would continue the old day count — and the welcome
+      // flag, so the learner meets the app as a stranger on the next load.
       dispatch({ type: "resetSrs" });
       setStreakStore(emptyStreak());
+      saveSeenWelcome(false);
     },
     closeSummary: () => dispatch({ type: "closeSummary", now: new Date() }),
     setSpotlight: (subregion) =>

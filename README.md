@@ -87,6 +87,8 @@ After editing, run `npm run build:countries` to regenerate
 │       ├── SettingsMenu.tsx      # Question mode, continents, theme, data
 │       ├── RoundBreak.tsx        # Interstitial every twelve cards
 │       ├── TodayCard.tsx         # "Welcome back" card on open for returning learners
+│       ├── Welcome.tsx           # First-run screen: three doors into the app
+│       ├── ContinentChip.tsx     # Continent toggle shared by settings and welcome
 │       ├── Prompt.tsx            # Country prompt (name or highlighted shape)
 │       ├── AnswerInput.tsx       # Typed input for shape-to-name mode
 │       ├── RevealHero.tsx        # Wrong/skipped reveal panel with capital + neighbors

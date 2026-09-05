@@ -5,11 +5,12 @@ import { ControlZone } from "./components/ControlZone";
 import { SessionSummary } from "./components/SessionSummary";
 import { RoundBreak } from "./components/RoundBreak";
 import { TodayCard } from "./components/TodayCard";
+import { Welcome } from "./components/Welcome";
 import { StatusBar } from "./components/StatusBar";
 import { Toast } from "./components/Toast";
 import { STUDY_NEW_CAP } from "./game/pickCountry";
 import countriesData from "./data/countries.json";
-import type { Country } from "./types";
+import { ALL_CONTINENTS, type Country } from "./types";
 import { useTheme } from "./theme";
 import { readPaletteFromCss } from "./components/fillFor";
 
@@ -95,7 +96,9 @@ export default function App() {
   const showRoundBreak = state.roundDone && !state.sessionDone;
   const showTodayCard =
     game.showTodayCard && !state.sessionDone && !showRoundBreak;
-  const modalOpen = state.sessionDone || showRoundBreak || showTodayCard;
+  const showWelcome = game.showWelcome && !state.sessionDone;
+  const modalOpen =
+    state.sessionDone || showRoundBreak || showTodayCard || showWelcome;
   const keepGoing = () => {
     // "Keep going anyway" from a caught-up break already answered the
     // question the banner would ask; don't ask twice.
@@ -130,7 +133,9 @@ export default function App() {
           numericFromIso3={game.numericFromIso3}
           isInScope={game.isInScope}
           onCountryClick={game.answer}
-          interactive={!showCaughtUp && !state.roundDone && !showTodayCard}
+          interactive={
+            !showCaughtUp && !state.roundDone && !showTodayCard && !showWelcome
+          }
           targetIso3={state.current.iso3}
           palette={palette}
         />
@@ -163,6 +168,28 @@ export default function App() {
           onBackToStudy={() => game.setPracticeMode("study")}
           onKeepStudying={game.closeSummary}
           onSetSpotlight={game.setSpotlight}
+        />
+      )}
+      {showWelcome && (
+        <Welcome
+          onStartBig={() => {
+            game.setPracticeMode("study");
+            game.setContinents(ALL_CONTINENTS);
+            game.dismissWelcome();
+          }}
+          onStartRegion={(continents) => {
+            game.setPracticeMode("study");
+            game.setContinents(continents);
+            game.dismissWelcome();
+          }}
+          onStartTest={() => {
+            // "Test me" promises everything: a scope narrowed before this
+            // profile was wiped (or on a pre-welcome install) must not
+            // silently shrink it.
+            game.setContinents(ALL_CONTINENTS);
+            game.setPracticeMode("quiz");
+            game.dismissWelcome();
+          }}
         />
       )}
       {showTodayCard && (
