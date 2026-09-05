@@ -44,7 +44,23 @@ export function loadStore(): SrsStore {
     ) {
       return emptyStore();
     }
-    return parsed as SrsStore;
+    const store = parsed as SrsStore;
+    // Additive schema change within version 1: records saved before the
+    // hits/misses tally existed are backfilled with zeros so every record
+    // has the full shape and lifetimeAccuracy can treat them uniformly.
+    // A malformed entry is dropped rather than letting it throw here —
+    // the catch below would otherwise replace the whole store with an
+    // empty one and the save effect would persist that, wiping progress.
+    for (const iso3 in store.records) {
+      const rec = store.records[iso3] as Partial<SrsRecord> | null;
+      if (typeof rec !== "object" || rec === null) {
+        delete store.records[iso3];
+        continue;
+      }
+      if (typeof rec.hits !== "number") rec.hits = 0;
+      if (typeof rec.misses !== "number") rec.misses = 0;
+    }
+    return store;
   } catch {
     return emptyStore();
   }
@@ -74,8 +90,13 @@ export function saveSeenIntro(value: boolean): void {
   }
 }
 
-export function toJSON(card: Card): SrsRecord {
+export function toJSON(
+  card: Card,
+  tally: { hits: number; misses: number } = { hits: 0, misses: 0 },
+): SrsRecord {
   return {
+    hits: tally.hits,
+    misses: tally.misses,
     due: card.due.toISOString(),
     stability: card.stability,
     difficulty: card.difficulty,
@@ -107,7 +128,9 @@ export function fromJSON(record: SrsRecord): Card {
 export function grade(record: SrsRecord | null, ease: Ease, now: Date): SrsRecord {
   const card = record ? fromJSON(record) : createEmptyCard(now);
   const { card: next } = scheduler.next(card, now, EASE_TO_RATING[ease]);
-  return toJSON(next);
+  const hits = (record?.hits ?? 0) + (ease === "Again" ? 0 : 1);
+  const misses = (record?.misses ?? 0) + (ease === "Again" ? 1 : 0);
+  return toJSON(next, { hits, misses });
 }
 
 export function isDue(record: SrsRecord, now: Date): boolean {
@@ -187,15 +210,33 @@ export function totalReviews(store: SrsStore): number {
   return n;
 }
 
-export function lifetimeAccuracy(store: SrsStore): number {
-  let reps = 0;
-  let lapses = 0;
+// Share of graded answers that were right, across every record. Uses the
+// hits/misses tally rather than FSRS `lapses` (which ignores misses on New
+// and Learning cards, so beginners would read ~100%). Returns null when no
+// tallied answers exist — including a store migrated from before the tally,
+// where reps > 0 but nothing has been counted yet — so callers show "—"
+// rather than a false 0%.
+export function lifetimeAccuracy(store: SrsStore): number | null {
+  let hits = 0;
+  let misses = 0;
   for (const iso3 in store.records) {
-    reps += store.records[iso3].reps;
-    lapses += store.records[iso3].lapses;
+    hits += store.records[iso3].hits;
+    misses += store.records[iso3].misses;
   }
-  if (reps === 0) return 0;
-  return Math.max(0, Math.min(1, 1 - lapses / reps));
+  const answered = hits + misses;
+  if (answered === 0) return null;
+  return hits / answered;
+}
+
+// Countries with any record in scope — introduced, whether or not they have
+// graduated to "known" (learnedCount). First sessions read as progress via
+// this number even though FSRS graduation typically happens on a later day.
+export function seenCount(store: SrsStore, scope: ReadonlySet<string>): number {
+  let n = 0;
+  for (const iso3 in store.records) {
+    if (scope.has(iso3)) n++;
+  }
+  return n;
 }
 
 // Scope helper for callers that pass a continent set rather than an

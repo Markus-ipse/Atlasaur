@@ -3,6 +3,7 @@ import type { Country, PracticeMode, SrsStore, Subregion } from "../types";
 import {
   lifetimeAccuracy as srsLifetimeAccuracy,
   learnedCount as srsLearnedCount,
+  seenCount as srsSeenCount,
   masteryBySubregion,
   totalReviews as srsTotalReviews,
 } from "../game/srs";
@@ -135,6 +136,7 @@ function StudySummary({
   onSetSpotlight,
 }: Props) {
   const learned = srsLearnedCount(srsStore, scopeIso3s);
+  const seen = srsSeenCount(srsStore, scopeIso3s);
   const reviews = srsTotalReviews(srsStore);
   const accuracy = srsLifetimeAccuracy(srsStore);
   // Recommend the most-neglected subregion in scope, if any clears the gate.
@@ -191,14 +193,15 @@ function StudySummary({
         <h2 id="study-summary-title" className="text-2xl font-bold text-ink-deep">
           Nice work
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
-          <Tile label="Learned" value={String(learned)} />
-          <Tile label="Due today" value={String(dueCount)} />
-          <Tile label="New" value={String(newAvailableCount)} />
-          <Tile label="Reviews" value={String(reviews)} />
+        <div className="grid grid-cols-3 gap-3 text-center">
+          <Tile label="Known" value={String(learned)} />
+          <Tile label="Seen" value={String(seen)} />
+          <Tile label="To review" value={String(dueCount)} />
+          <Tile label="Not yet seen" value={String(newAvailableCount)} />
+          <Tile label="Answers" value={String(reviews)} />
           <Tile
-            label="Accuracy"
-            value={reviews === 0 ? "—" : `${Math.round(accuracy * 100)}%`}
+            label="Right"
+            value={accuracy === null ? "—" : `${Math.round(accuracy * 100)}%`}
           />
         </div>
         <p

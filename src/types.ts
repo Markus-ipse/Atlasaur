@@ -103,6 +103,13 @@ export type SrsRecord = {
   lapses: number;
   state: 0 | 1 | 2 | 3;
   last_review?: string;
+  // Atlasaur's own outcome tally, kept beside the FSRS card. FSRS `lapses`
+  // only counts an Again on a card already in Review state, so it is not a
+  // miss count. `hits` / `misses` count every graded answer: Again → miss,
+  // anything else → hit. Backfilled to 0 for records saved before the fields
+  // existed (see loadStore).
+  hits: number;
+  misses: number;
 };
 
 export type SrsStore = {
