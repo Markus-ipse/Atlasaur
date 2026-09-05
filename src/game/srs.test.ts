@@ -9,6 +9,7 @@ import {
   isDue,
   learnedCount,
   lifetimeAccuracy,
+  seenCount,
   loadStore,
   masteryBySubregion,
   newAvailableCount,
@@ -62,7 +63,7 @@ describe("toJSON / fromJSON", () => {
   it("round-trips a card through JSON", () => {
     const r = grade(null, "Good", T0);
     const card = fromJSON(r);
-    const back = toJSON(card);
+    const back = toJSON(card, r);
     expect(back).toEqual(r);
   });
 });
@@ -120,6 +121,33 @@ describe("loadStore / saveStore", () => {
     );
     const s = loadStore();
     expect(s).toEqual(emptyStore());
+  });
+
+  it("backfills hits/misses on records saved before the tally existed", () => {
+    const legacy = grade(null, "Good", T0) as Partial<SrsRecord>;
+    delete legacy.hits;
+    delete legacy.misses;
+    window.localStorage.setItem(
+      "atlasaur:srs:v1",
+      JSON.stringify({ version: 1, records: { FRA: legacy } }),
+    );
+    const s = loadStore();
+    expect(s.records["FRA"].hits).toBe(0);
+    expect(s.records["FRA"].misses).toBe(0);
+    expect(s.records["FRA"].reps).toBe(1);
+  });
+
+  it("drops a malformed record entry instead of resetting the store", () => {
+    window.localStorage.setItem(
+      "atlasaur:srs:v1",
+      JSON.stringify({
+        version: 1,
+        records: { FRA: grade(null, "Good", T0), DEU: null },
+      }),
+    );
+    const s = loadStore();
+    expect(s.records["FRA"]).toBeDefined();
+    expect("DEU" in s.records).toBe(false);
   });
 
   it("resets on malformed JSON", () => {
@@ -189,17 +217,43 @@ describe("aggregate helpers", () => {
     expect(totalReviews(store)).toBe(3); // 2 + 1
   });
 
-  it("lifetimeAccuracy is in [0,1]", () => {
+  it("lifetimeAccuracy counts misses on new cards (not just FSRS lapses)", () => {
+    // Two misses in five answers. FSRS `lapses` stays 0 here because none
+    // of the cards were in Review state, so a lapses-based ratio would
+    // report 100%.
+    let fra: SrsRecord = grade(null, "Again", T0);
+    fra = grade(fra, "Good", days(1));
+    fra = grade(fra, "Again", days(2));
+    let deu: SrsRecord = grade(null, "Good", T0);
+    deu = grade(deu, "Good", days(1));
+    const store: SrsStore = { version: 1, records: { FRA: fra, DEU: deu } };
+    expect(fra.lapses + deu.lapses).toBe(0);
+    expect(fra.hits).toBe(1);
+    expect(fra.misses).toBe(2);
+    expect(deu.hits).toBe(2);
+    expect(lifetimeAccuracy(store)).toBeCloseTo(3 / 5);
+  });
+
+  it("lifetimeAccuracy is null when nothing has been tallied", () => {
+    expect(lifetimeAccuracy({ version: 1, records: {} })).toBeNull();
+    // A record migrated from before the tally existed has reps but no
+    // hits/misses — still null rather than a false 0%.
+    const migrated: SrsRecord = { ...grade(null, "Good", T0), hits: 0, misses: 0 };
+    expect(migrated.reps).toBe(1);
+    expect(lifetimeAccuracy({ version: 1, records: { FRA: migrated } })).toBeNull();
+  });
+
+  it("seenCount counts every in-scope record regardless of state", () => {
     const store: SrsStore = {
       version: 1,
       records: {
         FRA: grade(null, "Again", T0),
         DEU: grade(null, "Good", T0),
+        JPN: grade(null, "Good", T0),
       },
     };
-    const acc = lifetimeAccuracy(store);
-    expect(acc).toBeGreaterThanOrEqual(0);
-    expect(acc).toBeLessThanOrEqual(1);
+    expect(seenCount(store, new Set(["FRA", "DEU", "ESP"]))).toBe(2);
+    expect(learnedCount(store, new Set(["FRA", "DEU", "ESP"]))).toBe(0);
   });
 
   it("newAvailableCount counts iso3s without a record", () => {
@@ -241,6 +295,8 @@ describe("masteryBySubregion", () => {
       reps: 3,
       lapses: 0,
       state: 2,
+      hits: 3,
+      misses: 0,
     };
   }
 

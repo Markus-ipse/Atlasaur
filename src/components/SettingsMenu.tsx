@@ -27,8 +27,9 @@ type Props = {
   dueCount: number;
   newAvailableCount: number;
   learnedCount: number;
+  seenCount: number;
   totalReviews: number;
-  lifetimeAccuracy: number;
+  lifetimeAccuracy: number | null;
   onResetSrs: () => void;
   themePref: ThemePref;
   onSetThemePref: (pref: ThemePref) => void;
@@ -46,6 +47,7 @@ export function SettingsMenu({
   dueCount,
   newAvailableCount,
   learnedCount,
+  seenCount,
   totalReviews,
   lifetimeAccuracy,
   onResetSrs,
@@ -248,25 +250,29 @@ export function SettingsMenu({
             <div>
               <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Stats</p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-mid tabular-nums">
-                <span>Learned</span>
+                <span>Known</span>
                 <span className="text-ink-deep font-medium text-right">
                   {learnedCount}
                 </span>
-                <span>Due today</span>
+                <span>Seen</span>
+                <span className="text-ink-deep font-medium text-right">
+                  {seenCount}
+                </span>
+                <span>To review</span>
                 <span className="text-ink-deep font-medium text-right">
                   {dueCount}
                 </span>
-                <span>New available</span>
+                <span>Not yet seen</span>
                 <span className="text-ink-deep font-medium text-right">
                   {newAvailableCount}
                 </span>
-                <span>Reviews</span>
+                <span>Answers</span>
                 <span className="text-ink-deep font-medium text-right">
                   {totalReviews}
                 </span>
-                <span>Accuracy</span>
+                <span>Right</span>
                 <span className="text-ink-deep font-medium text-right">
-                  {totalReviews === 0
+                  {lifetimeAccuracy === null
                     ? "—"
                     : `${Math.round(lifetimeAccuracy * 100)}%`}
                 </span>

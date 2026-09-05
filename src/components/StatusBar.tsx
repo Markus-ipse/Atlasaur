@@ -6,6 +6,7 @@ import { STUDY_NEW_CAP } from "../game/pickCountry";
 import {
   learnedCount as srsLearnedCount,
   lifetimeAccuracy as srsLifetimeAccuracy,
+  seenCount as srsSeenCount,
   totalReviews as srsTotalReviews,
 } from "../game/srs";
 import countriesData from "../data/countries.json";
@@ -37,6 +38,10 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
 
   const learned = useMemo(
     () => srsLearnedCount(state.srsStore, scopeIso3s(state.selectedContinents)),
+    [state.srsStore, state.selectedContinents],
+  );
+  const seen = useMemo(
+    () => srsSeenCount(state.srsStore, scopeIso3s(state.selectedContinents)),
     [state.srsStore, state.selectedContinents],
   );
   const reviews = useMemo(
@@ -100,6 +105,7 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
         dueCount={game.dueCount}
         newAvailableCount={game.newAvailableCount}
         learnedCount={learned}
+        seenCount={seen}
         totalReviews={reviews}
         lifetimeAccuracy={accuracy}
         onResetSrs={game.resetSrs}
@@ -122,20 +128,14 @@ function StudyChips({
   return (
     <div className="flex items-baseline gap-2 text-xs text-ink-mid tabular-nums">
       <span>
-        Due <span className="font-semibold text-ink-deep">{due}</span>
-      </span>
-      <span aria-hidden>·</span>
-      <span>
-        New{" "}
-        <span className="font-semibold text-ink-deep">
-          {newIntroduced}/{STUDY_NEW_CAP}
-        </span>
+        <span className="font-semibold text-ink-deep">{due}</span> to review
       </span>
       {newAvailable > 0 && (
         <>
           <span aria-hidden>·</span>
-          <span className="text-ink-faded">
-            {newAvailable} untouched
+          <span>
+            <span className="font-semibold text-ink-deep">{newIntroduced}</span>{" "}
+            of {Math.min(STUDY_NEW_CAP, newIntroduced + newAvailable)} new
           </span>
         </>
       )}

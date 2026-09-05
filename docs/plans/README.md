@@ -13,3 +13,5 @@ want to know *why* a change was made, not just *what*.
 
 - `m2-elaborative-encoding.md` — capitals + land neighbors on miss reveal.
 - `m2-followups.md` — open follow-ups from the M2 tech-lead review (manual QA, data review, deferred polish).
+- `m5-spotlight-subregions.md` — subregion spotlight in the Study summary.
+- `r1-reason-to-return.md` — release one of the September 2026 product survey (`../product-survey-2026-09.md`); doubles as the progress tracker for that release.
