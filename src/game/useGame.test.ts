@@ -1118,6 +1118,30 @@ describe("reducer — territories setting", () => {
     expect(on.selectedContinents).toEqual(["Antarctica", "Europe"]);
   });
 
+  it("keeps a review pass on queued cards when the current one leaves scope", () => {
+    const s0: State = {
+      ...withCurrent(initialState({ includeTerritories: true }), "GRL"),
+      phase: "review",
+      retryQueue: [{ iso3: "GRL", dueAt: 0 }, { iso3: "FRA", dueAt: 1 }],
+    };
+    const off = reducer(s0, { type: "setIncludeTerritories", value: false });
+    expect(off.phase).toBe("review");
+    expect(off.retryQueue.map((e) => e.iso3)).toEqual(["FRA"]);
+    expect(off.current.iso3).toBe("FRA");
+  });
+
+  it("commits a pending Study grade before the scope changes", () => {
+    const NOW = new Date("2026-09-05T12:00:00Z");
+    const s0 = withCurrent(initialState({ practiceMode: "study" }), "FRA");
+    const missed = reducer(s0, { type: "skip", now: NOW });
+    expect(missed.autoGradePending).toBe("Again");
+    const toggled = reducer(missed, { type: "setIncludeTerritories", value: true, now: NOW });
+    expect(toggled.autoGradePending).toBeNull();
+    expect(toggled.feedback).toBeNull();
+    expect(toggled.srsStore.records["FRA"]?.misses).toBe(1);
+    expect(toggled.studyResurfaceQueue.map((e) => e.iso3)).toEqual(["FRA"]);
+  });
+
   it("prunes the retry queue to the new scope and survives mode/reset", () => {
     const s0 = { ...initialState({ includeTerritories: true }), retryQueue: [{ iso3: "GRL", dueAt: 3 }, { iso3: "FRA", dueAt: 4 }] };
     const off = reducer(s0, { type: "setIncludeTerritories", value: false });
