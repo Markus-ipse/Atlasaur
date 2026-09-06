@@ -263,8 +263,11 @@ the country via an SVG pattern (`hatchIso3`), delayed 900 ms so it lands after
 the correct-answer pop rather than competing with it, and
 `MILESTONE_DURATION` holds the flash long enough for both.
 
-Sound and haptics from the survey's ceremony list are **not** implemented; they
-are R2.5 in `docs/plans/r2-your-map.md`, with the reasons.
+Sound and haptics from the survey's ceremony list are **not** implemented. They
+were R2.5 in `docs/plans/r2-your-map.md`; that item was dropped, and the
+reasoning is recorded there. The ceremony is silent by decision, not by
+omission — don't add audio or vibration to it without a licensed asset and a
+fresh decision to match.
 
 ### Small countries on a phone (R1.6)
 

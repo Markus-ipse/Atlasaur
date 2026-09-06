@@ -131,5 +131,5 @@ Taken with the owner after the survey, one question at a time. These govern the 
 | --- | --- | --- |
 | Who is it for first? | **A curious adult**, learning for pleasure with no deadline. | Literate copy register, Study as home, restrained ceremony, the Daily Expedition as the social hook. No exam-date mode, no child on-ramp. |
 | Phone or desktop first? | **Phone first.** Desktop stays fully supported. | The installable step and the small-country tapping pass move into release one. |
-| How much ceremony? | **Ink and wax only.** | Milestone copy, the known-country hatch fill, a wax seal per completed continent, an optional quill sound. No confetti, coins, XP, badges or passport screen. |
+| How much ceremony? | **Ink and wax only.** | Milestone copy, the known-country hatch fill, a wax seal per completed continent, an optional quill sound. No confetti, coins, XP, badges or passport screen. The quill sound was later dropped, along with the haptics that had been proposed with it — see `plans/r2-your-map.md`. |
 | Does the Quiz/Study split survive? | **Fold Quiz into Study.** | One home; rounds of twelve are the unit. The practice-mode toggle leaves the status bar. "Test me on these" and the Daily Expedition become round types. Both axes stay in code; only the learner-facing model changes. |
