@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ALL_CONTINENTS,
@@ -6,6 +6,7 @@ import {
   type QuestionMode,
 } from "../types";
 import type { ThemePref } from "../theme";
+import { knownGain, type Counters, type ReturnInfo } from "../game/counters";
 import { ContinentChip } from "./ContinentChip";
 
 type PopupCoords = {
@@ -28,6 +29,10 @@ type Props = {
   seenCount: number;
   totalReviews: number;
   lifetimeAccuracy: number | null;
+  // Local counters (R2.4) and the days the streak store has recorded. Read
+  // only; nothing here leaves the device.
+  counters: Counters;
+  returns: ReturnInfo;
   onResetSrs: () => void;
   themePref: ThemePref;
   onSetThemePref: (pref: ThemePref) => void;
@@ -46,6 +51,8 @@ export function SettingsMenu({
   seenCount,
   totalReviews,
   lifetimeAccuracy,
+  counters,
+  returns,
   onResetSrs,
   themePref,
   onSetThemePref,
@@ -279,6 +286,7 @@ export function SettingsMenu({
                     : `${Math.round(lifetimeAccuracy * 100)}%`}
                 </span>
               </div>
+              <MeasuredRows counters={counters} returns={returns} />
               {confirmReset ? (
                 <div className="flex flex-col gap-2">
                   <p className="text-xs text-ink-mid">
@@ -362,5 +370,73 @@ function GearIcon() {
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
     </svg>
+  );
+}
+
+// The survey's "What to measure" list, in the same Data view the learner
+// already reads their own numbers from. Every figure is local; nothing here is
+// sent anywhere. Rows are omitted rather than shown as zero when there is not
+// yet anything to say, so a first-day profile does not read as a report card.
+function MeasuredRows({
+  counters,
+  returns,
+}: {
+  counters: Counters;
+  returns: ReturnInfo;
+}) {
+  const { daysPlayed, longestGap, capped } = returns;
+  const gained = knownGain(counters, 7, new Date());
+  const { roundsStarted, roundsFinished } = counters;
+  const clicks = counters.answersByQuestionMode["name-to-click"];
+  const typed = counters.answersByQuestionMode["shape-to-name"];
+  const answered = clicks + typed;
+
+  const rows: [string, string][] = [];
+  if (daysPlayed > 0) {
+    // "400+" once the streak store has started dropping its oldest days: the
+    // figure is a floor from then on, and saying 400 would understate.
+    rows.push(["Days played", capped ? `${daysPlayed}+` : String(daysPlayed)]);
+  }
+  // A trimmed history may have lost one end of the longest gap, so the figure
+  // is no longer trustworthy and is dropped rather than shown too small.
+  if (longestGap !== null && !capped) {
+    rows.push([
+      "Longest gap",
+      longestGap === 0 ? "None" : `${longestGap} ${longestGap === 1 ? "day" : "days"}`,
+    ]);
+  }
+  // Zero means there is nothing to report rather than a session of no cards:
+  // either the sitting is still in progress, or the profile predates the
+  // counters key and its real first session was never measured.
+  if (counters.firstSessionEnded && counters.firstSessionAnswers > 0) {
+    rows.push(["First session", `${counters.firstSessionAnswers} cards`]);
+  }
+  if (roundsStarted > 0) {
+    rows.push(["Rounds finished", `${roundsFinished} of ${roundsStarted}`]);
+  }
+  if (gained !== null) {
+    rows.push(["Known this week", gained >= 0 ? `+${gained}` : String(gained)]);
+  }
+  if (answered > 0) {
+    // One half is derived from the other so the pair always reads 100%.
+    const clickShare = Math.round((clicks / answered) * 100);
+    rows.push(["Click / type", `${clickShare}% / ${100 - clickShare}%`]);
+  }
+  const studyRounds = counters.roundsByPractice.study;
+  const testRounds = counters.roundsByPractice.quiz;
+  if (studyRounds + testRounds > 0) {
+    rows.push(["Study / test rounds", `${studyRounds} / ${testRounds}`]);
+  }
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-mid tabular-nums mb-3 pt-2 border-t border-ink-faded/20">
+      {rows.map(([label, value]) => (
+        <Fragment key={label}>
+          <span>{label}</span>
+          <span className="text-ink-deep font-medium text-right">{value}</span>
+        </Fragment>
+      ))}
+    </div>
   );
 }

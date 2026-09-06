@@ -278,6 +278,75 @@ The data flows through `state.current` — no new `Feedback` field, no parallel 
 
 Neighbors are added to `revealIso3s` so their **labels** render too (alongside the answer-country label). Reveal labels bypass scope, fit-check, and obstacle rejection, so an out-of-scope neighbor (e.g. Israel when the user has selected Africa only and missed Egypt) still gets named — the elaborative cue is meant to teach geographic context regardless of the active filter.
 
+### Local counters (R2.4)
+
+`src/game/counters.ts` owns `atlasaur:counters:v1`: the survey's "What to
+measure" list as a handful of integers plus one figure per day the known count
+moved. Local only. Nothing is sent anywhere, and if aggregate numbers are ever
+wanted that has to be an explicit opt-in sending only these.
+
+**Return is not stored here.** The cross-day streak store already records the
+days with a finished round, so `returnInfo(streakStore)` derives days played
+and the longest gap from it rather than keeping a second copy that could
+disagree.
+
+What is stored: `firstSessionAnswers`, `roundsStarted` / `roundsFinished`,
+`answersByQuestionMode`, `roundsByPractice`, and `knownByDay`.
+
+**The first session ends when the tab closes, not only at a summary.** That is
+the commoner ending for exactly the bouncing learner the figure measures.
+`startSession` runs in the state initialiser, increments `sessionsStarted`, and
+freezes the count whenever a session has already been begun on an earlier load;
+`recordSessionEnded` covers the case where the learner reaches a summary within
+the first sitting. `sessionsStarted` exists for one reason: a learner who opens
+Atlasaur, answers nothing and closes the tab leaves no other trace at all — no
+answers, no SRS record, no streak day — and that zero-card bounce is the most
+important reading this metric has. A profile that had SRS records before this
+key existed is frozen at zero instead, and the Data view omits the row, because
+a backfilled figure would be a later session wearing the first one's label.
+
+`cardsAnswered` counts every answer whose grade reaches the store, not only a
+dismissed card: `endSession` and `applyScope` can close a card's feedback
+without going through `withRoundAdvance`, and those answers still happened.
+`resetSrs` restarts the round (`FRESH_ROUND`, `cardsAnswered: 0`) — a round left
+standing would carry on to a finish the emptied counters never saw begin, and
+the Data view would read "2 of 1".
+
+`roundsFinished` counts rounds that filled to `ROUND_SIZE`, which includes one
+whose twelfth card also ended the session so no interstitial appeared.
+
+Days played and the longest gap are read from the streak store, which keeps at
+most `MAX_DAYS`. Past that its oldest days are dropped, so `returnInfo` returns
+`capped` and the Data view shows "400+" and drops the gap row rather than
+reporting a floor as if it were a lifetime total.
+
+`loadCounters` validates `knownByDay` days against the same `YYYY-MM-DD` shape
+the streak store uses, then orders and de-duplicates them. Without that a
+hand-edited or clock-skewed store could feed `knownGain` a `NaN` day and make
+the "Known this week" row silently vanish.
+
+Recording lives in `useGame`'s effects, not the reducer — the same division the
+streak uses, so the reducer stays pure and every persisted side effect sits
+together. The signal for "one card answered" is `state.cardsAnswered`, a
+monotonic count incremented once per dismissed card in `withRoundAdvance`.
+`total` is no substitute: it only moves in Quiz's normal phase. A rebuild
+resets `cardsAnswered` to 0, which the effect reads as a shrink and skips, so a
+mode flip cannot double count. The effects read `mode` and `practiceMode`
+through refs, because they must fire on a card or round count and not re-run
+when only the mode changes.
+
+`knownByDay` counts across the **whole store**, not the active scope, so
+changing the continent filter never looks like progress or a loss. It uses
+`masteryTierOf`, so it cannot disagree with the "Known" stat or the map's
+pigment.
+
+"Erase all progress" clears the counters along with the SRS store, the streak
+and the welcome flag — otherwise `firstSessionAnswers` would stay frozen
+against a session the learner no longer has.
+
+The Data view in `SettingsMenu` omits a row rather than showing zero when there
+is nothing to say yet, so a first-day profile does not read as a report card.
+
 ### Scope: continent filter × territories
 
 `state.selectedContinents` is persisted in localStorage (`atlasaur:selectedContinents`) and `state.includeTerritories` in `atlasaur:includeTerritories` (default `false`). Loaders fall back to `ALL_CONTINENTS` / `false` on parse errors or unavailable storage (private mode, SSR — wrapped in try/catch). Reveal labels are always on (the old `showLabelsOnReveal` toggle and its storage key were removed in R1.2 — labels on a reveal are the teaching).

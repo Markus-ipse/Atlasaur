@@ -3,6 +3,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, act } from "@testing-library/react";
 import { ControlZone } from "./ControlZone";
 import type { GameApi } from "../game/useGame";
+import { emptyCounters } from "../game/counters";
 import {
   ALL_CONTINENTS,
   type Country,
@@ -54,6 +55,7 @@ function makeGame(overrides: {
       score: 0,
       streak: 0,
       milestone: null,
+      cardsAnswered: 0,
       total: 0,
       missed: [],
       missedSet: new Set<string>(),
@@ -74,6 +76,8 @@ function makeGame(overrides: {
       roundsCompleted: 0,
     },
     unlearnedCount: 0,
+    counters: emptyCounters(),
+    returns: { daysPlayed: 0, longestGap: null, capped: false },
     totalInScope: 0,
     completedInScopeCount: 0,
     dueCount: 0,

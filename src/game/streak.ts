@@ -9,7 +9,9 @@
 const STREAK_STORAGE_KEY = "atlasaur:streak:v1";
 const STORE_VERSION = 1;
 // Enough history to compute any plausible streak; older days are dropped.
-const MAX_DAYS = 400;
+// Exported so a caller reporting a lifetime figure can tell when the history
+// it is reading has been trimmed and say so rather than understate.
+export const MAX_DAYS = 400;
 // A missed day is bridged when no other bridge was used in the 7 days
 // before it (looking backward from the more recent gap).
 const FORGIVE_WINDOW_DAYS = 7;
@@ -79,7 +81,9 @@ function previousDay(key: string): string {
   return new Date(t).toISOString().slice(0, 10);
 }
 
-function daysBetween(earlier: string, later: string): number {
+// Whole calendar days from `earlier` to `later`. Computed in UTC so a DST
+// boundary never adds or drops one.
+export function daysBetween(earlier: string, later: string): number {
   const [y1, m1, d1] = earlier.split("-").map(Number);
   const [y2, m2, d2] = later.split("-").map(Number);
   return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86_400_000);
