@@ -4,6 +4,7 @@ import { WorldMap } from "./components/WorldMap";
 import { ControlZone } from "./components/ControlZone";
 import { SessionSummary } from "./components/SessionSummary";
 import { RoundBreak } from "./components/RoundBreak";
+import { ExpeditionResult } from "./components/ExpeditionResult";
 import { TodayCard } from "./components/TodayCard";
 import { Welcome } from "./components/Welcome";
 import { StatusBar } from "./components/StatusBar";
@@ -90,11 +91,20 @@ export default function App() {
   // coherence, not safety.
   const continentProgress = useMemo(
     () =>
-      state.practiceMode === "quiz"
+      state.practiceMode !== "study"
         ? NO_CONTINENT_PROGRESS
         : masteryByContinent(state.srsStore, ALL_COUNTRIES, game.scopeSet),
     [state.srsStore, game.scopeSet, state.practiceMode],
   );
+
+  // The expedition ignores the continent filter: its ten come from anywhere,
+  // so the map frames the world and every country in its own right is
+  // clickable (game.scopeSet already says so). The learner's own selection
+  // is untouched and comes back with Study.
+  const isExpedition = state.practiceMode === "expedition";
+  const frameContinents = isExpedition
+    ? ALL_CONTINENTS
+    : state.selectedContinents;
 
   // The engraved hatch belongs to the correct-answer flash that earned it.
   // Gating on the feedback rather than on `state.milestone` alone means no
@@ -159,7 +169,7 @@ export default function App() {
           continentProgress={continentProgress}
           hatchIso3={hatchIso3}
           revealCapitalLonLat={revealCapitalLonLat}
-          selectedContinents={state.selectedContinents}
+          selectedContinents={frameContinents}
           isoFromNumeric={game.isoFromNumeric}
           numericFromIso3={game.numericFromIso3}
           isInScope={game.isInScope}
@@ -179,7 +189,15 @@ export default function App() {
         onSetThemePref={setThemePref}
       />
       </div>
-      {state.sessionDone && (
+      {state.sessionDone && isExpedition && state.expedition && (
+        <ExpeditionResult
+          store={state.expedition}
+          streakDay={game.streak.day}
+          nameFromIso3={game.nameFromIso3}
+          onClose={() => game.setPracticeMode("study")}
+        />
+      )}
+      {state.sessionDone && !isExpedition && (
         <SessionSummary
           practiceMode={state.practiceMode}
           score={state.score}
@@ -199,6 +217,8 @@ export default function App() {
           onBackToStudy={() => game.setPracticeMode("study")}
           onKeepStudying={game.closeSummary}
           onSetSpotlight={game.setSpotlight}
+          expedition={game.expeditionToday}
+          onExpedition={game.startExpedition}
         />
       )}
       {showWelcome && (
@@ -228,6 +248,11 @@ export default function App() {
           dueCount={game.dueCount}
           newToday={Math.min(STUDY_NEW_CAP, game.newAvailableCount)}
           day={game.streak.day}
+          expedition={game.expeditionToday}
+          onExpedition={() => {
+            game.dismissTodayCard();
+            game.startExpedition();
+          }}
           onBegin={game.dismissTodayCard}
         />
       )}

@@ -477,6 +477,12 @@ describe("mastery paint (R2.1)", () => {
       expect(paintTiers(store(), "name-to-click", "quiz").size).toBe(0);
       expect(paintTiers(store(), "shape-to-name", "quiz").size).toBe(0);
     });
+
+    it("paints nothing during an expedition either", () => {
+      // The one score a learner shows someone else is the most neutral
+      // measurement of all.
+      expect(paintTiers(store(), "name-to-click", "expedition").size).toBe(0);
+    });
   });
 
   describe("masteryByContinent", () => {

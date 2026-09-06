@@ -109,9 +109,10 @@ describe("rounds", () => {
     c = recordRoundFinished(c);
     c = recordRoundStarted(c, "study");
     c = recordRoundStarted(c, "quiz");
-    expect(c.roundsStarted).toBe(3);
+    c = recordRoundStarted(c, "expedition");
+    expect(c.roundsStarted).toBe(4);
     expect(c.roundsFinished).toBe(1);
-    expect(c.roundsByPractice).toEqual({ study: 2, quiz: 1 });
+    expect(c.roundsByPractice).toEqual({ study: 2, quiz: 1, expedition: 1 });
   });
 });
 

@@ -53,7 +53,10 @@ export function ControlZone({
   // or skip). The correct flash is too brief to read.
   const showStudyIntro =
     isStudy && heroFeedback !== null && !game.seenSrsIntro;
-  const skipLabel = isStudy ? "Don't know" : "Skip";
+  // "Don't know" is the honest label wherever the answer is graded for the
+  // scheduler; a test round keeps "Skip".
+  const isTest = state.practiceMode === "quiz";
+  const skipLabel = isTest ? "Skip" : "Don't know";
   const roundBreak = state.roundDone && !state.sessionDone;
   const paused =
     roundBreak ||
@@ -112,7 +115,7 @@ export function ControlZone({
               onClick={game.dismiss}
               className="flex-1 min-h-11 px-4 rounded bg-ink-deep text-parchment-base font-medium hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
             >
-              {isStudy ? "Got it" : "Continue"}
+              {isTest ? "Continue" : "Got it"}
             </button>
           ) : state.feedback === null ? (
             <button

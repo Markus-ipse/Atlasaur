@@ -1,17 +1,29 @@
 import { useEffect, useRef } from "react";
+import type { ExpeditionStatus } from "../game/expedition";
+import { ExpeditionDoor } from "./ExpeditionDoor";
 
 type Props = {
   dueCount: number;
   // New cards available to introduce today (already capped).
   newToday: number;
   day: number;
+  // What today's expedition holds, and the door into it.
+  expedition: ExpeditionStatus;
+  onExpedition: () => void;
   onBegin: () => void;
 };
 
 // What a returning learner sees before the first prompt: one line they can
 // act on and one button. Never scolds — a gap is a gap, and the greeting is
 // the same on day 40 as on day 1.
-export function TodayCard({ dueCount, newToday, day, onBegin }: Props) {
+export function TodayCard({
+  dueCount,
+  newToday,
+  day,
+  expedition,
+  onExpedition,
+  onBegin,
+}: Props) {
   const beginRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -60,14 +72,22 @@ export function TodayCard({ dueCount, newToday, day, onBegin }: Props) {
             </span>
           )}
         </p>
-        <button
-          ref={beginRef}
-          type="button"
-          onClick={onBegin}
-          className="min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
-        >
-          Begin
-        </button>
+        <div className="flex flex-col gap-2">
+          <button
+            ref={beginRef}
+            type="button"
+            onClick={onBegin}
+            className="min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
+          >
+            Begin
+          </button>
+          <ExpeditionDoor
+            status={expedition}
+            onClick={onExpedition}
+            className="min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
+            subClassName="text-ink-faded"
+          />
+        </div>
       </div>
     </div>
   );

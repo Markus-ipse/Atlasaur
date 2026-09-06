@@ -9,7 +9,7 @@
 // (`atlasaur:streak:v1`), so `returnInfo` below reads them rather than keeping
 // a second copy that could disagree.
 
-import type { QuestionMode } from "../types";
+import type { PracticeMode, QuestionMode } from "../types";
 import { dayKey, daysBetween, MAX_DAYS, type StreakStore } from "./streak";
 
 const COUNTERS_STORAGE_KEY = "atlasaur:counters:v1";
@@ -49,9 +49,10 @@ export type Counters = {
   roundsStarted: number;
   roundsFinished: number;
   // Which prompt the learner actually chooses to answer, and which kind of
-  // round they start.
+  // round they start. Both grow with each question mode and round type as it
+  // lands, so the mode mix is real from the day there is a choice.
   answersByQuestionMode: Record<QuestionMode, number>;
-  roundsByPractice: { study: number; quiz: number };
+  roundsByPractice: Record<PracticeMode, number>;
   // Known count on each day it changed, oldest first. The learning outcome,
   // and the number the map paints.
   knownByDay: { day: string; known: number }[];
@@ -66,7 +67,7 @@ export function emptyCounters(): Counters {
     roundsStarted: 0,
     roundsFinished: 0,
     answersByQuestionMode: { "name-to-click": 0, "shape-to-name": 0 },
-    roundsByPractice: { study: 0, quiz: 0 },
+    roundsByPractice: { study: 0, quiz: 0, expedition: 0 },
     knownByDay: [],
   };
 }
@@ -108,6 +109,7 @@ export function loadCounters(): Counters {
       roundsByPractice: {
         study: num(practice.study),
         quiz: num(practice.quiz),
+        expedition: num(practice.expedition),
       },
       knownByDay: normaliseKnownByDay(known),
     };
@@ -164,7 +166,7 @@ export function recordAnswer(
 
 export function recordRoundStarted(
   counters: Counters,
-  practiceMode: "study" | "quiz",
+  practiceMode: PracticeMode,
 ): Counters {
   return {
     ...counters,

@@ -17,6 +17,18 @@ import {
 } from "./srs";
 import { milestoneFor, streakNote, type Milestone } from "./milestones";
 import {
+  expeditionPool,
+  expeditionStatus,
+  foundCount,
+  isFinished as expeditionFinished,
+  loadExpedition,
+  newExpedition,
+  recordOutcome,
+  saveExpedition,
+  type ExpeditionStatus,
+  type ExpeditionStore,
+} from "./expedition";
+import {
   emptyCounters,
   loadCounters,
   recordAnswer,
@@ -31,6 +43,7 @@ import {
   type ReturnInfo,
 } from "./counters";
 import {
+  dayKey,
   emptyStreak,
   loadStreak,
   recordDay,
@@ -57,6 +70,10 @@ const COUNTRIES = countriesData as Country[];
 const ISO3_BY_NUMERIC = new Map(COUNTRIES.map((c) => [c.numeric, c.iso3]));
 const NUMERIC_BY_ISO3 = new Map(COUNTRIES.map((c) => [c.iso3, c.numeric]));
 const COUNTRY_BY_ISO3 = new Map(COUNTRIES.map((c) => [c.iso3, c]));
+// The Daily Expedition draws from every country in its own right, whatever
+// the learner's continent filter or territories setting says: everyone gets
+// the same ten. Territories are never asked.
+const EXPEDITION_POOL = expeditionPool(COUNTRIES);
 
 const CONTINENTS_STORAGE_KEY = "atlasaur:selectedContinents";
 const TERRITORIES_STORAGE_KEY = "atlasaur:includeTerritories";
@@ -243,6 +260,17 @@ export type State = {
   // counters (R2.4) read its growth as "one more card answered". `total` is
   // no substitute: it only moves in Quiz's normal phase.
   cardsAnswered: number;
+  // The Daily Expedition (R3.1): today's ten and the outcomes so far, or the
+  // most recent day's if today has not been started. Persisted by the hook
+  // under atlasaur:expedition:v1 whenever it changes, and kept in state in
+  // every practice mode so the Today card and the Study summary can offer
+  // today's expedition, resume it, or show its result. null on a fresh
+  // profile and after "Erase all progress".
+  expedition: ExpeditionStore | null;
+  // The question mode the learner was in when the expedition started, so
+  // leaving it lands them back where they were. An expedition is Name → Click
+  // only. null outside an expedition.
+  modeBeforeExpedition: QuestionMode | null;
 };
 
 export type Action =
@@ -250,7 +278,10 @@ export type Action =
   | { type: "skip"; now?: Date }
   | { type: "dismiss"; now?: Date }
   | { type: "setMode"; mode: QuestionMode }
-  | { type: "setPracticeMode"; mode: PracticeMode; now?: Date }
+  // An expedition is entered only through startExpedition, which carries the
+  // day's store; setPracticeMode leaves one, never enters it.
+  | { type: "setPracticeMode"; mode: Exclude<PracticeMode, "expedition">; now?: Date }
+  | { type: "startExpedition"; store: ExpeditionStore; now?: Date }
   | { type: "setContinents"; continents: readonly Continent[]; now?: Date }
   | { type: "setIncludeTerritories"; value: boolean; now?: Date }
   | { type: "endSession" }
@@ -278,6 +309,7 @@ type InitOptions = {
   srsStore?: SrsStore;
   retryQueue?: RetryEntry[];
   completedSet?: Set<string>;
+  expedition?: ExpeditionStore | null;
 };
 
 export function initialState(
@@ -342,6 +374,8 @@ export function initialState(
     // total, and the hook records growth, so restarting from 0 is a no-op
     // rather than a double count.
     cardsAnswered: 0,
+    expedition: options.expedition ?? null,
+    modeBeforeExpedition: null,
   };
 }
 
@@ -363,11 +397,17 @@ function withRoundAdvance(
   isNew: boolean,
 ): State {
   const roundCards = state.roundCards + 1;
-  const filled = roundCards >= ROUND_SIZE;
+  // An expedition is a round of ten whose every credit is taken at answer
+  // time (applyCorrect / applyMiss): the answer count here, and the finish in
+  // the hook, off the store itself. advanceCard raises the result card
+  // (sessionDone) when the tenth dismisses, so the interstitial never
+  // appears inside one, and `roundsCompleted` stays a Study / test figure.
+  const expedition = state.practiceMode === "expedition";
+  const filled = !expedition && roundCards >= ROUND_SIZE;
   return {
     ...state,
     roundCards,
-    cardsAnswered: state.cardsAnswered + 1,
+    cardsAnswered: expedition ? state.cardsAnswered : state.cardsAnswered + 1,
     roundRight: state.roundRight + (kind === "correct" ? 1 : 0),
     roundNew: state.roundNew + (isNew ? 1 : 0),
     roundDone: filled && !state.sessionDone,
@@ -464,13 +504,16 @@ function pickStudyWithSpotlightFallback(
   };
 }
 
-function applyQuizSrsWriteThrough(
+// A test round and an expedition grade at answer time (Study defers to
+// dismiss). Only in the normal phase: a review pass would double-count the
+// miss retryQueue already tracks. An expedition has no review pass.
+function applyImmediateSrsWriteThrough(
   state: State,
   iso3: string,
   ease: Ease,
   now: Date,
 ): SrsStore {
-  if (state.practiceMode !== "quiz" || state.phase !== "normal") {
+  if (state.practiceMode === "study" || state.phase !== "normal") {
     return state.srsStore;
   }
   const next = srsGrade(state.srsStore.records[iso3] ?? null, ease, now);
@@ -500,6 +543,22 @@ function applyScope(
   includeTerritories: boolean,
   now: Date,
 ): State {
+  if (state.practiceMode === "expedition") {
+    // The expedition ignores scope by design: the ten are the same for
+    // everyone. The setting is kept for when the learner comes back to
+    // studying; the current card and the reveal stay where they are.
+    const normalized = normalizeScope(continents, includeTerritories);
+    const inScope = new Set(normalized.pool.map((c) => c.iso3));
+    return {
+      ...state,
+      selectedContinents: normalized.continents,
+      includeTerritories,
+      retryQueue: state.retryQueue.filter((e) => inScope.has(e.iso3)),
+      studyResurfaceQueue: state.studyResurfaceQueue.filter((e) =>
+        inScope.has(e.iso3),
+      ),
+    };
+  }
   // A Study reveal that is open when the scope changes still holds its
   // deferred grade. Commit it first (as endSession does) so the answer and
   // its resurface scheduling reach the SRS store instead of vanishing with
@@ -610,12 +669,27 @@ function applyMiss(
   }
 
   // Quiz mode.
-  const srsStore = applyQuizSrsWriteThrough(
+  const srsStore = applyImmediateSrsWriteThrough(
     state,
     correctIso3,
     "Again",
     now,
   );
+
+  if (state.practiceMode === "expedition" && state.expedition) {
+    // The outcome is recorded at answer time, not at dismiss, so an
+    // expedition abandoned mid-reveal keeps this answer; it resumes on the
+    // next card. The answer is counted now too, while the mode it was given
+    // in is still current. A skip is a miss, and an empty glyph.
+    return {
+      ...state,
+      streak: 0,
+      feedback,
+      srsStore,
+      expedition: recordOutcome(state.expedition, "missed"),
+      cardsAnswered: state.cardsAnswered + 1,
+    };
+  }
 
   if (state.phase === "review") {
     return {
@@ -692,7 +766,23 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
     };
   }
 
-  const srsStore = applyQuizSrsWriteThrough(state, correctIso3, "Good", now);
+  const srsStore = applyImmediateSrsWriteThrough(state, correctIso3, "Good", now);
+
+  if (state.practiceMode === "expedition" && state.expedition) {
+    // No milestone: like a test round, an expedition is a measurement and its
+    // map is neutral. The streak note is not restricted — a run of correct
+    // answers means something here too, and a line of copy cannot help you
+    // answer.
+    return {
+      ...state,
+      streak: state.streak + 1,
+      completedSet,
+      feedback,
+      srsStore,
+      expedition: recordOutcome(state.expedition, "found"),
+      cardsAnswered: state.cardsAnswered + 1,
+    };
+  }
 
   if (state.phase === "review") {
     // Score and total stay out of the review pass, but the run of correct
@@ -769,6 +859,17 @@ function dismissFeedback(state: State, now: Date): State {
 }
 
 function advanceCard(state: State, now: Date): State {
+  if (state.practiceMode === "expedition" && state.expedition) {
+    // The outcome was recorded at answer time; the next card is simply the
+    // next of the ten. After the tenth, the result card is the summary.
+    const next = COUNTRY_BY_ISO3.get(
+      state.expedition.iso3s[state.expedition.outcomes.length] ?? "",
+    );
+    if (!next || expeditionFinished(state.expedition)) {
+      return { ...state, feedback: null, milestone: null, sessionDone: true };
+    }
+    return { ...state, current: next, feedback: null, milestone: null };
+  }
   if (state.practiceMode === "study") {
     // Commit the deferred auto-grade (Good on correct, Again on miss).
     // Picking the next country runs against the post-grade store so we
@@ -809,6 +910,54 @@ function advanceCard(state: State, now: Date): State {
   return { ...state, current: nextCurrent(state, now), feedback: null, milestone: null };
 }
 
+// Switch to Study or a test round. Resets session counters and the soft cap.
+// Entering a test round ("Test me on these") also starts it clean: completedSet
+// and retryQueue from an earlier test would otherwise make pickNext skip
+// countries and poolComplete end the new test early. Going back to studying
+// keeps them, which is harmless — Study reads neither. Leaving an expedition
+// restores the question mode the learner had before it; an answer whose
+// reveal was still open needs nothing here, since an expedition takes every
+// credit at answer time.
+function enterPracticeMode(
+  state: State,
+  mode: Exclude<PracticeMode, "expedition">,
+  now: Date,
+): State {
+  const startingTest = mode === "quiz";
+  const leavingExpedition = state.practiceMode === "expedition";
+  const next: State = {
+    ...state,
+    practiceMode: mode,
+    mode:
+      leavingExpedition && state.modeBeforeExpedition !== null
+        ? state.modeBeforeExpedition
+        : state.mode,
+    modeBeforeExpedition: null,
+    completedSet: startingTest ? new Set() : state.completedSet,
+    retryQueue: startingTest ? [] : state.retryQueue,
+    score: 0,
+    streak: 0,
+    milestone: null,
+    total: 0,
+    missed: [],
+    missedSet: new Set(),
+    phase: "normal",
+    feedback: null,
+    sessionDone: false,
+    newIntroducedThisStretch: 0,
+    // A mode flip is a fresh stretch — drop the in-session resurface
+    // queue and reset its clock.
+    studyResurfaceQueue: [],
+    studyStep: 0,
+    autoGradePending: null,
+    // Flipping into Quiz must never inherit a silently narrowed pool.
+    spotlightSubregion: null,
+    // A new round type starts a fresh round.
+    ...FRESH_ROUND,
+  };
+  return { ...next, current: nextCurrent(next, now) };
+}
+
 export function reducer(state: State, action: Action): State {
   const now = nowOf(action);
   switch (action.type) {
@@ -829,30 +978,53 @@ export function reducer(state: State, action: Action): State {
     }
     case "setMode": {
       if (state.mode === action.mode) return state;
+      // An expedition is Name → Click only; the picker is locked while one is
+      // up, and a stray dispatch must not rebuild the state under it.
+      if (state.practiceMode === "expedition") return state;
       // Question-mode flip resets in-session state (retryQueue,
       // completedSet, score) — those refer to the old question type.
-      // Preserve cross-cutting state: practiceMode, srsStore, scope.
+      // Preserve cross-cutting state: practiceMode, srsStore, scope, and
+      // today's expedition.
       return initialState({
         mode: action.mode,
         practiceMode: state.practiceMode,
         selectedContinents: state.selectedContinents,
         includeTerritories: state.includeTerritories,
         srsStore: state.srsStore,
+        expedition: state.expedition,
       });
     }
     case "setPracticeMode": {
       if (state.practiceMode === action.mode) return state;
-      // Reset session counters and the soft cap. Entering a test round
-      // ("Test me on these") also starts it clean: completedSet and
-      // retryQueue from an earlier test would otherwise make pickNext skip
-      // countries and poolComplete end the new test early. Going back to
-      // studying keeps them, which is harmless — Study reads neither.
-      const startingTest = action.mode === "quiz";
-      const next: State = {
+      return enterPracticeMode(state, action.mode, now);
+    }
+    case "startExpedition": {
+      const store = action.store;
+      // Reached from the Today card and the Study summary, where no card is
+      // open — but a Study grade in flight is committed all the same, as
+      // every other exit does.
+      const committed =
+        state.practiceMode === "study" && state.autoGradePending
+          ? commitStudyGrade(state, state.autoGradePending, state.studyStep, now)
+          : null;
+      const current = COUNTRY_BY_ISO3.get(
+        store.iso3s[store.outcomes.length] ?? "",
+      );
+      return {
         ...state,
-        practiceMode: action.mode,
-        completedSet: startingTest ? new Set() : state.completedSet,
-        retryQueue: startingTest ? [] : state.retryQueue,
+        ...(committed ?? {}),
+        practiceMode: "expedition",
+        expedition: store,
+        // Name → Click only; the learner's own choice is restored on leaving.
+        mode: "name-to-click",
+        modeBeforeExpedition:
+          state.practiceMode === "expedition"
+            ? state.modeBeforeExpedition
+            : state.mode,
+        // A resumed expedition keeps its place: the round counters pick up at
+        // the answers already given, so the round chip reads "5/10" and the
+        // started counter does not fire a second time.
+        current: current ?? state.current,
         score: 0,
         streak: 0,
         milestone: null,
@@ -861,19 +1033,18 @@ export function reducer(state: State, action: Action): State {
         missedSet: new Set(),
         phase: "normal",
         feedback: null,
-        sessionDone: false,
-        newIntroducedThisStretch: 0,
-        // A mode flip is a fresh stretch — drop the in-session resurface
-        // queue and reset its clock.
+        // A finished expedition opens straight onto its result card, which is
+        // its summary; there is no replay.
+        sessionDone: expeditionFinished(store),
         studyResurfaceQueue: [],
         studyStep: 0,
         autoGradePending: null,
-        // Flipping into Quiz must never inherit a silently narrowed pool.
         spotlightSubregion: null,
-        // A new round type starts a fresh round.
-        ...FRESH_ROUND,
+        roundCards: store.outcomes.length,
+        roundRight: foundCount(store),
+        roundNew: 0,
+        roundDone: false,
       };
-      return { ...next, current: nextCurrent(next, now) };
     }
     case "setContinents": {
       if (action.continents.length === 0) return state;
@@ -889,6 +1060,22 @@ export function reducer(state: State, action: Action): State {
       );
     }
     case "endSession": {
+      // "Done" inside an expedition leaves it rather than ending it: the
+      // answers given so far are already in the store, and it resumes from
+      // the Today card or the Study summary. Its summary is the result card,
+      // which only a finished expedition has.
+      if (state.practiceMode === "expedition") {
+        // Unless the reveal that is open is the tenth's: the expedition is
+        // finished, and "Done" lands on its result.
+        if (
+          state.feedback &&
+          state.expedition &&
+          expeditionFinished(state.expedition)
+        ) {
+          return dismissFeedback(state, now);
+        }
+        return enterPracticeMode(state, "study", now);
+      }
       // If Study has an auto-grade in flight (correct-flash or miss
       // waiting on dismiss), commit it before bowing out — otherwise the
       // user's last interaction silently produces no SRS record. No card
@@ -948,9 +1135,15 @@ export function reducer(state: State, action: Action): State {
     case "resetSrs": {
       // Erasing the store cancels anything staged against it, including a
       // ceremony announcing a country as known — the commit that would have
-      // backed it is gone.
+      // backed it is gone. Today's expedition goes with it: "all progress"
+      // means all, and an expedition left standing would be graded into a
+      // store that no longer knows its countries.
+      if (state.practiceMode === "expedition") {
+        state = enterPracticeMode(state, "study", now);
+      }
       return {
         ...state,
+        expedition: null,
         srsStore: emptyStore(),
         newIntroducedThisStretch: 0,
         autoGradePending: null,
@@ -964,6 +1157,10 @@ export function reducer(state: State, action: Action): State {
       };
     }
     case "closeSummary": {
+      // The expedition's summary is its result card; closing it is leaving.
+      if (state.practiceMode === "expedition") {
+        return enterPracticeMode(state, "study", now);
+      }
       // Clear the summary without nuking session state. Re-pick so the
       // user lands on a fresh prompt (or the most-overdue fallback in
       // Study when nothing's due). Route Study through the spotlight
@@ -1021,12 +1218,15 @@ export function reducer(state: State, action: Action): State {
       return { ...state, transientMessage: null };
     }
     case "reset": {
+      // There is no "try again" for an expedition; the second go is tomorrow.
+      if (state.practiceMode === "expedition") return state;
       return initialState({
         mode: state.mode,
         practiceMode: state.practiceMode,
         selectedContinents: state.selectedContinents,
         includeTerritories: state.includeTerritories,
         srsStore: state.srsStore,
+        expedition: state.expedition,
       });
     }
   }
@@ -1071,7 +1271,13 @@ export type GameApi = {
   skip: () => void;
   dismiss: () => void;
   setMode: (mode: QuestionMode) => void;
-  setPracticeMode: (mode: PracticeMode) => void;
+  setPracticeMode: (mode: Exclude<PracticeMode, "expedition">) => void;
+  // The Daily Expedition (R3.1): what today holds — nothing yet, a run to
+  // resume, or a result — and the one way in. Entering builds today's ten if
+  // the store is from another day, resumes it if it is unfinished, and opens
+  // the result card if it is done. Leaving is setPracticeMode("study").
+  expeditionToday: ExpeditionStatus;
+  startExpedition: () => void;
   setContinents: (continents: readonly Continent[]) => void;
   setIncludeTerritories: (value: boolean) => void;
   endSession: () => void;
@@ -1100,6 +1306,9 @@ export function useGame(): GameApi {
       selectedContinents: loadContinents(),
       includeTerritories: loadIncludeTerritories(),
       srsStore: loadStore(),
+      // A stored set this build cannot ask (a country dropped from the
+      // table) is discarded rather than half-asked.
+      expedition: loadExpedition((iso3) => COUNTRY_BY_ISO3.has(iso3)),
     }),
   );
   const [seenSrsIntro, setSeenSrsIntro] = useState(loadSeenIntro);
@@ -1175,6 +1384,10 @@ export function useGame(): GameApi {
     saveStore(state.srsStore);
   }, [state.srsStore]);
 
+  useEffect(() => {
+    saveExpedition(state.expedition);
+  }, [state.expedition]);
+
   // One card answered — meaning one whose grade reached the store, which is
   // usually a dismissed card but also covers an answer whose feedback is
   // closed by "Done" or by a scope change. `cardsAnswered` only ever grows by
@@ -1193,11 +1406,16 @@ export function useGame(): GameApi {
   // A round begins when its first card is dismissed. Started is counted on the
   // transition into card 1 so an abandoned round still counts as begun — which
   // is the whole point of comparing the two.
+  // An expedition is the exception: it is begun when the learner opens a
+  // fresh one (see startExpedition below), because a resumed one re-enters
+  // with its count already at the answers given, and re-entering at exactly
+  // one would otherwise read as a second start.
   const lastRoundCardsRef = useRef(state.roundCards);
   useEffect(() => {
     const prev = lastRoundCardsRef.current;
     lastRoundCardsRef.current = state.roundCards;
     if (state.roundCards !== 1 || prev === 1) return;
+    if (practiceModeRef.current === "expedition") return;
     setCounters((c) => recordRoundStarted(c, practiceModeRef.current));
   }, [state.roundCards]);
 
@@ -1246,6 +1464,25 @@ export function useGame(): GameApi {
     setStreakStore((prev) => recordDay(prev, new Date()));
   }, [state.roundsCompleted]);
 
+  // A finished expedition is a finished round, credited off the store the
+  // moment its tenth answer lands rather than at that answer's dismiss — the
+  // commoner ending for the last card is the tab closing on its reveal, and
+  // the store cannot say afterwards whether it was ever credited. Keyed on
+  // the day so a store loaded already finished (the ref starts at it) is not
+  // credited again, and tomorrow's is.
+  const finishedExpeditionDay =
+    state.expedition && expeditionFinished(state.expedition)
+      ? state.expedition.day
+      : null;
+  const lastFinishedExpeditionRef = useRef(finishedExpeditionDay);
+  useEffect(() => {
+    const prev = lastFinishedExpeditionRef.current;
+    lastFinishedExpeditionRef.current = finishedExpeditionDay;
+    if (finishedExpeditionDay === null || finishedExpeditionDay === prev) return;
+    setStreakStore((s) => recordDay(s, new Date()));
+    setCounters(recordRoundFinished);
+  }, [finishedExpeditionDay]);
+
   useEffect(() => {
     saveStreak(streakStore);
   }, [streakStore]);
@@ -1276,17 +1513,20 @@ export function useGame(): GameApi {
   }, []);
 
   const { isInScope, totalInScope, scopeSet } = useMemo(() => {
-    const inScopeSet = new Set(
-      filterPool(state.selectedContinents, state.includeTerritories).map(
-        (c) => c.iso3,
-      ),
-    );
+    // During an expedition the learnable set is the whole world: every
+    // country in its own right is a possible answer and a clickable one, and
+    // the map frames all of it.
+    const pool =
+      state.practiceMode === "expedition"
+        ? EXPEDITION_POOL
+        : filterPool(state.selectedContinents, state.includeTerritories);
+    const inScopeSet = new Set(pool.map((c) => c.iso3));
     return {
       isInScope: (iso3: string) => inScopeSet.has(iso3),
       totalInScope: inScopeSet.size,
       scopeSet: inScopeSet as ReadonlySet<string>,
     };
-  }, [state.selectedContinents, state.includeTerritories]);
+  }, [state.selectedContinents, state.includeTerritories, state.practiceMode]);
 
   const completedInScopeCount = useMemo(() => {
     let n = 0;
@@ -1308,6 +1548,11 @@ export function useGame(): GameApi {
   );
 
   const returns = useMemo(() => returnInfo(streakStore), [streakStore]);
+  const expeditionToday = useMemo(
+    () => expeditionStatus(state.expedition, new Date()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.expedition, nowBucket],
+  );
   const streak = useMemo(
     () => streakInfo(streakStore, new Date()),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1331,6 +1576,18 @@ export function useGame(): GameApi {
     seenSrsIntro,
     markSrsIntroSeen,
     streak,
+    expeditionToday,
+    startExpedition: () => {
+      const now = new Date();
+      const day = dayKey(now);
+      const fresh = !(state.expedition && state.expedition.day === day);
+      const store = fresh
+        ? newExpedition(day, EXPEDITION_POOL)
+        : state.expedition!;
+      // Begun once, when today's is first opened; resuming is not a start.
+      if (fresh) setCounters((c) => recordRoundStarted(c, "expedition"));
+      dispatch({ type: "startExpedition", store, now });
+    },
     showTodayCard: todayCardOpen,
     dismissTodayCard: () => setTodayCardOpen(false),
     showWelcome: welcomeOpen,
