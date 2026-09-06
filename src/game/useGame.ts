@@ -14,6 +14,7 @@ import {
   saveSeenWelcome,
   saveStore,
 } from "./srs";
+import { milestoneFor, streakNote, type Milestone } from "./milestones";
 import {
   emptyStreak,
   loadStreak,
@@ -131,6 +132,14 @@ function saveContinents(continents: readonly Continent[]): void {
 // settle (which fires on dismiss) is delayed with it. shape-to-name (typing)
 // keeps the shorter hold — there's no click/zoom there to wait on.
 const FEEDBACK_DURATION = { correct: 900, correctNameToClick: 1300 } as const;
+// A correct answer that earns a ceremony holds longer, so the hatch has time
+// to draw and the line under the country name can actually be read. The
+// survey's figure is "a one-second engraved hatch"; this is that plus the
+// ordinary flash it replaces.
+const MILESTONE_DURATION = 2400;
+// A streak note is one short line, so it needs less than the hatch does — but
+// more than the ordinary flash, which can be gone before the eye reaches it.
+const STREAK_NOTE_DURATION = 1700;
 const TOAST_DURATION = 3000;
 const RETRY_GAP_MIN = 3;
 const RETRY_GAP_MAX = 5;
@@ -164,6 +173,11 @@ export type State = {
   current: Country;
   score: number;
   streak: number;
+  // Ceremony (R2.2): the country that just crossed into "known" on this
+  // answer, and the continent it finished if it was the last one in scope.
+  // Computed at answer time so the correct-flash can carry it, cleared when
+  // the card is dismissed. Study only — a test round is a measurement.
+  milestone: Milestone | null;
   total: number;
   missed: Country[];
   missedSet: Set<string>;
@@ -286,6 +300,7 @@ export function initialState(
     current,
     score: 0,
     streak: 0,
+    milestone: null,
     total: 0,
     missed: [],
     missedSet: new Set(),
@@ -526,8 +541,9 @@ function applyScope(
     feedback: null,
     // Wipe in-flight Study-mode grade state: feedback is gone and `current`
     // may have changed, so a leftover autoGradePending would target a
-    // country the user can no longer see.
+    // country the user can no longer see. The ceremony goes with it.
     autoGradePending: null,
+    milestone: null,
     // Scope change supersedes any active spotlight lens.
     spotlightSubregion: null,
     phase: reviewEmpty ? "normal" : state.phase,
@@ -557,7 +573,10 @@ function applyMiss(
     // dismiss-time; the reveal advances on a single "Got it" with no
     // self-grading. The resurface enqueue happens at commit time in
     // dismissFeedback, keyed off autoGradePending === "Again".
-    return { ...state, feedback, autoGradePending: "Again" };
+    //
+    // The run of correct answers breaks here. Study keeps `streak` for the
+    // ceremony copy only — no counter is shown, so a broken run is silent.
+    return { ...state, streak: 0, feedback, autoGradePending: "Again" };
   }
 
   // Quiz mode.
@@ -571,6 +590,7 @@ function applyMiss(
   if (state.phase === "review") {
     return {
       ...state,
+      streak: 0,
       retryQueue: [
         ...withoutIso3(state.retryQueue, correctIso3),
         { iso3: correctIso3, dueAt: state.total },
@@ -615,9 +635,28 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
     // Auto-Good is *scheduled* for dismiss-time, committed by the
     // correct-flash timer in dismissFeedback. Grading is automatic — the
     // user never self-grades.
+    //
+    // The ceremony has to be known now, not at commit time, because it plays
+    // during the correct flash. srsGrade is pure, so we grade a throwaway copy
+    // to see whether this answer carries the country into "known" and, if so,
+    // whether it finishes the continent. dismissFeedback re-grades for real; a
+    // test pins that the two agree, since a milestone the commit does not
+    // deliver would be a lie.
+    const prospective = srsGrade(
+      state.srsStore.records[correctIso3] ?? null,
+      "Good",
+      now,
+    );
     return {
       ...state,
       completedSet,
+      streak: state.streak + 1,
+      milestone: milestoneFor(
+        state.current,
+        state.srsStore,
+        prospective,
+        filterPool(state.selectedContinents, state.includeTerritories),
+      ),
       feedback,
       autoGradePending: "Good",
     };
@@ -626,8 +665,13 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
   const srsStore = applyQuizSrsWriteThrough(state, correctIso3, "Good", now);
 
   if (state.phase === "review") {
+    // Score and total stay out of the review pass, but the run of correct
+    // answers does not: it is a live "you are on a roll" signal, not a session
+    // statistic, and it now breaks on a review miss — so it has to build on a
+    // review hit too, or a run could only ever be lost there.
     return {
       ...state,
+      streak: state.streak + 1,
       retryQueue: withoutIso3(state.retryQueue, correctIso3),
       completedSet,
       feedback,
@@ -710,6 +754,8 @@ function advanceCard(state: State, now: Date): State {
       studyStep: newStep,
       feedback: null,
       autoGradePending: null,
+      // The ceremony belongs to the card that earned it and ends with it.
+      milestone: null,
     };
     // Run the pick against the post-grade state; a depleted spotlight
     // auto-clears here and surfaces a toast.
@@ -718,7 +764,7 @@ function advanceCard(state: State, now: Date): State {
     return { ...updated, current, spotlightSubregion, transientMessage };
   }
   if (state.phase === "review" && state.retryQueue.length === 0) {
-    return { ...state, feedback: null, phase: "normal", sessionDone: true };
+    return { ...state, feedback: null, milestone: null, phase: "normal", sessionDone: true };
   }
   if (
     state.phase === "normal" &&
@@ -728,9 +774,9 @@ function advanceCard(state: State, now: Date): State {
       state.retryQueue,
     )
   ) {
-    return { ...state, feedback: null, sessionDone: true };
+    return { ...state, feedback: null, milestone: null, sessionDone: true };
   }
-  return { ...state, current: nextCurrent(state, now), feedback: null };
+  return { ...state, current: nextCurrent(state, now), feedback: null, milestone: null };
 }
 
 export function reducer(state: State, action: Action): State {
@@ -779,6 +825,7 @@ export function reducer(state: State, action: Action): State {
         retryQueue: startingTest ? [] : state.retryQueue,
         score: 0,
         streak: 0,
+        milestone: null,
         total: 0,
         missed: [],
         missedSet: new Set(),
@@ -828,12 +875,19 @@ export function reducer(state: State, action: Action): State {
           ...state,
           ...committed,
           autoGradePending: null,
+          milestone: null,
           sessionDone: true,
           feedback: null,
           roundDone: false,
         };
       }
-      return { ...state, sessionDone: true, feedback: null, roundDone: false };
+      return {
+        ...state,
+        sessionDone: true,
+        feedback: null,
+        milestone: null,
+        roundDone: false,
+      };
     }
     case "continueRound": {
       if (!state.roundDone) return state;
@@ -848,15 +902,22 @@ export function reducer(state: State, action: Action): State {
         phase: "review",
         sessionDone: false,
         feedback: null,
+        milestone: null,
         current: country,
         ...FRESH_ROUND,
       };
     }
     case "resetSrs": {
+      // Erasing the store cancels anything staged against it, including a
+      // ceremony announcing a country as known — the commit that would have
+      // backed it is gone.
       return {
         ...state,
         srsStore: emptyStore(),
         newIntroducedThisStretch: 0,
+        autoGradePending: null,
+        milestone: null,
+        feedback: null,
       };
     }
     case "closeSummary": {
@@ -868,6 +929,7 @@ export function reducer(state: State, action: Action): State {
         ...state,
         sessionDone: false,
         feedback: null,
+        milestone: null,
         ...FRESH_ROUND,
       };
       if (state.practiceMode === "study") {
@@ -897,6 +959,7 @@ export function reducer(state: State, action: Action): State {
         newIntroducedThisStretch: 0,
         sessionDone: false,
         feedback: null,
+        milestone: null,
         // Leaving the summary into a focus region starts a fresh round,
         // like closeSummary does.
         ...FRESH_ROUND,
@@ -1007,16 +1070,21 @@ export function useGame(): GameApi {
 
   useEffect(() => {
     if (!state.feedback || state.feedback.kind !== "correct") return;
-    const ms =
+    const ordinary =
       state.mode === "name-to-click"
         ? FEEDBACK_DURATION.correctNameToClick
         : FEEDBACK_DURATION.correct;
+    const ms = state.milestone
+      ? MILESTONE_DURATION
+      : streakNote(state.streak) !== null
+        ? Math.max(ordinary, STREAK_NOTE_DURATION)
+        : ordinary;
     const id = window.setTimeout(
       () => dispatch({ type: "dismiss", now: new Date() }),
       ms,
     );
     return () => window.clearTimeout(id);
-  }, [state.feedback, state.mode]);
+  }, [state.feedback, state.mode, state.milestone, state.streak]);
 
   useEffect(() => {
     if (!state.transientMessage) return;

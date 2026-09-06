@@ -24,7 +24,7 @@ The reducer (`reducer` in `useGame.ts`) handles `answer | skip | dismiss | setMo
 
 State has a `phase: "normal" | "review"` and a `retryQueue: { iso3, dueAt }[]`:
 
-- **Normal phase:** wrong/skipped answers append the country to `retryQueue` with `dueAt = total + randInt(3, 5)`. `pickNext` (in `pickCountry.ts`) prefers a due retry over a fresh random pick. Score, streak, missed list, and total only advance in normal phase.
+- **Normal phase:** wrong/skipped answers append the country to `retryQueue` with `dueAt = total + randInt(3, 5)`. `pickNext` (in `pickCountry.ts`) prefers a due retry over a fresh random pick. Score, missed list, and total only advance in normal phase. `streak` is the exception since R2.2: correct answers build it and misses break it in both phases, because it drives the ceremony copy (see Ceremony below) rather than the session summary — a run of correct answers is a live signal, and it would be incoherent for a review miss to break one that a review hit could not build.
 - **Review phase:** entered via `startReview` after session end. Picks always come from the head of `retryQueue`; correct answers remove the entry, wrong answers re-queue it. When the queue empties, `dismissFeedback` flips back to normal and sets `sessionDone: true` so the summary re-opens.
 
 `unlearnedCount` exposed on `GameApi` is just `retryQueue.length` — that's what drives the "Review N" affordance.
@@ -46,7 +46,7 @@ Only the continent axis is persisted (`atlasaur:selectedContinents`). `practiceM
 
 **First-run welcome (R1.4).** `Welcome` opens once for a learner with no SRS records and no `atlasaur:seenWelcome` flag (decided at load in `useGame`, exposed as `showWelcome` / `dismissWelcome`; the flag is written on dismiss, or when a summary is reached under it). Existing learners upgrading past it never see it; "Erase all progress" clears the flag along with the SRS store and the streak, so a learner meets the app as a stranger again on the next load. Three doors: *Start with the big ones* (`setContinents(ALL_CONTINENTS)`), *Pick a region* (inline `ContinentChip`s → `setContinents(picked)`), *Test me* (`setPracticeMode("quiz")`). `ContinentChip` is shared with the settings menu so the two scope pickers stay identical. The Today card and the welcome are mutually exclusive by construction (records present vs absent).
 
-**Quiz mode** preserves the original loop verbatim: score, streak (kept in state for later milestone copy; no longer displayed), `retryQueue`, `phase: "review"`, end-of-session summary. Every Quiz `answer`/`skip` *also* writes through to the SRS store (`Correct → Good`, `Wrong → Again`, `Skip → Again`), but only in `phase === "normal"` — writing in review phase would double-count (the same miss is already tracked by `retryQueue`). No ease buttons.
+**Quiz mode** preserves the original loop: score, `retryQueue`, `phase: "review"`, end-of-session summary. `streak` is the one deviation — it is no longer displayed and now counts correct answers in the review pass too, because R2.2 repurposed it to drive the ceremony copy (see Ceremony below). Every Quiz `answer`/`skip` *also* writes through to the SRS store (`Correct → Good`, `Wrong → Again`, `Skip → Again`), but only in `phase === "normal"` — writing in review phase would double-count (the same miss is already tracked by `retryQueue`). No ease buttons.
 
 **Study mode** uses FSRS for picks and **fully automatic grading** (no ease buttons, no self-grading — Atlasaur already knows the outcome objectively):
 
@@ -163,6 +163,61 @@ it annotates. The paint carries progress on its own there, and the captions
 return on a bigger map, a continent filter, or a pinch. `masteryPercent` reserves
 100% for a finished continent and 0% for an untouched one, so neither is ever a
 rounding artefact.
+
+### Ceremony (R2.2)
+
+Three moments are marked and nothing else: a run of correct answers at exactly
+5, 10 and 20; a country crossing into "known" for the first time; and a
+continent finished. `src/game/milestones.ts` owns all three as pure functions
+(`streakNote`, `crossesIntoKnown`, `milestoneFor`) so the reducer decides *when*
+and the panel decides *how*.
+
+**A milestone is computed at answer time, not at commit time.** The ceremony
+plays during the correct flash, but a Study grade is deferred to
+`dismissFeedback`. `applyCorrect` therefore grades a throwaway copy with
+`srsGrade` (pure) to see whether the answer crosses the card into `state >= 2`,
+and stores the result in `state.milestone`; `dismissFeedback` grades again for
+real and clears it. `milestones.test.ts` pins that prediction and commit agree
+across every card state and the whole length of the flash — a ceremony the
+commit does not deliver would be a lie. If you make the grading path stateful,
+keep that test passing.
+
+`state.streak` is the run of correct answers. It predates R2.2 but was only
+maintained in Quiz's normal phase; Study now increments it on a correct answer
+and resets it on a miss or a skip, and Quiz's review pass does both as well. No
+counter is shown anywhere, so a broken run is silent — the streak exists only to
+trigger the copy. Keep it symmetric: every path that can break a run must be
+matched by one that can build it, in the same phase.
+
+The **country and continent milestones are Study only**. A test round is a
+measurement and its map is neutral (see the mastery paint above), so there is
+nothing for a hatch to draw on. The streak note is not restricted: a run of
+correct answers means something in a test too, and a line of copy cannot help
+you answer. One consequence worth knowing: a country that graduates during a
+test round consumes its crossing silently, and because the transition is
+one-way it never earns its hatch afterwards.
+
+`state.milestone` is meaningful **only while the correct feedback that earned it
+is on screen**. Every reducer path that ends a card clears it (`advanceCard`,
+`endSession`, `startReview`, `closeSummary`, `setSpotlight`, `applyScope`,
+`resetSrs`, `setPracticeMode`), and `App.tsx` states the invariant once more by
+gating `hatchIso3` on `state.feedback?.kind === "correct"` — so no path added
+later can strand a mark animating over a country the learner has moved on from.
+`resetSrs` additionally cancels `autoGradePending`, since the store the grade
+was staged against no longer exists.
+
+Rendering rules, all in `CorrectHero`: one ceremony per answer, with a continent
+seal superseding the country line and any milestone superseding a streak note.
+Two marks landing together is the pile-on that "ink and wax only" rules out. The
+seal is pressed in the panel rather than on the map — a seal at the continent's
+map anchor is the better image but needs the continent on screen and legible,
+which on a 390 px world view it is not. `WorldMap` draws the engraved hatch over
+the country via an SVG pattern (`hatchIso3`), delayed 900 ms so it lands after
+the correct-answer pop rather than competing with it, and
+`MILESTONE_DURATION` holds the flash long enough for both.
+
+Sound and haptics from the survey's ceremony list are **not** implemented; they
+are R2.5 in `docs/plans/r2-your-map.md`, with the reasons.
 
 ### Small countries on a phone (R1.6)
 
