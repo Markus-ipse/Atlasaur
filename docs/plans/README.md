@@ -16,3 +16,4 @@ want to know *why* a change was made, not just *what*.
 - `m5-spotlight-subregions.md` — subregion spotlight in the Study summary.
 - `r1-reason-to-return.md` — release one of the September 2026 product survey (`../product-survey-2026-09.md`); doubles as the progress tracker for that release.
 - `r2-your-map.md` — release two of the same survey: mastery painted onto the map, milestones in the house style, the reveal-zoom floor, local counters. Progress tracker for that release.
+- `r3-variety-and-a-hook.md` — release three of the same survey: the Daily Expedition, a record per fact with capital and border question modes, finishing the world, flags last. Progress tracker for that release.
