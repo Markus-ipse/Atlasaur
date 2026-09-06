@@ -1,3 +1,4 @@
+import type { MasteryTier } from "../game/srs";
 import type { Feedback } from "../types";
 
 // SVG fill/stroke attributes set from JS need literal color values — var()
@@ -7,7 +8,9 @@ import type { Feedback } from "../types";
 // SVG attributes stay literal, but CSS remains the single source of truth.
 
 export type Palette = {
-  default: string; // in-scope land
+  masteryUnseen: string; // in-scope land, never answered — ghost outline
+  masterySeen: string; // in-scope land with a record, not yet known
+  masteryKnown: string; // in-scope land the learner knows — full pigment
   inert: string; // out-of-scope / undefined country
   highlight: string; // shape-to-name preview
   correct: string; // correct country fill on answer reveal
@@ -25,7 +28,9 @@ export type Palette = {
 // CSS custom property names, keyed by Palette slot. Centralized so the
 // mapping is auditable in one place.
 const PALETTE_TOKENS: Record<keyof Palette, string> = {
-  default: "--color-parchment-map",
+  masteryUnseen: "--color-mastery-unseen",
+  masterySeen: "--color-mastery-seen",
+  masteryKnown: "--color-mastery-known",
   inert: "--color-parchment-shadow",
   highlight: "--color-ochre",
   correct: "--color-sap-green",
@@ -74,6 +79,13 @@ export function readPaletteFromCss(): Palette {
 
 const EMPTY_SET: ReadonlySet<string> = new Set();
 
+// Ambient mastery paint, indexed by MasteryTier.
+const MASTERY_SLOT = [
+  "masteryUnseen",
+  "masterySeen",
+  "masteryKnown",
+] as const satisfies readonly (keyof Palette)[];
+
 export function fillFor(
   args: {
     iso3: string | undefined;
@@ -82,6 +94,9 @@ export function fillFor(
     inScope: boolean;
     neighborSet: ReadonlySet<string>;
     spotlightSet?: ReadonlySet<string>;
+    // How much of this country the learner has taken (R2.1). Defaults to 0
+    // (unseen) so callers that predate the ambient paint still type-check.
+    masteryTier?: MasteryTier;
   },
   palette: Palette,
 ): string {
@@ -116,5 +131,8 @@ export function fillFor(
   // cue, not a transient reveal).
   if (spotlightSet.has(iso3)) return palette.spotlight;
   if (!inScope) return palette.inert;
-  return palette.default;
+  // Ambient mastery paint — the bottom of the chain. Everything above is
+  // either a reveal (transient) or a focus the learner asked for; progress is
+  // what shows when none of those apply.
+  return palette[MASTERY_SLOT[args.masteryTier ?? 0]];
 }

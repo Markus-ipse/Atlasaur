@@ -3,10 +3,13 @@ import { describe, it, expect, afterEach } from "vitest";
 import { render, cleanup, fireEvent } from "@testing-library/react";
 import { WorldMap } from "./WorldMap";
 import type { Palette } from "./fillFor";
-import { ALL_CONTINENTS, type Feedback } from "../types";
+import { ALL_CONTINENTS, type Continent, type Feedback } from "../types";
+import type { MasteryTier } from "../game/srs";
 
 const PALETTE: Palette = {
-  default: "#default",
+  masteryUnseen: "#unseen",
+  masterySeen: "#seen00",
+  masteryKnown: "#known0",
   inert: "#inert00",
   highlight: "#highlt",
   correct: "#correc",
@@ -39,6 +42,8 @@ const BASE_PROPS = {
   numericFromIso3,
   isInScope: () => true,
   onCountryClick: () => {},
+  masteryByIso3: new Map<string, MasteryTier>(),
+  continentProgress: new Map<Continent, { known: number; total: number }>(),
   palette: PALETTE,
 };
 
@@ -170,5 +175,186 @@ describe("WorldMap — floating Correct! badge", () => {
       />,
     );
     expect(container.textContent).not.toContain("Correct!");
+  });
+});
+
+describe("WorldMap — ambient mastery paint", () => {
+  afterEach(cleanup);
+
+  // jsdom never lays anything out, so the component's ResizeObserver never
+  // reports a size and `effectiveScale` stays 0 — which suppresses the
+  // continent captions by the legibility gate. Stand in an observer that
+  // reports a fixed box so the caption tests exercise the real size path.
+  // The SVG viewBox is 800x400 (see revealZoom.ts): 1600x800 is a desktop-
+  // sized map, 390x700 a phone.
+  let restoreResizeObserver: (() => void) | null = null;
+  afterEach(() => {
+    restoreResizeObserver?.();
+    restoreResizeObserver = null;
+  });
+
+  function withMapSize(width: number, height: number) {
+    const original = globalThis.ResizeObserver;
+    class FakeResizeObserver {
+      constructor(private cb: ResizeObserverCallback) {}
+      observe(target: Element) {
+        this.cb(
+          [
+            {
+              target,
+              contentRect: { width, height } as DOMRectReadOnly,
+            } as ResizeObserverEntry,
+          ],
+          this as unknown as ResizeObserver,
+        );
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver =
+      FakeResizeObserver as unknown as typeof ResizeObserver;
+    restoreResizeObserver = () => {
+      globalThis.ResizeObserver = original;
+    };
+  }
+
+  const DESKTOP = [1600, 800] as const;
+  const PHONE = [390, 700] as const;
+
+  const isoFromNumeric = (numeric: string) =>
+    numeric === FRA_NUMERIC ? "FRA" : undefined;
+
+  function franceFill(container: HTMLElement): string | null {
+    return container
+      .querySelector<SVGPathElement>(`path[data-numeric="${FRA_NUMERIC}"]`)
+      ?.getAttribute("fill") ?? null;
+  }
+
+  function captions(container: HTMLElement): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const t of container.querySelectorAll<SVGTextElement>(
+      "text[data-continent]",
+    )) {
+      out[t.getAttribute("data-continent")!] = t.getAttribute("data-percent")!;
+    }
+    return out;
+  }
+
+  it("paints a country by its mastery tier", () => {
+    for (const [tier, expected] of [
+      [0, PALETTE.masteryUnseen],
+      [1, PALETTE.masterySeen],
+      [2, PALETTE.masteryKnown],
+    ] as const) {
+      const { container } = render(
+        <WorldMap
+          {...BASE_PROPS}
+          isoFromNumeric={isoFromNumeric}
+          feedback={null}
+          revealCapitalLonLat={null}
+          masteryByIso3={new Map([["FRA", tier as MasteryTier]])}
+        />,
+      );
+      expect(franceFill(container)).toBe(expected);
+      cleanup();
+    }
+  });
+
+  it("paints a country with no record as unseen", () => {
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        feedback={null}
+        revealCapitalLonLat={null}
+      />,
+    );
+    expect(franceFill(container)).toBe(PALETTE.masteryUnseen);
+  });
+
+  it("keeps a known country inert when it is out of scope", () => {
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        isInScope={() => false}
+        feedback={null}
+        revealCapitalLonLat={null}
+        masteryByIso3={new Map<string, MasteryTier>([["FRA", 2]])}
+      />,
+    );
+    expect(franceFill(container)).toBe(PALETTE.inert);
+  });
+
+  it("draws one percentage caption per reported continent", () => {
+    withMapSize(...DESKTOP);
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        feedback={null}
+        revealCapitalLonLat={null}
+        continentProgress={
+          new Map<Continent, { known: number; total: number }>([
+            ["Europe", { known: 39, total: 39 }],
+            ["Africa", { known: 0, total: 51 }],
+            ["Asia", { known: 12, total: 47 }],
+          ])
+        }
+      />,
+    );
+    expect(captions(container)).toEqual({
+      Europe: "100",
+      Africa: "0",
+      Asia: "25",
+    });
+  });
+
+  it("hides the captions during a miss reveal so they do not fight the labels", () => {
+    withMapSize(...DESKTOP);
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        feedback={WRONG}
+        revealCapitalLonLat={null}
+        continentProgress={
+          new Map<Continent, { known: number; total: number }>([
+            ["Europe", { known: 1, total: 39 }],
+          ])
+        }
+      />,
+    );
+    expect(Object.keys(captions(container))).toEqual([]);
+  });
+
+  it("hides the captions on a phone-width world view, where they would be illegible", () => {
+    withMapSize(...PHONE);
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        feedback={null}
+        revealCapitalLonLat={null}
+        continentProgress={
+          new Map<Continent, { known: number; total: number }>([
+            ["Europe", { known: 1, total: 39 }],
+          ])
+        }
+      />,
+    );
+    expect(Object.keys(captions(container))).toEqual([]);
+  });
+
+  it("still paints the mastery tiers on a phone, where the captions are hidden", () => {
+    withMapSize(...PHONE);
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        feedback={null}
+        revealCapitalLonLat={null}
+        masteryByIso3={new Map<string, MasteryTier>([["FRA", 2]])}
+      />,
+    );
+    expect(franceFill(container)).toBe(PALETTE.masteryKnown);
   });
 });

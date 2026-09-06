@@ -44,7 +44,6 @@
   --color-parchment-base: #f0e2c4;
   --color-parchment-shadow: #e3d2ad;
   --color-parchment-deep: #d6c08a;
-  --color-parchment-map: #dac79a; /* in-scope country fill */
   --color-ocean-tint: #e6dec9; /* map background */
 
   /* Inks */
@@ -63,10 +62,26 @@
   --color-sap-green: #5d7e3e; /* correct country fill — muted period green */
   --color-skipped: #9a7a2a; /* skipped country fill */
   --color-neighbor: #c5b791; /* miss-reveal neighbor cue */
-  --color-spotlight: #cda85f; /* ambient ochre wash for the focused subregion —
-                                 warmer/more golden than parchment-map so it
-                                 reads distinct from the in-scope default and
-                                 the neighbor cue */
+
+  /* Ambient mastery paint (R2.1) — what the learner has taken of the world,
+     always on beneath every other map state, and the only fill an in-scope
+     country gets at rest (there is no longer a single "land" tone). A
+     deliberate progression away from the ocean: unseen sits a hair above
+     --color-ocean-tint so the country reads as an engraved outline, introduced
+     is a light wash, known is the full pigment. Two orderings have to hold in
+     BOTH themes: every tier stays clear of --color-parchment-shadow (the
+     out-of-scope `inert` fill) so the continent filter still reads on the map,
+     and known stays below --color-spotlight, which sits directly above it in
+     fillFor's precedence chain. */
+  --color-mastery-unseen: #e3d9c0;
+  --color-mastery-seen: #d8c28d;
+  --color-mastery-known: #c0a271;
+  --color-spotlight: #dcb45a; /* ambient ochre wash for the focused subregion —
+                                 lighter and more golden than
+                                 --color-mastery-known, which it sits directly
+                                 above in fillFor's precedence chain, so a
+                                 focused subregion still reads over land the
+                                 learner already knows */
   --color-map-border: #2b1f12; /* country path stroke — mirrors ink-deep in
                                   light but stays warm ochre in dark so
                                   borders read against the dark ocean */
@@ -93,7 +108,6 @@
   --color-parchment-base: #1c1812;
   --color-parchment-shadow: #272118;
   --color-parchment-deep: #322a1f;
-  --color-parchment-map: #3a3024; /* in-scope land — deep umber */
   --color-ocean-tint: #17130d; /* map background — deep warm black */
 
   /* Inks — warm aged-ivory, NOT cool steel-white */
@@ -112,7 +126,18 @@
   --color-sap-green: #7d9a4c; /* same period foliage, brightened for legibility */
   --color-skipped: #c69a36; /* amber, ochre family */
   --color-neighbor: #8a7a4a; /* warm muted ink — NOT cool blue */
-  --color-spotlight: #5e4a22; /* ambient ochre wash, brightened from map fill */
+
+  /* Ambient mastery paint — same progression against the dark ocean. Dark
+     needs a wider ramp than light: unseen has to clear --color-parchment-shadow
+     (the inert fill) or an out-of-scope country would paint brighter than an
+     in-scope one and the continent filter would vanish, so unseen sits further
+     off the ocean here than it does in light. */
+  --color-mastery-unseen: #362b1c;
+  --color-mastery-seen: #4a3c26;
+  --color-mastery-known: #6b5732;
+  --color-spotlight: #8a6a2a; /* ambient ochre wash — lifted clear of
+                                 --color-mastery-known, which it has to win
+                                 over (see fillFor's precedence chain) */
   --color-map-border: #7a6440; /* warm faded ochre — visible against dark ocean */
 
   /* Always-darker-than-base roles. Both stay in the warm family to match

@@ -13,6 +13,7 @@ import countriesData from "./data/countries.json";
 import { ALL_CONTINENTS, type Country } from "./types";
 import { useTheme } from "./theme";
 import { readPaletteFromCss } from "./components/fillFor";
+import { masteryByContinent, paintTiers } from "./game/srs";
 
 const ALL_COUNTRIES = countriesData as Country[];
 
@@ -67,6 +68,21 @@ export default function App() {
     return out;
   }, [state.spotlightSubregion]);
 
+  // Ambient mastery paint (R2.1). The tier map is scope-independent — a
+  // country keeps the ink it earned even when filtered out, and the map's own
+  // inert branch decides whether that ink is shown. The per-continent
+  // percentages are scoped, so they follow the continent filter and the
+  // territories setting; they count tier 2 only and are unaffected by the
+  // collapse below.
+  const masteryByIso3 = useMemo(
+    () => paintTiers(state.srsStore, state.mode),
+    [state.srsStore, state.mode],
+  );
+  const continentProgress = useMemo(
+    () => masteryByContinent(state.srsStore, ALL_COUNTRIES, game.scopeSet),
+    [state.srsStore, game.scopeSet],
+  );
+
   // Nothing due and today's new cards introduced: the scheduler has no
   // more work. Surfaced two ways — the RoundBreak's "That's everything for
   // today" variant at a round boundary, and the CaughtUp banner when a
@@ -118,6 +134,8 @@ export default function App() {
           feedback={state.feedback}
           correctNeighborIso3s={correctNeighborIso3s}
           spotlightIso3Set={spotlightIso3Set}
+          masteryByIso3={masteryByIso3}
+          continentProgress={continentProgress}
           revealCapitalLonLat={revealCapitalLonLat}
           selectedContinents={state.selectedContinents}
           isoFromNumeric={game.isoFromNumeric}

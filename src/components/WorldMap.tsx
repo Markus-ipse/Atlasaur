@@ -37,6 +37,7 @@ import {
   type Rect,
 } from "./labelLayout";
 import { fillFor, type Palette } from "./fillFor";
+import { masteryPercent, type MasteryTier } from "../game/srs";
 import { Wordmark } from "./Wordmark";
 import {
   HINT_TARGET_PX,
@@ -113,6 +114,17 @@ const OCEAN_PX_PER_SVG_PX = 0.022;
 // Zoom growth exponent: 0 = constant on-screen size, 1 = scales 1:1 with k.
 // 0.2 gives roughly +30% size at k=4 — a noticeable but mild grow-on-zoom.
 const OCEAN_ZOOM_GROWTH = 0.2;
+// Continent progress captions ride the ocean-label sizing so they scale and
+// grow-on-zoom identically, at a fraction of the size — they are a quiet
+// annotation on the map, not a second tier of place names.
+const CONTINENT_CAPTION_RATIO = 0.72;
+// Below this on-screen size the two-line caption is unreadable and, on a
+// 390px-wide world view, wider than the continent it annotates. The paint
+// carries progress on its own there; the captions return once the map is
+// bigger — a tablet or desktop width, or a zoom deep enough to lift the
+// caption back over the floor. On a phone that means roughly k >= 3, so a
+// wide continent frame (Africa, Asia) may still sit below it.
+const CONTINENT_CAPTION_MIN_PX = 10;
 
 const collection = feature(
   topology,
@@ -231,6 +243,30 @@ const OCEAN_LABEL_DATA: { qualifier: string; lon: number; lat: number }[] = [
   { qualifier: "Arctic", lon: 0, lat: 78 },
   { qualifier: "Southern", lon: 20, lat: -65 },
 ];
+// Continent progress captions (R2.1) — the mastery paint's legend. Anchors
+// are hand-placed [lon, lat] rather than derived centroids: a computed
+// centroid lands in the Gulf of Guinea for Africa and inside Poland for
+// Europe. Each sits over sparse land or the adjacent sea, clear of the ocean
+// labels above — Europe is too crowded to caption over land at all, so it
+// takes the Bay of Biscay.
+// Typed as a total Record so adding a Continent to src/types.ts fails the
+// build here rather than silently rendering that continent no caption.
+const CONTINENT_ANCHOR_DATA: Record<Continent, { lon: number; lat: number }> = {
+  Africa: { lon: 20, lat: 4 },
+  Antarctica: { lon: -60, lat: -79 },
+  Asia: { lon: 90, lat: 46 },
+  Europe: { lon: -12, lat: 46 },
+  "North America": { lon: -100, lat: 52 },
+  Oceania: { lon: 134, lat: -24 },
+  "South America": { lon: -60, lat: -11 },
+};
+const CONTINENT_ANCHORS: { continent: Continent; cx: number; cy: number }[] =
+  ALL_CONTINENTS.flatMap((continent) => {
+    const { lon, lat } = CONTINENT_ANCHOR_DATA[continent];
+    const p = projection([lon, lat]);
+    return p ? [{ continent, cx: p[0], cy: p[1] }] : [];
+  });
+
 const OCEAN_LABELS: { qualifier: string; cx: number; cy: number }[] =
   OCEAN_LABEL_DATA.flatMap((o) => {
     const p = projection([o.lon, o.lat]);
@@ -363,6 +399,14 @@ type Props = {
   // Countries inside the active Study spotlight subregion, tinted with an
   // ambient ochre wash. Empty when no spotlight is active.
   spotlightIso3Set: ReadonlySet<string>;
+  // Ambient mastery paint (R2.1): iso3 -> tier for every country with an SRS
+  // record. Absent means tier 0 (unseen), so the map never needs an entry per
+  // country in the world.
+  masteryByIso3: ReadonlyMap<string, MasteryTier>;
+  // Known/total per in-scope continent, drawn as an engraved percentage at
+  // each continent's anchor. A continent absent from the map (filtered out,
+  // or Antarctica with territories off) renders no caption.
+  continentProgress: ReadonlyMap<Continent, { known: number; total: number }>;
   // [lon, lat] of the correct country's capital during a wrong/skipped
   // reveal; null when feedback is null, kind === "correct", or the country
   // has no capital (e.g. Antarctica). Drives the capital-marker dot.
@@ -397,6 +441,8 @@ export function WorldMap({
   feedback,
   correctNeighborIso3s,
   spotlightIso3Set,
+  masteryByIso3,
+  continentProgress,
   revealCapitalLonLat,
   selectedContinents,
   isoFromNumeric,
@@ -740,6 +786,44 @@ export function WorldMap({
     });
   }, [oceanLabelFontSize]);
 
+  // Continent progress captions. Subordinate to the ocean labels in size,
+  // suppressed during a miss reveal so they never compete with the reveal's
+  // own country labels, and suppressed again whenever they would render too
+  // small to read. Only continents the caller reports on are drawn, so
+  // the caption set follows the continent filter and the territories setting.
+  const continentCaptionFontSize = oceanLabelFontSize * CONTINENT_CAPTION_RATIO;
+  // On-screen size of that font once the SVG's own scaling and the current
+  // zoom are applied. `oceanLabelFontSize` divides out k^(1 - growth), so the
+  // k terms collapse to k^growth here.
+  const continentCaptionScreenPx =
+    effectiveScale > 0
+      ? oceanScreenPx *
+        CONTINENT_CAPTION_RATIO *
+        Math.pow(transform.k, OCEAN_ZOOM_GROWTH)
+      : 0;
+  const captionsLegible =
+    continentCaptionScreenPx >= CONTINENT_CAPTION_MIN_PX;
+  const continentCaptions = useMemo(() => {
+    if (revealCorrectIso3 || !captionsLegible) return [];
+    const out: {
+      continent: Continent;
+      cx: number;
+      cy: number;
+      percent: number;
+    }[] = [];
+    for (const a of CONTINENT_ANCHORS) {
+      const p = continentProgress.get(a.continent);
+      if (!p) continue;
+      out.push({
+        continent: a.continent,
+        cx: a.cx,
+        cy: a.cy,
+        percent: masteryPercent(p.known, p.total),
+      });
+    }
+    return out;
+  }, [continentProgress, revealCorrectIso3, captionsLegible]);
+
   // Compute the visible label set on every zoom change while a reveal is
   // showing. Memoized so pure pans (which re-render but don't change k)
   // don't redo the O(N²) collision pass.
@@ -897,6 +981,7 @@ export function WorldMap({
                 inScope,
                 neighborSet,
                 spotlightSet: spotlightIso3Set,
+                masteryTier: iso3 ? masteryByIso3.get(iso3) : undefined,
               },
               palette,
             );
@@ -929,6 +1014,40 @@ export function WorldMap({
               />
             );
           })}
+          {/* Continent progress — the mastery paint's legend, engraved in the
+              same hand as the ocean labels. NOT aria-hidden: these percentages
+              exist nowhere else as text (the settings stats are global counts,
+              not per-continent), so hiding them would leave the release's
+              headline progress readout unavailable to a screen reader. Each
+              caption is one <text> reading "Europe 56%". */}
+          <g
+            className="font-display"
+            style={{
+              letterSpacing: "0.1em",
+              pointerEvents: "none",
+            }}
+          >
+            {continentCaptions.map((c) => (
+              <text
+                key={c.continent}
+                x={c.cx}
+                y={c.cy}
+                fontSize={continentCaptionFontSize}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill={palette.oceanLabel}
+                stroke={palette.oceanTint}
+                strokeWidth={continentCaptionFontSize * 0.26}
+                paintOrder="stroke"
+                opacity={0.72}
+                data-continent={c.continent}
+                data-percent={c.percent}
+              >
+                <tspan x={c.cx} dy="-0.5em">{c.continent}</tspan>
+                <tspan x={c.cx} dy="1.15em">{c.percent}%</tspan>
+              </text>
+            ))}
+          </g>
           <g
             style={{
               fontStyle: "italic",

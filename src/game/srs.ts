@@ -6,8 +6,10 @@ import {
   type Grade,
 } from "ts-fsrs";
 import type {
+  Continent,
   Country,
   Ease,
+  QuestionMode,
   SrsRecord,
   SrsStore,
   Subregion,
@@ -216,6 +218,89 @@ export function masteryBySubregion(
     map.set(c.subregion, entry);
   }
   return map;
+}
+
+// Ambient map paint (R2.1). Three tiers, in the order the map inks them in:
+// 0 unseen (never answered — a ghost outline), 1 introduced (a record exists
+// but has not graduated), 2 known (FSRS state >= 2). Tier 2 reuses
+// learnedCount's predicate so the map and the "Known" stat can never
+// disagree; `tier >= 1` is seenCount's "any record at all" (note seenCount
+// counts introduced AND known, so it is the pair of tiers, not tier 1 alone).
+// Like learnedCount, tier 2 includes FSRS Relearning (state 3), so a country
+// the learner has just lapsed on keeps its full pigment until it is graded
+// down — deliberate, since the map must agree with the "Known" stat.
+export type MasteryTier = 0 | 1 | 2;
+
+export function masteryTierOf(record: SrsRecord | undefined): MasteryTier {
+  if (!record) return 0;
+  return record.state >= 2 ? 2 : 1;
+}
+
+// iso3 -> tier for every country with a record. Countries absent from the map
+// are tier 0, so the caller reads it as `tiers.get(iso3) ?? 0` rather than
+// this allocating an entry per country in the world on every store change.
+// Scope-independent on purpose: an out-of-scope country keeps the ink it
+// earned, and fillFor's own inert branch decides whether that ink is shown.
+export function masteryTiers(store: SrsStore): Map<string, MasteryTier> {
+  const map = new Map<string, MasteryTier>();
+  for (const iso3 in store.records) {
+    map.set(iso3, masteryTierOf(store.records[iso3]));
+  }
+  return map;
+}
+
+// The tiers the MAP is allowed to paint, which is not always every tier the
+// store knows. In `name-to-click` the introduced wash is collapsed into unseen,
+// because pickNextStudy partitions its picks exactly on that boundary: the
+// new-introduction branch requires no record (tier 0), while the resurface, due
+// and most-overdue branches all require one (tier 1 or 2). Tier 1 is by
+// construction tiny — the cards still in FSRS learning, which is precisely the
+// set the scheduler resurfaces — so painting it would narrow "find Portugal" to
+// three or four countries. Tiers 0 and 2 are both large, so a two-tone map
+// leaks nothing. `shape-to-name` keeps all three: the shape is already
+// highlighted, and knowing you have met a country cannot supply its name.
+export function paintTiers(
+  store: SrsStore,
+  mode: QuestionMode,
+): Map<string, MasteryTier> {
+  const tiers = masteryTiers(store);
+  if (mode !== "name-to-click") return tiers;
+  for (const [iso3, tier] of tiers) {
+    if (tier === 1) tiers.set(iso3, 0);
+  }
+  return tiers;
+}
+
+// Per-continent mastery aggregate, scoped to the active continent filter and
+// the territories setting. `known` is the tier-2 count; `total` is every
+// in-scope country on the continent. Only continents with >= 1 in-scope
+// country appear, so a continent filtered out (or Antarctica with territories
+// off) never renders a percentage.
+export function masteryByContinent(
+  store: SrsStore,
+  countries: readonly Country[],
+  scope: ReadonlySet<string>,
+): Map<Continent, { known: number; total: number }> {
+  const map = new Map<Continent, { known: number; total: number }>();
+  for (const c of countries) {
+    if (!scope.has(c.iso3)) continue;
+    const entry = map.get(c.continent) ?? { known: 0, total: 0 };
+    entry.total += 1;
+    if (masteryTierOf(store.records[c.iso3]) === 2) entry.known += 1;
+    map.set(c.continent, entry);
+  }
+  return map;
+}
+
+// Whole percent of a set inked in, for the map's continent captions. Floors
+// below 100 and lifts a non-zero share off 0, so "100%" means finished and
+// "0%" means untouched — neither is ever a rounding artefact.
+export function masteryPercent(known: number, total: number): number {
+  if (total === 0) return 0;
+  if (known >= total) return 100;
+  if (known === 0) return 0;
+  // known < total here, so the floor cannot reach 100.
+  return Math.max(1, Math.floor((known / total) * 100));
 }
 
 export function totalReviews(store: SrsStore): number {
