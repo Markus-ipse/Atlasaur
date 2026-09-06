@@ -125,6 +125,9 @@ const CONTINENT_CAPTION_RATIO = 0.72;
 // caption back over the floor. On a phone that means roughly k >= 3, so a
 // wide continent frame (Africa, Asia) may still sit below it.
 const CONTINENT_CAPTION_MIN_PX = 10;
+// On-screen spacing of the engraved hatch drawn over a country that has just
+// become known.
+const HATCH_SCREEN_PX = 6;
 
 const collection = feature(
   topology,
@@ -399,6 +402,9 @@ type Props = {
   // Countries inside the active Study spotlight subregion, tinted with an
   // ambient ochre wash. Empty when no spotlight is active.
   spotlightIso3Set: ReadonlySet<string>;
+  // Ceremony (R2.2): the country that just crossed into "known", hatched for
+  // a beat before its pigment lands on the next commit. Null almost always.
+  hatchIso3: string | null;
   // Ambient mastery paint (R2.1): iso3 -> tier for every country with an SRS
   // record. Absent means tier 0 (unseen), so the map never needs an entry per
   // country in the world.
@@ -443,6 +449,7 @@ export function WorldMap({
   spotlightIso3Set,
   masteryByIso3,
   continentProgress,
+  hatchIso3,
   revealCapitalLonLat,
   selectedContinents,
   isoFromNumeric,
@@ -877,6 +884,24 @@ export function WorldMap({
     return xy;
   }, [revealCapitalLonLat, revealCorrectIso3, numericFromIso3]);
 
+  // Every drawn piece of the country being hatched (a MultiPolygon has one
+  // PathItem per ring group). Keyed on the iso3 so the animation restarts for
+  // each new milestone rather than continuing the previous one.
+  // Engraving spacing is a property of the paper, not of the projection, so
+  // the tile is sized in screen pixels and converted back into SVG units.
+  // A fixed tile would be sub-pixel on a 390px-wide world view and coarse on
+  // a large desktop.
+  const hatchTile =
+    effectiveScale > 0
+      ? HATCH_SCREEN_PX / (effectiveScale * transform.k)
+      : HATCH_SCREEN_PX;
+  const hatchPaths = useMemo(() => {
+    if (!hatchIso3) return [] as PathItem[];
+    const numeric = numericFromIso3(hatchIso3);
+    if (!numeric) return [] as PathItem[];
+    return PATHS.filter((p) => p.numericId === numeric);
+  }, [hatchIso3, numericFromIso3]);
+
   const hitDiscs = useMemo(() => {
     if (!isClickMode || effectiveScale === 0) return [] as HitDisc[];
     const out: HitDisc[] = [];
@@ -1031,6 +1056,44 @@ export function WorldMap({
               />
             );
           })}
+          {/* The engraved hatch, drawn the moment a country crosses into
+              "known". It sits above the land and below every label, wipes in
+              over a second, and fades as the country's own pigment lands on
+              the next commit. Pure decoration: the panel says the same thing
+              in words. */}
+          {hatchPaths.length > 0 && (
+            <g key={hatchIso3 ?? ""} aria-hidden="true" pointerEvents="none">
+              <defs>
+                <pattern
+                  id="known-hatch-pattern"
+                  patternUnits="userSpaceOnUse"
+                  width={hatchTile}
+                  height={hatchTile}
+                  patternTransform="rotate(45)"
+                >
+                  {/* Centred in the tile: a line on the edge has half its
+                      width clipped, because a pattern tile does not wrap its
+                      content into the neighbouring one. */}
+                  <line
+                    x1={hatchTile / 2}
+                    y1={0}
+                    x2={hatchTile / 2}
+                    y2={hatchTile}
+                    stroke={palette.border}
+                    strokeWidth={hatchTile / 3.5}
+                  />
+                </pattern>
+              </defs>
+              {hatchPaths.map((p) => (
+                <path
+                  key={p.key}
+                  d={p.d}
+                  className="known-hatch"
+                  fill="url(#known-hatch-pattern)"
+                />
+              ))}
+            </g>
+          )}
           {/* Continent progress — the mastery paint's legend, engraved in the
               same hand as the ocean labels. aria-hidden because the sr-only
               paragraph above carries the same numbers and, unlike these, is

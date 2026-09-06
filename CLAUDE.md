@@ -164,6 +164,59 @@ return on a bigger map, a continent filter, or a pinch. `masteryPercent` reserve
 100% for a finished continent and 0% for an untouched one, so neither is ever a
 rounding artefact.
 
+### Ceremony (R2.2)
+
+Three moments are marked and nothing else: a run of correct answers at exactly
+5, 10 and 20; a country crossing into "known" for the first time; and a
+continent finished. `src/game/milestones.ts` owns all three as pure functions
+(`streakNote`, `crossesIntoKnown`, `milestoneFor`) so the reducer decides *when*
+and the panel decides *how*.
+
+**A milestone is computed at answer time, not at commit time.** The ceremony
+plays during the correct flash, but a Study grade is deferred to
+`dismissFeedback`. `applyCorrect` therefore grades a throwaway copy with
+`srsGrade` (pure) to see whether the answer crosses the card into `state >= 2`,
+and stores the result in `state.milestone`; `dismissFeedback` grades again for
+real and clears it. `milestones.test.ts` pins that prediction and commit agree
+across every card state and the whole length of the flash — a ceremony the
+commit does not deliver would be a lie. If you make the grading path stateful,
+keep that test passing.
+
+`state.streak` is the run of correct answers. It predates R2.2 but was only
+maintained in Quiz; Study now increments it on a correct answer and resets it on
+a miss or a skip. No counter is shown anywhere, so a broken run is silent — the
+streak exists only to trigger the copy.
+
+The **country and continent milestones are Study only**. A test round is a
+measurement and its map is neutral (see the mastery paint above), so there is
+nothing for a hatch to draw on. The streak note is not restricted: a run of
+correct answers means something in a test too, and a line of copy cannot help
+you answer. One consequence worth knowing: a country that graduates during a
+test round consumes its crossing silently, and because the transition is
+one-way it never earns its hatch afterwards.
+
+`state.milestone` is meaningful **only while the correct feedback that earned it
+is on screen**. Every reducer path that ends a card clears it (`advanceCard`,
+`endSession`, `startReview`, `closeSummary`, `setSpotlight`, `applyScope`,
+`resetSrs`, `setPracticeMode`), and `App.tsx` states the invariant once more by
+gating `hatchIso3` on `state.feedback?.kind === "correct"` — so no path added
+later can strand a mark animating over a country the learner has moved on from.
+`resetSrs` additionally cancels `autoGradePending`, since the store the grade
+was staged against no longer exists.
+
+Rendering rules, all in `CorrectHero`: one ceremony per answer, with a continent
+seal superseding the country line and any milestone superseding a streak note.
+Two marks landing together is the pile-on that "ink and wax only" rules out. The
+seal is pressed in the panel rather than on the map — a seal at the continent's
+map anchor is the better image but needs the continent on screen and legible,
+which on a 390 px world view it is not. `WorldMap` draws the engraved hatch over
+the country via an SVG pattern (`hatchIso3`), delayed 900 ms so it lands after
+the correct-answer pop rather than competing with it, and
+`MILESTONE_DURATION` holds the flash long enough for both.
+
+Sound and haptics from the survey's ceremony list are **not** implemented; they
+are R2.5 in `docs/plans/r2-your-map.md`, with the reasons.
+
 ### Small countries on a phone (R1.6)
 
 Three affordances, all in `WorldMap.tsx` with the pure thresholds in `src/components/smallTargets.ts` (unit-tested): **(1) Resting frame follows a tiny card.** `WorldMap` receives `targetIso3` (the current card, passed through feedback too so the resting frame stays stable across a correct flash) and applies the affordances in click mode only. `restingTransform` is the continent filter's frame, except when the rendered map is narrower than `NARROW_MAP_PX` and the card's largest ring would be under `TAP_TARGET_PX` on screen at that frame — then it is the card's continent frame, or its UN subregion frame when even the continent leaves it under the threshold (Europe's frame barely zooms because Russia is in it). Frames are cached per region in `regionFrame` so the memo returns stable references; a frame is adopted only if it magnifies at least `FRAME_MIN_GAIN`× over the filter's frame, so a barely-zooming region (all of South America for the Falklands) is skipped and the hit disc and hint carry that case. Every place that used `baseTransform` for settling, Reset and `isPanned` now uses `restingTransform`. This is a deliberate, bounded hint: it fires only when the alternative is an un-tappable speck, never for big countries, never on desktop widths. **(2) Hit discs.** In click mode, every in-scope country whose on-screen size is under `TAP_TARGET_PX` at the current zoom gets an invisible `<circle data-hit>` of `HIT_DISC_PX` diameter at its label anchor, drawn **beneath** the paths (land always wins where it exists, so a disc never steals a tap from a bigger neighbour; the ocean around an island catches the fingertip) and wired to the same click handler. All tiny countries get one, not just the answer, so the map gives nothing away. **(3) Pinch hint.** Once per browser (`atlasaur:seenPinchHint`, `src/components/pinchHint.ts`), on a coarse pointer, when the card's country is under `HINT_TARGET_PX` on screen after the view has settled: a small "Pinch to zoom in" pill for five seconds, taken down early if the zoom changes. `targetIso3` must never influence `fillFor`.

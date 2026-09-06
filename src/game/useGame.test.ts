@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { reducer, initialState, ROUND_SIZE, type State } from "./useGame";
 import { STUDY_NEW_CAP } from "./pickCountry";
 import { grade as srsGrade, introductionOrder } from "./srs";
+import { crossesIntoKnown } from "./milestones";
 import countriesData from "../data/countries.json";
 import { ALL_CONTINENTS, type Country } from "../types";
 
@@ -1149,5 +1150,161 @@ describe("reducer — territories setting", () => {
     expect(reducer(off, { type: "setMode", mode: "shape-to-name" }).includeTerritories).toBe(false);
     const on = reducer(off, { type: "setIncludeTerritories", value: true });
     expect(reducer(on, { type: "reset" }).includeTerritories).toBe(true);
+  });
+});
+
+describe("reducer — ceremony (R2.2)", () => {
+  const T0 = new Date("2026-05-16T12:00:00Z");
+
+  function studyAt(iso3: string, extra: Partial<State> = {}): State {
+    return {
+      ...withCurrent(initialState({ practiceMode: "study" }), iso3),
+      ...extra,
+    };
+  }
+
+  // A record already graduated to Review, so the next correct answer cannot
+  // cross into "known" again.
+  function knownRecord() {
+    return { ...srsGrade(null, "Good", T0), state: 2 as const };
+  }
+
+  it("counts a run of correct answers in Study, where the copy reads it", () => {
+    const s1 = reducer(studyAt("FRA", { streak: 4 }), {
+      type: "answer",
+      iso3: "FRA",
+      now: T0,
+    });
+    expect(s1.streak).toBe(5);
+  });
+
+  it("breaks the run on a Study miss", () => {
+    const s1 = reducer(studyAt("FRA", { streak: 7 }), {
+      type: "answer",
+      iso3: "DEU",
+      now: T0,
+    });
+    expect(s1.streak).toBe(0);
+  });
+
+  it("breaks the run on a Study skip", () => {
+    const s1 = reducer(studyAt("FRA", { streak: 7 }), { type: "skip", now: T0 });
+    expect(s1.streak).toBe(0);
+  });
+
+  it("marks a country crossing into known on the answer that does it", () => {
+    // A brand-new card graded Good goes to Learning, not Review, so this is
+    // the case where nothing is marked...
+    const fresh = reducer(studyAt("FRA"), {
+      type: "answer",
+      iso3: "FRA",
+      now: T0,
+    });
+    expect(fresh.milestone).toBeNull();
+
+    // ...and this is the case where something is. One Good puts the card in
+    // learning; answering the next one after the learning step has elapsed
+    // graduates it to Review, which is the crossing the ceremony marks.
+    const almost = srsGrade(null, "Good", T0);
+    expect(almost.state).toBeLessThan(2); // guard: the seed must not be known
+    const later = new Date(T0.getTime() + 60 * 60 * 1000);
+    expect(crossesIntoKnown(almost, srsGrade(almost, "Good", later))).toBe(true);
+
+    const s0 = studyAt("FRA", {
+      srsStore: { version: 1, records: { FRA: almost } },
+    });
+    const s1 = reducer(s0, { type: "answer", iso3: "FRA", now: later });
+    expect(s1.milestone).not.toBeNull();
+    expect(s1.milestone!.iso3).toBe("FRA");
+  });
+
+  it("marks nothing for a country that is already known", () => {
+    const s0 = studyAt("FRA", {
+      srsStore: { version: 1, records: { FRA: knownRecord() } },
+    });
+    const s1 = reducer(s0, { type: "answer", iso3: "FRA", now: T0 });
+    expect(s1.milestone).toBeNull();
+  });
+
+  it("marks nothing during a test round, where the map is neutral anyway", () => {
+    const s0 = withCurrent(initialState(), "FRA"); // practiceMode defaults to quiz
+    const s1 = reducer(s0, { type: "answer", iso3: "FRA", now: T0 });
+    expect(s1.practiceMode).toBe("quiz");
+    expect(s1.milestone).toBeNull();
+  });
+
+  it("ends the ceremony with the card that earned it", () => {
+    const s0 = studyAt("FRA", {
+      milestone: { iso3: "FRA", name: "France", continentComplete: null },
+      autoGradePending: "Good" as const,
+      feedback: {
+        kind: "correct" as const,
+        answerIso3: "FRA",
+        correctIso3: "FRA",
+      },
+    });
+    const s1 = reducer(s0, { type: "dismiss", now: T0 });
+    expect(s1.milestone).toBeNull();
+  });
+
+  it("breaks the run on a miss during a Quiz review pass", () => {
+    // Review-phase answers do not move the score, but a run of correct
+    // answers is a claim about recall — misses in review must break it, or
+    // the next normal-phase answer could land on a threshold it did not earn.
+    const s0 = withCurrent(
+      { ...initialState(), phase: "review" as const, streak: 4 },
+      "FRA",
+    );
+    const s1 = reducer(s0, { type: "answer", iso3: "DEU", now: T0 });
+    expect(s1.streak).toBe(0);
+  });
+
+  it("ends a ceremony in flight when the learner leaves the session", () => {
+    const s0 = studyAt("FRA", {
+      milestone: { iso3: "FRA", name: "France", continentComplete: null },
+      autoGradePending: "Good" as const,
+      feedback: {
+        kind: "correct" as const,
+        answerIso3: "FRA",
+        correctIso3: "FRA",
+      },
+    });
+    expect(reducer(s0, { type: "endSession" }).milestone).toBeNull();
+    // startReview only transitions when there is something queued to review.
+    const queued = { ...s0, retryQueue: [{ iso3: "DEU", dueAt: 0 }] };
+    expect(reducer(queued, { type: "startReview" }).phase).toBe("review");
+    expect(reducer(queued, { type: "startReview" }).milestone).toBeNull();
+    expect(reducer(s0, { type: "closeSummary", now: T0 }).milestone).toBeNull();
+    expect(reducer(s0, { type: "resetSrs" }).milestone).toBeNull();
+    expect(
+      reducer(s0, { type: "setContinents", continents: ["Africa"], now: T0 })
+        .milestone,
+    ).toBeNull();
+  });
+
+  it("cancels the grade behind a ceremony when progress is erased", () => {
+    // Otherwise the flash timer commits against the emptied store and the
+    // country the panel just announced as known lands back in learning.
+    const s0 = studyAt("FRA", {
+      milestone: { iso3: "FRA", name: "France", continentComplete: null },
+      autoGradePending: "Good" as const,
+      feedback: {
+        kind: "correct" as const,
+        answerIso3: "FRA",
+        correctIso3: "FRA",
+      },
+    });
+    const s1 = reducer(s0, { type: "resetSrs" });
+    expect(s1.autoGradePending).toBeNull();
+    expect(s1.feedback).toBeNull();
+  });
+
+  it("drops a ceremony in flight when the learner starts a test", () => {
+    const s0 = studyAt("FRA", {
+      milestone: { iso3: "FRA", name: "France", continentComplete: null },
+    });
+    const s1 = reducer(s0, { type: "setPracticeMode", mode: "quiz" });
+    expect(s1.milestone).toBeNull();
+    expect(s1.streak).toBe(0);
   });
 });

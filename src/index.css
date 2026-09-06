@@ -89,6 +89,8 @@
   /* Always-darker-than-base roles. Separate from --color-ink-deep because
      scrims and edge vignettes must stay darkening across theme flips — they
      can't ride on the primary foreground token, which inverts in dark mode. */
+  --color-seal-ink: #f4e9d2; /* the impression on the wax seal — stays light
+                                in both themes, since wax-red is dark in both */
   --color-scrim: #2b1f12; /* modal backdrop tint, used at bg-scrim/55 */
   --color-vignette: #2b1f12; /* map edge darkening color */
 
@@ -244,6 +246,72 @@ body::before {
 body {
   transition: background-color 200ms ease, color 200ms ease;
 }
+/* Ceremony (R2.2). A milestone line fades up under the country name rather
+   than popping, so it reads as ink settling rather than a notification. */
+@keyframes milestone-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.milestone-in {
+  animation: milestone-in 420ms ease-out both;
+}
+
+/* The wax seal is pressed: it lands slightly oversized and settles, with the
+   faint rotation of something stamped by hand. */
+@keyframes wax-seal {
+  0% {
+    opacity: 0;
+    transform: scale(1.5) rotate(-12deg);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(0.94) rotate(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(-3deg);
+  }
+}
+
+.wax-seal {
+  animation: wax-seal 620ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  box-shadow: inset 0 0 0 1px var(--color-parchment-base);
+}
+
+/* The engraved hatch drawn over a country the moment it becomes known: the
+   pattern wipes in, holds, and fades as the country's own pigment takes over
+   on the next commit. */
+@keyframes known-hatch {
+  0% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.known-hatch {
+  /* Base state is invisible, so reduced motion (which drops the animation
+     below) leaves no hatch stranded over the country. Delayed so it draws
+     after the correct-answer pop has settled rather than competing with it;
+     the milestone flash is held long enough (MILESTONE_DURATION) for both. */
+  opacity: 0;
+  animation: known-hatch 1000ms ease-out 900ms both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   body {
     transition: none;
@@ -329,8 +397,18 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .correct-pop,
   .correct-pulse,
-  .correct-burst {
+  .correct-burst,
+  .milestone-in,
+  .wax-seal,
+  .known-hatch {
     animation: none;
+  }
+
+  /* .known-hatch's base state is invisible (so a dropped animation strands
+     nothing), which would remove the map half of the ceremony entirely. Show
+     it statically instead — reduced motion means no movement, not no mark. */
+  .known-hatch {
+    opacity: 1;
   }
 }
 

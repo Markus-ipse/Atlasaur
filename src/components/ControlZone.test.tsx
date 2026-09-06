@@ -53,6 +53,7 @@ function makeGame(overrides: {
       phase: "normal",
       score: 0,
       streak: 0,
+      milestone: null,
       total: 0,
       missed: [],
       missedSet: new Set<string>(),

@@ -79,7 +79,11 @@ export function ControlZone({
             nameFromIso3={game.nameFromIso3}
           />
         ) : correctFeedback ? (
-          <CorrectHero current={state.current} />
+          <CorrectHero
+            current={state.current}
+            streak={state.streak}
+            milestone={state.milestone}
+          />
         ) : (
           <Prompt mode={state.mode} current={state.current} phase={state.phase} />
         )}

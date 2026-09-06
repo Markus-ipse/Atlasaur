@@ -96,6 +96,14 @@ export default function App() {
     [state.srsStore, game.scopeSet, state.practiceMode],
   );
 
+  // The engraved hatch belongs to the correct-answer flash that earned it.
+  // Gating on the feedback rather than on `state.milestone` alone means no
+  // reducer path can strand a mark animating over a country the learner has
+  // already moved on from — the reducer clears the field too, but this is the
+  // invariant, stated once.
+  const hatchIso3 =
+    state.feedback?.kind === "correct" ? (state.milestone?.iso3 ?? null) : null;
+
   // Nothing due and today's new cards introduced: the scheduler has no
   // more work. Surfaced two ways — the RoundBreak's "That's everything for
   // today" variant at a round boundary, and the CaughtUp banner when a
@@ -149,6 +157,7 @@ export default function App() {
           spotlightIso3Set={spotlightIso3Set}
           masteryByIso3={masteryByIso3}
           continentProgress={continentProgress}
+          hatchIso3={hatchIso3}
           revealCapitalLonLat={revealCapitalLonLat}
           selectedContinents={state.selectedContinents}
           isoFromNumeric={game.isoFromNumeric}

@@ -43,6 +43,7 @@ const BASE_PROPS = {
   isInScope: () => true,
   onCountryClick: () => {},
   masteryByIso3: new Map<string, MasteryTier>(),
+  hatchIso3: null as string | null,
   continentProgress: new Map<Continent, { known: number; total: number }>(),
   palette: PALETTE,
 };
@@ -429,6 +430,53 @@ describe("WorldMap — ambient mastery paint", () => {
     const text = container.querySelector(".sr-only")!.textContent!;
     expect(text.indexOf("Africa")).toBeLessThan(text.indexOf("Asia"));
     expect(text.indexOf("Asia")).toBeLessThan(text.indexOf("Europe"));
+  });
+
+  it("engraves a hatch over the country that just became known", () => {
+    withMapSize(...DESKTOP);
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        feedback={null}
+        revealCapitalLonLat={null}
+        hatchIso3="FRA"
+      />,
+    );
+    const hatched = container.querySelectorAll("path.known-hatch");
+    expect(hatched.length).toBeGreaterThan(0);
+    expect(hatched[0].getAttribute("fill")).toBe("url(#known-hatch-pattern)");
+    expect(container.querySelector("#known-hatch-pattern")).not.toBeNull();
+  });
+
+  it("engraves nothing when no country has just become known", () => {
+    withMapSize(...DESKTOP);
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        feedback={null}
+        revealCapitalLonLat={null}
+      />,
+    );
+    expect(container.querySelectorAll("path.known-hatch").length).toBe(0);
+    expect(container.querySelector("#known-hatch-pattern")).toBeNull();
+  });
+
+  it("never lets the hatch swallow a click meant for the map", () => {
+    withMapSize(...DESKTOP);
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        feedback={null}
+        revealCapitalLonLat={null}
+        hatchIso3="FRA"
+      />,
+    );
+    const group = container.querySelector("path.known-hatch")!.closest("g")!;
+    expect(group.getAttribute("pointer-events")).toBe("none");
+    expect(group.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("reports no progress text when there is none to report", () => {
