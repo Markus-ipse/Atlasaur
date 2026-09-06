@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { computeRevealTarget, tryFitUnion, type Bounds } from "./revealZoom";
+import {
+  computeRevealTarget,
+  tryFitUnion,
+  widenForContext,
+  type Bounds,
+} from "./revealZoom";
 
 const W = 800;
 const H = 400;
@@ -191,5 +196,93 @@ describe("tryFitUnion", () => {
     const clickedWest = { x0: 60, y0: 200, x1: 90, y1: 230 };
     const correctEast = { x0: 720, y0: 120, x1: 750, y1: 150 };
     expect(tryFitUnion([clickedWest, correctEast])).toBeNull();
+  });
+});
+
+describe("widenForContext (R2.3)", () => {
+  const PULLBACK = 1.8;
+  const MIN_H_RATIO = 0.07;
+
+  function fit(b: Bounds) {
+    return computeRevealTarget(b, null);
+  }
+  function legibleK(longestAxis: number) {
+    return (MIN_H_RATIO * H) / longestAxis;
+  }
+
+  it("pulls a fitted frame back by the context factor", () => {
+    // A medium country: neither floor is anywhere near binding, so the
+    // pull-back alone decides the frame.
+    const medium: Bounds = { x0: 400, y0: 150, x1: 420, y1: 170 };
+    const target = fit(medium);
+    expect(target.k / PULLBACK).toBeGreaterThan(legibleK(20));
+    expect(target.k / PULLBACK).toBeGreaterThan(MIN_ZOOM);
+    const widened = widenForContext(target, medium);
+    expect(widened.k).toBeCloseTo(target.k / PULLBACK, 10);
+    // Centre is left exactly where computeRevealTarget put it, so widening
+    // can only add to what was visible.
+    expect(widened.cx).toBe(target.cx);
+    expect(widened.cy).toBe(target.cy);
+  });
+
+  it("stops at the legibility floor when the full pull-back would pass it", () => {
+    // The floor's real regime: MIN_ZOOM < floor < the frame we were handed.
+    // A country reaches it when its neighbours have already widened the fit
+    // well past its own — Ecuador, Uganda and Kosovo do in the current table.
+    // Built as a literal Target rather than through computeRevealTarget,
+    // because the giant-neighbour filter refuses to produce this shape from
+    // synthetic bounds.
+    const primary: Bounds = { x0: 400, y0: 200, x1: 415, y1: 215 };
+    const target = { k: 3, cx: 407.5, cy: 207.5 };
+    const floor = legibleK(15);
+    expect(floor).toBeGreaterThan(MIN_ZOOM);
+    expect(floor).toBeGreaterThan(target.k / PULLBACK); // the floor binds
+    expect(floor).toBeLessThan(target.k); // and it still widens
+    expect(widenForContext(target, primary).k).toBeCloseTo(floor, 10);
+  });
+
+  it("never widens past the frame it was given", () => {
+    // A country so small that even its fitted frame is under the legibility
+    // floor: there is nothing to spend on context, so nothing moves.
+    const tiny: Bounds = { x0: 400, y0: 200, x1: 400.01, y1: 200.01 };
+    const target = fit(tiny);
+    expect(legibleK(0.01)).toBeGreaterThan(target.k); // floor is unreachable
+    expect(widenForContext(target, tiny)).toEqual(target);
+  });
+
+  it("never widens past MIN_ZOOM, the whole map", () => {
+    // A large answer fitted just above MIN_ZOOM: the pull-back would take it
+    // below the map itself, so the MIN_ZOOM clamp is what stops it.
+    const large: Bounds = { x0: 200, y0: 100, x1: 500, y1: 250 };
+    const target = fit(large);
+    expect(target.k).toBeGreaterThan(MIN_ZOOM);
+    expect(target.k).toBeLessThan(MIN_ZOOM * PULLBACK); // clamp, not pull-back
+    expect(widenForContext(target, large).k).toBe(MIN_ZOOM);
+  });
+
+  it("never widens past the frame the map already rests at", () => {
+    // With a continent filter the map sits closer than MIN_ZOOM. Pulling back
+    // past that would zoom out of the learner's own frame and straight back in.
+    const medium: Bounds = { x0: 400, y0: 150, x1: 420, y1: 170 };
+    const target = fit(medium);
+    const restingK = target.k / 1.2; // closer than the full pull-back allows
+    expect(restingK).toBeGreaterThan(target.k / PULLBACK);
+    expect(widenForContext(target, medium, restingK).k).toBeCloseTo(restingK, 10);
+  });
+
+  it("ignores a resting frame that is wider than the pull-back anyway", () => {
+    const medium: Bounds = { x0: 400, y0: 150, x1: 420, y1: 170 };
+    const target = fit(medium);
+    expect(widenForContext(target, medium, MIN_ZOOM)).toEqual(
+      widenForContext(target, medium),
+    );
+  });
+
+  it("shows the pull-back factor more world than the tight fit", () => {
+    // The point of the item: a small country is no longer alone in frame.
+    const medium: Bounds = { x0: 400, y0: 150, x1: 420, y1: 170 };
+    const target = fit(medium);
+    const widened = widenForContext(target, medium);
+    expect(W / widened.k).toBeCloseTo((W / target.k) * PULLBACK, 8);
   });
 });

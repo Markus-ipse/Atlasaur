@@ -22,6 +22,7 @@ import {
   MIN_ZOOM,
   MAX_ZOOM,
   computeRevealTarget,
+  widenForContext,
   tryFitUnion,
   type Bounds,
   type Target,
@@ -486,6 +487,15 @@ export function WorldMap({
   // preserveAspectRatio="xMidYMid meet" uses the smaller of W/H ratios.
   const [svgSize, setSvgSize] = useState({ width: 0, height: 0 });
 
+  // Projection units to CSS pixels at k=1. `min` rather than width alone
+  // because preserveAspectRatio="xMidYMid meet" letterboxes on containers
+  // wider than the viewBox's 2:1 ratio, where height is the constraint. 0
+  // until the resize observer reports; every consumer guards on that.
+  const effectiveScale =
+    svgSize.width > 0 && svgSize.height > 0
+      ? Math.min(svgSize.width / W, svgSize.height / H)
+      : 0;
+
   useEffect(() => {
     if (!svgRef.current) return;
     const svg = select(svgRef.current);
@@ -570,10 +580,24 @@ export function WorldMap({
     // countries fit together at a meaningful zoom (tryFitUnion returns null
     // when the union would need k < MIN_ZOOM). The final frame is always the
     // correct country + its neighbors.
-    const stage1Fit = wrongLabel ? tryFitUnion([label, wrongLabel]) : null;
-    const finalTarget = toTransform(
+    const stage1Candidate = wrongLabel ? tryFitUnion([label, wrongLabel]) : null;
+    // R2.3: pull the frame back from the tight fit so the answer is shown in
+    // a world rather than alone, which is also what keeps a neighbour's label
+    // inside the frame.
+    const finalFit = widenForContext(
       computeRevealTarget(label, null, neighborBounds),
+      label,
+      restingTransformRef.current.k,
     );
+    const finalTarget = toTransform(finalFit);
+    // Stage 1 is the establishing shot: both countries in view, then settle on
+    // the answer. It only earns its place when it is *wider* than where we
+    // settle (a lower k). Since R2.3 pulls the final frame back for context, a
+    // stage-1 frame of two adjacent small countries can now be closer in than
+    // stage 2, which would play the choreography backwards — zooming in and
+    // then straight back out. Skip it in that case.
+    const stage1Fit =
+      stage1Candidate && stage1Candidate.k < finalFit.k ? stage1Candidate : null;
     // Unnamed transitions on purpose: d3-zoom's gesture handlers call the
     // default-name interrupt(this), so a user pan/pinch mid-reveal cancels
     // the animation and takes over. They also supersede each other, so the
@@ -608,13 +632,6 @@ export function WorldMap({
     [selectedContinents, isInScope, isoFromNumeric],
   );
 
-  // Effective projection-to-pixel scale — see the note at `effectiveScale`
-  // below; computed here too because the resting frame depends on it.
-  const scaleNow =
-    svgSize.width > 0 && svgSize.height > 0
-      ? Math.min(svgSize.width / W, svgSize.height / H)
-      : 0;
-
   // Resting frame: the continent filter's frame, or, on a phone-width map
   // when the current card would be too small to tap there, the frame of the
   // card's continent — or its UN subregion when even the continent frame
@@ -624,20 +641,20 @@ export function WorldMap({
   const restingTransform = useMemo<ZoomTransform>(() => {
     // Click mode only: in shape-to-name nothing is tapped, and a phone's
     // keyboard resizing the map would otherwise re-frame while typing.
-    if (mode !== "name-to-click" || !targetIso3 || scaleNow === 0) {
+    if (mode !== "name-to-click" || !targetIso3 || effectiveScale === 0) {
       return baseTransform;
     }
     const numeric = numericFromIso3(targetIso3);
     const label = numeric ? LABELS_BY_NUMERIC.get(numeric) : undefined;
     const region = numeric ? REGION_BY_NUMERIC.get(numeric) : undefined;
     if (!label || !region) return baseTransform;
-    const sizeAtBase = screenSizePx(label, scaleNow, baseTransform.k);
-    if (!shouldFrameContinent(sizeAtBase, scaleNow * W)) return baseTransform;
+    const sizeAtBase = screenSizePx(label, effectiveScale, baseTransform.k);
+    if (!shouldFrameContinent(sizeAtBase, effectiveScale * W)) return baseTransform;
     let frame = regionFrame(
       `c:${region.continent}`,
       NUMERICS_BY_CONTINENT.get(region.continent),
     );
-    if (screenSizePx(label, scaleNow, frame.k) < TAP_TARGET_PX) {
+    if (screenSizePx(label, effectiveScale, frame.k) < TAP_TARGET_PX) {
       frame = regionFrame(
         `s:${region.subregion}`,
         NUMERICS_BY_SUBREGION.get(region.subregion),
@@ -646,7 +663,14 @@ export function WorldMap({
     // Only when it earns it: a filter already about as tight stays, and a
     // frame that barely zooms is noise rather than help.
     return worthFraming(frame.k, baseTransform.k) ? frame : baseTransform;
-  }, [mode, baseTransform, targetIso3, scaleNow, numericFromIso3]);
+  }, [mode, baseTransform, targetIso3, effectiveScale, numericFromIso3]);
+
+  // Read by the reveal effect, which must not re-run when the resting frame
+  // changes — that would restart the two-stage zoom mid-reveal. Written during
+  // render, so the effect (which runs after commit) always sees the current
+  // one.
+  const restingTransformRef = useRef(restingTransform);
+  restingTransformRef.current = restingTransform;
 
   const hasFeedback = feedback !== null;
   // Track the kind that was showing so the settle-back duration can depend on
@@ -733,16 +757,9 @@ export function WorldMap({
     onCountryClick(iso3);
   };
 
-  // The effective projection-to-pixel scale matches preserveAspectRatio
-  // ="xMidYMid meet": the smaller of the two axis ratios. Using width
-  // alone would be wrong on landscape containers wider than the
-  // viewBox's 2:1 ratio (where height is the constraint and the map is
-  // letterboxed horizontally). Falls back to LABEL_EM until the resize
-  // observer reports dimensions.
-  const effectiveScale =
-    svgSize.width > 0 && svgSize.height > 0
-      ? Math.min(svgSize.width / W, svgSize.height / H)
-      : 0;
+  // Label em in projection units, scaled from the target on-screen size so
+  // labels stay that size across viewports. Falls back to LABEL_EM until the
+  // resize observer reports dimensions.
   const labelEm = effectiveScale > 0 ? TARGET_LABEL_PX / effectiveScale : LABEL_EM;
 
   const labelFontSize = fontSizeFor(transform.k, labelEm);

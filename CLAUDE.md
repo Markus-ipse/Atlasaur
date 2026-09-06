@@ -105,6 +105,53 @@ The Equal-Earth projection, all path `d` strings, the label list, and `FEATURE_B
 
 `fillFor` is the single decision point for country color (inert / **mastery paint** / highlighted / correct / wrong / skipped / neighbor / spotlight). Add new visual states there, not in the JSX. Precedence inside a feedback reveal: correct → wrong-clicked → neighbor → highlight → spotlight → inert → mastery paint. A neighbor that's also the wrong-clicked country stays red; the neighbor tone is the lowest-priority *reveal* overlay so it never competes with primary signals. Below every reveal state sit the spotlight wash and, at the very bottom, the ambient mastery paint.
 
+### Keeping the world in the reveal (R2.3)
+
+`computeRevealTarget` picks the tightest frame that fits the answer and its
+neighbours; `widenForContext` then pulls that frame back by
+`REVEAL_CONTEXT_PULLBACK`, so it covers 1.8x the width and 3.24x the area it
+otherwise would. Only `k` moves — the centre is left exactly where
+`computeRevealTarget` put it (the union of the answer and whichever neighbours
+survived its filter), so widening can only add to what was visible, never take
+away. The result is capped by the frame it was given, so it can never zoom in.
+
+Three floors stop it going too far, and all three bind in practice:
+
+- **The resting frame.** Pulling back past the frame the map sits at when
+  nothing is revealed would zoom out of the learner's own continent filter and
+  straight back into it. Passed in from `WorldMap` through a ref, so a change
+  of resting frame cannot restart a reveal mid-animation.
+- **`MIN_ZOOM`**, the whole map. Fourteen of the largest countries fit close
+  enough to it that this is what stops them; for those the reveal is close to a
+  no-op, which is the right answer — there is no more world to show.
+- **`minLegibleK`**, the answer's longer axis covering at least
+  `REVEAL_ANSWER_MIN_H_RATIO` of the map's short axis. Expressed against the
+  projection rather than the screen, so the reveal frames identically at every
+  viewport size. Whether it binds depends on the *fitted* frame, not the
+  country's own size: a small country with large neighbours is already framed
+  wide, so the pull-back would take it under. Ecuador, Uganda and Kosovo hit it
+  today.
+
+**Not the answer's UN subregion**, which reads like the better rule and is not.
+Subregions run from the Baltics to the whole of South America, so capping at
+"the subregion" turns a Guyana reveal into the world view while barely moving a
+Luxembourg one. A uniform pull-back behaves the same way everywhere.
+
+Because the final frame is now wider, the wrong-click choreography checks
+itself. Stage 1 is the establishing shot and must be *wider* than where stage 2
+settles (a lower `k`); a stage-1 frame of two adjacent small countries can now
+be tighter than the widened final frame, which would zoom in and then straight
+back out, so stage 1 is skipped in that case.
+
+This is the survey's last open bug, a neighbour label landing off screen on a
+tight reveal. It is **reduced, not closed**: countries with at least one
+neighbour label anchor outside the final frame go from 36 to 26. The remainder
+are answers next to a giant neighbour (Denmark and Germany, the Baltics and
+Russia), where `computeRevealTarget` drops that neighbour from the frame on
+purpose while `revealIso3s` still labels it. Framing it would collapse the
+answer to a speck, so closing the gap means changing what gets labelled, not
+what gets framed.
+
 The reveal-zoom effect auto-frames the correct country when feedback appears (kind ≠ "correct") and zooms back out when feedback clears. `computeRevealTarget` in `src/components/revealZoom.ts` takes the answer country, optionally a wrong-clicked secondary, and optionally the answer country's neighbor bounds; it cascades the union (full → drop secondary → drop neighbors → bare primary), keeping `naturalK ≥ MIN_ZOOM` at each tier. Before the cascade, a giant neighbor is filtered out (when pairing it with the answer alone would drop the fit below `REVEAL_NEIGHBOR_K_FLOOR ×` the answer-alone fit — e.g. Russia next to Estonia) so the answer country stays visible; the dropped neighbor is still highlighted and labeled, just not framed. Both transitions honor `prefers-reduced-motion`.
 
 ### Ambient mastery paint (R2.1)
