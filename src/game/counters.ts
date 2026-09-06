@@ -10,7 +10,7 @@
 // a second copy that could disagree.
 
 import type { QuestionMode } from "../types";
-import { dayKey, daysBetween, type StreakStore } from "./streak";
+import { dayKey, daysBetween, MAX_DAYS, type StreakStore } from "./streak";
 
 const COUNTERS_STORAGE_KEY = "atlasaur:counters:v1";
 const STORE_VERSION = 1;
@@ -38,6 +38,12 @@ export type Counters = {
   // figure would be a different session wearing the first one's label.
   firstSessionAnswers: number;
   firstSessionEnded: boolean;
+  // Loads of the app, counted before anything else happens. Its only job is to
+  // recognise a second visit: a learner who opens Atlasaur, answers nothing and
+  // closes the tab leaves no other trace, and their first session — a bounce at
+  // zero cards, the most important reading this metric has — would otherwise be
+  // handed to whatever they do on the next visit.
+  sessionsStarted: number;
   // Rounds begun against rounds carried to the interstitial. Tells us whether
   // twelve is the right size.
   roundsStarted: number;
@@ -56,6 +62,7 @@ export function emptyCounters(): Counters {
     version: STORE_VERSION,
     firstSessionAnswers: 0,
     firstSessionEnded: false,
+    sessionsStarted: 0,
     roundsStarted: 0,
     roundsFinished: 0,
     answersByQuestionMode: { "name-to-click": 0, "shape-to-name": 0 },
@@ -91,6 +98,7 @@ export function loadCounters(): Counters {
       version: STORE_VERSION,
       firstSessionAnswers: num(parsed.firstSessionAnswers),
       firstSessionEnded: parsed.firstSessionEnded === true,
+      sessionsStarted: num(parsed.sessionsStarted),
       roundsStarted: num(parsed.roundsStarted),
       roundsFinished: num(parsed.roundsFinished),
       answersByQuestionMode: {
@@ -181,12 +189,14 @@ export function recordRoundFinished(counters: Counters): Counters {
 // session cannot be measured, so it is frozen at zero and the Data view omits
 // the row rather than labelling a later session as the first.
 export function startSession(counters: Counters, hasHistory: boolean): Counters {
-  if (counters.firstSessionEnded) return counters;
-  if (counters.firstSessionAnswers > 0) {
-    return { ...counters, firstSessionEnded: true };
+  const next = { ...counters, sessionsStarted: counters.sessionsStarted + 1 };
+  if (counters.firstSessionEnded) return next;
+  // A session already begun on an earlier load is over, however it ended —
+  // including with no answers at all, which is the reading that matters most.
+  if (counters.sessionsStarted > 0 || hasHistory) {
+    return { ...next, firstSessionEnded: true };
   }
-  if (hasHistory) return { ...counters, firstSessionEnded: true };
-  return counters;
+  return next;
 }
 
 export function recordSessionEnded(counters: Counters): Counters {
@@ -250,22 +260,29 @@ export function knownGain(
 }
 
 export type ReturnInfo = {
-  // Distinct days with at least one finished round.
+  // Distinct days with at least one finished round, within the history the
+  // streak store still holds.
   daysPlayed: number;
   // The longest run of days between two played days, or null with fewer than
   // two of them. This is the number that says whether people come back.
   longestGap: number | null;
+  // The streak store keeps at most MAX_DAYS days, so a profile past that has
+  // had its oldest days dropped: `daysPlayed` is then a floor rather than a
+  // total, and `longestGap` may have lost an endpoint. The Data view says so
+  // instead of quietly understating.
+  capped: boolean;
 };
 
 export function returnInfo(streak: StreakStore): ReturnInfo {
   const days = [...streak.days].sort();
+  const capped = days.length >= MAX_DAYS;
   if (days.length < 2) {
-    return { daysPlayed: days.length, longestGap: null };
+    return { daysPlayed: days.length, longestGap: null, capped };
   }
   let longest = 0;
   for (let i = 1; i < days.length; i++) {
     const gap = daysBetween(days[i - 1], days[i]) - 1;
     if (gap > longest) longest = gap;
   }
-  return { daysPlayed: days.length, longestGap: longest };
+  return { daysPlayed: days.length, longestGap: longest, capped };
 }

@@ -9,7 +9,9 @@
 const STREAK_STORAGE_KEY = "atlasaur:streak:v1";
 const STORE_VERSION = 1;
 // Enough history to compute any plausible streak; older days are dropped.
-const MAX_DAYS = 400;
+// Exported so a caller reporting a lifetime figure can tell when the history
+// it is reading has been trimmed and say so rather than understate.
+export const MAX_DAYS = 400;
 // A missed day is bridged when no other bridge was used in the 7 days
 // before it (looking backward from the more recent gap).
 const FORGIVE_WINDOW_DAYS = 7;

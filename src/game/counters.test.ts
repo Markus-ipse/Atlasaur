@@ -14,7 +14,7 @@ import {
   startSession,
   type Counters,
 } from "./counters";
-import type { StreakStore } from "./streak";
+import { MAX_DAYS, type StreakStore } from "./streak";
 
 const DAY1 = new Date("2026-05-16T12:00:00");
 const DAY2 = new Date("2026-05-17T12:00:00");
@@ -47,19 +47,37 @@ describe("recordAnswer", () => {
 });
 
 describe("startSession", () => {
-  it("freezes the first session when answers are already on the store", () => {
-    // Closing the tab ends a session too — the commonest case for exactly the
-    // bouncing learner this figure is meant to measure.
-    const carried = recordAnswer(recordAnswer(emptyCounters(), "name-to-click"), "name-to-click");
-    const next = startSession(carried, false);
-    expect(next.firstSessionEnded).toBe(true);
-    expect(next.firstSessionAnswers).toBe(2);
-    expect(recordAnswer(next, "name-to-click").firstSessionAnswers).toBe(2);
+  it("counts the load", () => {
+    expect(startSession(emptyCounters(), false).sessionsStarted).toBe(1);
+    const second = startSession(startSession(emptyCounters(), false), false);
+    expect(second.sessionsStarted).toBe(2);
   });
 
-  it("leaves a fresh profile's first session open", () => {
-    const c = emptyCounters();
-    expect(startSession(c, false)).toBe(c);
+  it("leaves a genuinely first session open", () => {
+    const first = startSession(emptyCounters(), false);
+    expect(first.firstSessionEnded).toBe(false);
+  });
+
+  it("freezes the first session on a second load", () => {
+    // Closing the tab ends a session too — the commonest ending for exactly
+    // the bouncing learner this figure is meant to measure.
+    let c = startSession(emptyCounters(), false);
+    c = recordAnswer(recordAnswer(c, "name-to-click"), "name-to-click");
+    const nextVisit = startSession(c, false);
+    expect(nextVisit.firstSessionEnded).toBe(true);
+    expect(nextVisit.firstSessionAnswers).toBe(2);
+    expect(recordAnswer(nextVisit, "name-to-click").firstSessionAnswers).toBe(2);
+  });
+
+  it("preserves a first session that answered nothing at all", () => {
+    // The zero-card bounce is the most important reading this metric has, and
+    // it leaves no other trace: no answers, no SRS records, no streak day.
+    const bounced = startSession(emptyCounters(), false);
+    const nextVisit = startSession(bounced, false);
+    expect(nextVisit.firstSessionEnded).toBe(true);
+    expect(nextVisit.firstSessionAnswers).toBe(0);
+    // ...and the second visit's answers do not get the first one's label.
+    expect(recordAnswer(nextVisit, "name-to-click").firstSessionAnswers).toBe(0);
   });
 
   it("freezes at zero for a profile that predates the counters key", () => {
@@ -70,9 +88,11 @@ describe("startSession", () => {
     expect(next.firstSessionAnswers).toBe(0);
   });
 
-  it("does not disturb a session already frozen", () => {
+  it("does not reopen a session already frozen", () => {
     const frozen = recordSessionEnded(recordAnswer(emptyCounters(), "name-to-click"));
-    expect(startSession(frozen, true)).toBe(frozen);
+    const next = startSession(frozen, true);
+    expect(next.firstSessionEnded).toBe(true);
+    expect(next.firstSessionAnswers).toBe(1);
   });
 });
 
@@ -158,10 +178,15 @@ describe("returnInfo", () => {
   }
 
   it("reports no gap with fewer than two days played", () => {
-    expect(returnInfo(streak([]))).toEqual({ daysPlayed: 0, longestGap: null });
+    expect(returnInfo(streak([]))).toEqual({
+      daysPlayed: 0,
+      longestGap: null,
+      capped: false,
+    });
     expect(returnInfo(streak(["2026-05-16"]))).toEqual({
       daysPlayed: 1,
       longestGap: null,
+      capped: false,
     });
   });
 
@@ -169,6 +194,7 @@ describe("returnInfo", () => {
     expect(returnInfo(streak(["2026-05-16", "2026-05-17"]))).toEqual({
       daysPlayed: 2,
       longestGap: 0,
+      capped: false,
     });
   });
 
@@ -177,11 +203,23 @@ describe("returnInfo", () => {
     const info = returnInfo(
       streak(["2026-05-16", "2026-05-17", "2026-05-24", "2026-05-25"]),
     );
-    expect(info).toEqual({ daysPlayed: 4, longestGap: 6 });
+    expect(info).toEqual({ daysPlayed: 4, longestGap: 6, capped: false });
   });
 
   it("does not depend on the stored order", () => {
     expect(returnInfo(streak(["2026-05-24", "2026-05-16"])).longestGap).toBe(7);
+  });
+
+  it("flags a history the streak store has started trimming", () => {
+    // At the cap the oldest days are gone, so the count is a floor and the
+    // longest gap may have lost an endpoint. The Data view says so instead of
+    // reporting either one as if it were the lifetime figure.
+    const many = Array.from({ length: MAX_DAYS }, (_, i) => {
+      const d = new Date(Date.UTC(2020, 0, 1 + i));
+      return d.toISOString().slice(0, 10);
+    });
+    expect(returnInfo(streak(many)).capped).toBe(true);
+    expect(returnInfo(streak(many.slice(1))).capped).toBe(false);
   });
 });
 
@@ -297,6 +335,7 @@ describe("what the counters do not do", () => {
       "roundsByPractice",
       "roundsFinished",
       "roundsStarted",
+      "sessionsStarted",
       "version",
     ]);
     expect(Object.keys(c.answersByQuestionMode).sort()).toEqual([

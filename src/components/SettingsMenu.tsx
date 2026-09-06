@@ -384,7 +384,7 @@ function MeasuredRows({
   counters: Counters;
   returns: ReturnInfo;
 }) {
-  const { daysPlayed, longestGap } = returns;
+  const { daysPlayed, longestGap, capped } = returns;
   const gained = knownGain(counters, 7, new Date());
   const { roundsStarted, roundsFinished } = counters;
   const clicks = counters.answersByQuestionMode["name-to-click"];
@@ -393,9 +393,13 @@ function MeasuredRows({
 
   const rows: [string, string][] = [];
   if (daysPlayed > 0) {
-    rows.push(["Days played", String(daysPlayed)]);
+    // "400+" once the streak store has started dropping its oldest days: the
+    // figure is a floor from then on, and saying 400 would understate.
+    rows.push(["Days played", capped ? `${daysPlayed}+` : String(daysPlayed)]);
   }
-  if (longestGap !== null) {
+  // A trimmed history may have lost one end of the longest gap, so the figure
+  // is no longer trustworthy and is dropped rather than shown too small.
+  if (longestGap !== null && !capped) {
     rows.push([
       "Longest gap",
       longestGap === 0 ? "None" : `${longestGap} ${longestGap === 1 ? "day" : "days"}`,

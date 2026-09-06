@@ -294,19 +294,31 @@ What is stored: `firstSessionAnswers`, `roundsStarted` / `roundsFinished`,
 `answersByQuestionMode`, `roundsByPractice`, and `knownByDay`.
 
 **The first session ends when the tab closes, not only at a summary.** That is
-the commoner ending for exactly the bouncing learner the figure measures, so
-`startSession` runs in the state initialiser and freezes the count on any load
-that finds answers already recorded; `recordSessionEnded` covers the case where
-the learner reaches a summary within the first sitting. A profile that had SRS
-records before this key existed is frozen at zero instead, and the Data view
-omits the row, because a backfilled figure would be a later session wearing the
-first one's label.
+the commoner ending for exactly the bouncing learner the figure measures.
+`startSession` runs in the state initialiser, increments `sessionsStarted`, and
+freezes the count whenever a session has already been begun on an earlier load;
+`recordSessionEnded` covers the case where the learner reaches a summary within
+the first sitting. `sessionsStarted` exists for one reason: a learner who opens
+Atlasaur, answers nothing and closes the tab leaves no other trace at all — no
+answers, no SRS record, no streak day — and that zero-card bounce is the most
+important reading this metric has. A profile that had SRS records before this
+key existed is frozen at zero instead, and the Data view omits the row, because
+a backfilled figure would be a later session wearing the first one's label.
+
+`cardsAnswered` counts every answer whose grade reaches the store, not only a
+dismissed card: `endSession` and `applyScope` can close a card's feedback
+without going through `withRoundAdvance`, and those answers still happened.
+`resetSrs` restarts the round (`FRESH_ROUND`, `cardsAnswered: 0`) — a round left
+standing would carry on to a finish the emptied counters never saw begin, and
+the Data view would read "2 of 1".
 
 `roundsFinished` counts rounds that filled to `ROUND_SIZE`, which includes one
-whose twelfth card also ended the session so no interstitial appeared. Answers
-committed without a card advance — `applyScope` and `endSession` flushing an
-in-flight `autoGradePending` — move the SRS store but not `cardsAnswered`, so
-the "Answers" row and the "Click / type" mix can differ by a card or two.
+whose twelfth card also ended the session so no interstitial appeared.
+
+Days played and the longest gap are read from the streak store, which keeps at
+most `MAX_DAYS`. Past that its oldest days are dropped, so `returnInfo` returns
+`capped` and the Data view shows "400+" and drops the gap row rather than
+reporting a floor as if it were a lifetime total.
 
 `loadCounters` validates `knownByDay` days against the same `YYYY-MM-DD` shape
 the streak store uses, then orders and de-duplicates them. Without that a

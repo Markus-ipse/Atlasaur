@@ -77,7 +77,7 @@ function makeGame(overrides: {
     },
     unlearnedCount: 0,
     counters: emptyCounters(),
-    returns: { daysPlayed: 0, longestGap: null },
+    returns: { daysPlayed: 0, longestGap: null, capped: false },
     totalInScope: 0,
     completedInScopeCount: 0,
     dueCount: 0,

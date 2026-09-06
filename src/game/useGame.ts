@@ -564,6 +564,11 @@ function applyScope(
     retryQueue,
     studyResurfaceQueue,
     feedback: null,
+    // An answer whose feedback this closes still reached the store, so it
+    // counts — the same reasoning as endSession above.
+    cardsAnswered: state.feedback
+      ? state.cardsAnswered + 1
+      : state.cardsAnswered,
     // Wipe in-flight Study-mode grade state: feedback is gone and `current`
     // may have changed, so a leftover autoGradePending would target a
     // country the user can no longer see. The ceremony goes with it.
@@ -903,6 +908,10 @@ export function reducer(state: State, action: Action): State {
           milestone: null,
           sessionDone: true,
           feedback: null,
+          // The card was answered — the learner saw the feedback and then left.
+          // It never reaches withRoundAdvance, so count it here or the mode mix
+          // and the first-session depth quietly lose it.
+          cardsAnswered: state.cardsAnswered + 1,
           roundDone: false,
         };
       }
@@ -911,6 +920,10 @@ export function reducer(state: State, action: Action): State {
         sessionDone: true,
         feedback: null,
         milestone: null,
+        // Same in Quiz, where the grade was written through at answer time.
+        cardsAnswered: state.feedback
+          ? state.cardsAnswered + 1
+          : state.cardsAnswered,
         roundDone: false,
       };
     }
@@ -943,6 +956,11 @@ export function reducer(state: State, action: Action): State {
         autoGradePending: null,
         milestone: null,
         feedback: null,
+        // The round in progress goes with the progress. Left standing, its
+        // remaining cards would carry it to a finish that the emptied counters
+        // never saw begin, and the Data view would read "2 of 1".
+        ...FRESH_ROUND,
+        cardsAnswered: 0,
       };
     }
     case "closeSummary": {
@@ -1157,9 +1175,11 @@ export function useGame(): GameApi {
     saveStore(state.srsStore);
   }, [state.srsStore]);
 
-  // One card answered. `cardsAnswered` only ever grows by one per dismissed
-  // card within a mount; a rebuild resets it to 0, which reads as a shrink and
-  // is skipped, so a mode flip cannot double count.
+  // One card answered — meaning one whose grade reached the store, which is
+  // usually a dismissed card but also covers an answer whose feedback is
+  // closed by "Done" or by a scope change. `cardsAnswered` only ever grows by
+  // one at a time within a mount; a rebuild resets it to 0, which reads as a
+  // shrink and is skipped, so a mode flip cannot double count.
   const lastCardsAnsweredRef = useRef(state.cardsAnswered);
   useEffect(() => {
     const prev = lastCardsAnsweredRef.current;
@@ -1346,7 +1366,7 @@ export function useGame(): GameApi {
       // firstSessionAnswers against a session the learner no longer has.
       dispatch({ type: "resetSrs" });
       setStreakStore(emptyStreak());
-      setCounters(emptyCounters());
+      setCounters(startSession(emptyCounters(), false));
       saveSeenWelcome(false);
     },
     closeSummary: () => dispatch({ type: "closeSummary", now: new Date() }),

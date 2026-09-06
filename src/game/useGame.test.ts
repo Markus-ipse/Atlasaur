@@ -1344,3 +1344,63 @@ describe("reducer — ceremony (R2.2)", () => {
     expect(s1.streak).toBe(0);
   });
 });
+
+describe("reducer — counters (R2.4)", () => {
+  const T0 = new Date("2026-05-16T12:00:00Z");
+
+  it("counts a dismissed card", () => {
+    const s0 = withCurrent(initialState({ practiceMode: "study" }), "FRA");
+    const answered = reducer(s0, { type: "answer", iso3: "FRA", now: T0 });
+    expect(answered.cardsAnswered).toBe(0); // not yet — the card is still up
+    const dismissed = reducer(answered, { type: "dismiss", now: T0 });
+    expect(dismissed.cardsAnswered).toBe(1);
+  });
+
+  it("counts an answer whose feedback Done closes, in Study", () => {
+    // The grade still reaches the store, so the mode mix and the first-session
+    // depth must not lose it.
+    const s0 = withCurrent(initialState({ practiceMode: "study" }), "FRA");
+    const answered = reducer(s0, { type: "answer", iso3: "FRA", now: T0 });
+    expect(answered.autoGradePending).toBe("Good");
+    const ended = reducer(answered, { type: "endSession" });
+    expect(ended.cardsAnswered).toBe(1);
+  });
+
+  it("counts an answer whose feedback Done closes, in a test round", () => {
+    const s0 = withCurrent(initialState(), "FRA");
+    const answered = reducer(s0, { type: "answer", iso3: "FRA", now: T0 });
+    const ended = reducer(answered, { type: "endSession" });
+    expect(ended.cardsAnswered).toBe(1);
+  });
+
+  it("counts nothing when Done is pressed with no feedback showing", () => {
+    const s0 = withCurrent(initialState(), "FRA");
+    expect(reducer(s0, { type: "endSession" }).cardsAnswered).toBe(0);
+  });
+
+  it("counts an answer whose feedback a scope change closes", () => {
+    const s0 = withCurrent(initialState({ practiceMode: "study" }), "FRA");
+    const answered = reducer(s0, { type: "answer", iso3: "FRA", now: T0 });
+    const scoped = reducer(answered, {
+      type: "setContinents",
+      continents: ["Africa"],
+      now: T0,
+    });
+    expect(scoped.cardsAnswered).toBe(1);
+  });
+
+  it("restarts the round when progress is erased", () => {
+    // Otherwise the round in progress carries on to a finish the emptied
+    // counters never saw begin, and the Data view reads "2 of 1".
+    const s0 = {
+      ...withCurrent(initialState({ practiceMode: "study" }), "FRA"),
+      roundCards: 7,
+      roundRight: 5,
+      cardsAnswered: 30,
+    };
+    const erased = reducer(s0, { type: "resetSrs" });
+    expect(erased.roundCards).toBe(0);
+    expect(erased.roundRight).toBe(0);
+    expect(erased.cardsAnswered).toBe(0);
+  });
+});
