@@ -278,6 +278,63 @@ The data flows through `state.current` — no new `Feedback` field, no parallel 
 
 Neighbors are added to `revealIso3s` so their **labels** render too (alongside the answer-country label). Reveal labels bypass scope, fit-check, and obstacle rejection, so an out-of-scope neighbor (e.g. Israel when the user has selected Africa only and missed Egypt) still gets named — the elaborative cue is meant to teach geographic context regardless of the active filter.
 
+### Local counters (R2.4)
+
+`src/game/counters.ts` owns `atlasaur:counters:v1`: the survey's "What to
+measure" list as a handful of integers plus one figure per day the known count
+moved. Local only. Nothing is sent anywhere, and if aggregate numbers are ever
+wanted that has to be an explicit opt-in sending only these.
+
+**Return is not stored here.** The cross-day streak store already records the
+days with a finished round, so `returnInfo(streakStore)` derives days played
+and the longest gap from it rather than keeping a second copy that could
+disagree.
+
+What is stored: `firstSessionAnswers`, `roundsStarted` / `roundsFinished`,
+`answersByQuestionMode`, `roundsByPractice`, and `knownByDay`.
+
+**The first session ends when the tab closes, not only at a summary.** That is
+the commoner ending for exactly the bouncing learner the figure measures, so
+`startSession` runs in the state initialiser and freezes the count on any load
+that finds answers already recorded; `recordSessionEnded` covers the case where
+the learner reaches a summary within the first sitting. A profile that had SRS
+records before this key existed is frozen at zero instead, and the Data view
+omits the row, because a backfilled figure would be a later session wearing the
+first one's label.
+
+`roundsFinished` counts rounds that filled to `ROUND_SIZE`, which includes one
+whose twelfth card also ended the session so no interstitial appeared. Answers
+committed without a card advance — `applyScope` and `endSession` flushing an
+in-flight `autoGradePending` — move the SRS store but not `cardsAnswered`, so
+the "Answers" row and the "Click / type" mix can differ by a card or two.
+
+`loadCounters` validates `knownByDay` days against the same `YYYY-MM-DD` shape
+the streak store uses, then orders and de-duplicates them. Without that a
+hand-edited or clock-skewed store could feed `knownGain` a `NaN` day and make
+the "Known this week" row silently vanish.
+
+Recording lives in `useGame`'s effects, not the reducer — the same division the
+streak uses, so the reducer stays pure and every persisted side effect sits
+together. The signal for "one card answered" is `state.cardsAnswered`, a
+monotonic count incremented once per dismissed card in `withRoundAdvance`.
+`total` is no substitute: it only moves in Quiz's normal phase. A rebuild
+resets `cardsAnswered` to 0, which the effect reads as a shrink and skips, so a
+mode flip cannot double count. The effects read `mode` and `practiceMode`
+through refs, because they must fire on a card or round count and not re-run
+when only the mode changes.
+
+`knownByDay` counts across the **whole store**, not the active scope, so
+changing the continent filter never looks like progress or a loss. It uses
+`masteryTierOf`, so it cannot disagree with the "Known" stat or the map's
+pigment.
+
+"Erase all progress" clears the counters along with the SRS store, the streak
+and the welcome flag — otherwise `firstSessionAnswers` would stay frozen
+against a session the learner no longer has.
+
+The Data view in `SettingsMenu` omits a row rather than showing zero when there
+is nothing to say yet, so a first-day profile does not read as a report card.
+
 ### Scope: continent filter × territories
 
 `state.selectedContinents` is persisted in localStorage (`atlasaur:selectedContinents`) and `state.includeTerritories` in `atlasaur:includeTerritories` (default `false`). Loaders fall back to `ALL_CONTINENTS` / `false` on parse errors or unavailable storage (private mode, SSR — wrapped in try/catch). Reveal labels are always on (the old `showLabelsOnReveal` toggle and its storage key were removed in R1.2 — labels on a reveal are the teaching).

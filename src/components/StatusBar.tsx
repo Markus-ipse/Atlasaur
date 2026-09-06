@@ -103,6 +103,8 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
         seenCount={seen}
         totalReviews={reviews}
         lifetimeAccuracy={accuracy}
+        counters={game.counters}
+        returns={game.returns}
         onResetSrs={game.resetSrs}
         themePref={themePref}
         onSetThemePref={onSetThemePref}

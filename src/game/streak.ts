@@ -79,7 +79,9 @@ function previousDay(key: string): string {
   return new Date(t).toISOString().slice(0, 10);
 }
 
-function daysBetween(earlier: string, later: string): number {
+// Whole calendar days from `earlier` to `later`. Computed in UTC so a DST
+// boundary never adds or drops one.
+export function daysBetween(earlier: string, later: string): number {
   const [y1, m1, d1] = earlier.split("-").map(Number);
   const [y2, m2, d2] = later.split("-").map(Number);
   return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86_400_000);

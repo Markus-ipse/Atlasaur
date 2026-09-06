@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import countriesData from "../data/countries.json";
 import { normalize } from "../data/normalize";
 import { pickRandom, pickNext, pickNextStudy } from "./pickCountry";
@@ -9,12 +9,27 @@ import {
   loadSeenIntro,
   loadSeenWelcome,
   loadStore,
+  masteryTierOf,
   newAvailableCount as srsNewAvailableCount,
   saveSeenIntro,
   saveSeenWelcome,
   saveStore,
 } from "./srs";
 import { milestoneFor, streakNote, type Milestone } from "./milestones";
+import {
+  emptyCounters,
+  loadCounters,
+  recordAnswer,
+  recordKnown,
+  recordRoundFinished,
+  recordRoundStarted,
+  recordSessionEnded,
+  returnInfo,
+  saveCounters,
+  startSession,
+  type Counters,
+  type ReturnInfo,
+} from "./counters";
 import {
   emptyStreak,
   loadStreak,
@@ -223,6 +238,11 @@ export type State = {
   roundDone: boolean;
   // Rounds finished this session. The unit R1.3's cross-day streak counts.
   roundsCompleted: number;
+  // Every card whose feedback has been dismissed, across the profile's life.
+  // Monotonic and never reset by a round, a session or a mode flip — the
+  // counters (R2.4) read its growth as "one more card answered". `total` is
+  // no substitute: it only moves in Quiz's normal phase.
+  cardsAnswered: number;
 };
 
 export type Action =
@@ -318,6 +338,10 @@ export function initialState(
     transientMessage: null,
     ...FRESH_ROUND,
     roundsCompleted: 0,
+    // Not carried across a rebuild: the persisted counters hold the lifetime
+    // total, and the hook records growth, so restarting from 0 is a no-op
+    // rather than a double count.
+    cardsAnswered: 0,
   };
 }
 
@@ -343,6 +367,7 @@ function withRoundAdvance(
   return {
     ...state,
     roundCards,
+    cardsAnswered: state.cardsAnswered + 1,
     roundRight: state.roundRight + (kind === "correct" ? 1 : 0),
     roundNew: state.roundNew + (isNew ? 1 : 0),
     roundDone: filled && !state.sessionDone,
@@ -992,6 +1017,12 @@ export function reducer(state: State, action: Action): State {
 export type GameApi = {
   state: State;
   unlearnedCount: number;
+  // Local counters (R2.4), for the Data view in settings. Read-only here; the
+  // hook owns every write.
+  counters: Counters;
+  // Days played and the longest gap between them, derived from the streak
+  // store rather than duplicated into the counters key.
+  returns: ReturnInfo;
   totalInScope: number;
   completedInScopeCount: number;
   dueCount: number;
@@ -1055,6 +1086,25 @@ export function useGame(): GameApi {
   );
   const [seenSrsIntro, setSeenSrsIntro] = useState(loadSeenIntro);
   const [streakStore, setStreakStore] = useState(loadStreak);
+  // Local counters (R2.4). Recorded from state transitions here rather than in
+  // the reducer, the same way the streak is, so the reducer stays pure and
+  // every persisted side effect lives in one place.
+  // `startSession` runs in the initialiser, before anything can be recorded:
+  // answers already on the store belong to an earlier sitting, and a profile
+  // that had SRS records before this key existed has no measurable first
+  // session at all.
+  const [counters, setCounters] = useState(() =>
+    startSession(
+      loadCounters(),
+      Object.keys(loadStore().records).length > 0,
+    ),
+  );
+  // Read by the counter effects below, which fire on a card or round count and
+  // must not re-run when only the mode changes.
+  const modeRef = useRef(state.mode);
+  modeRef.current = state.mode;
+  const practiceModeRef = useRef(state.practiceMode);
+  practiceModeRef.current = state.practiceMode;
   // Returning learner = any SRS record at load. Decided once so the card
   // doesn't appear mid-session after the first answer.
   const [todayCardOpen, setTodayCardOpen] = useState(
@@ -1106,6 +1156,68 @@ export function useGame(): GameApi {
   useEffect(() => {
     saveStore(state.srsStore);
   }, [state.srsStore]);
+
+  // One card answered. `cardsAnswered` only ever grows by one per dismissed
+  // card within a mount; a rebuild resets it to 0, which reads as a shrink and
+  // is skipped, so a mode flip cannot double count.
+  const lastCardsAnsweredRef = useRef(state.cardsAnswered);
+  useEffect(() => {
+    const prev = lastCardsAnsweredRef.current;
+    lastCardsAnsweredRef.current = state.cardsAnswered;
+    if (state.cardsAnswered <= prev) return;
+    // Mode via a ref: this fires on the card count, and depending on
+    // state.mode would re-run it on a mode flip with no new card.
+    setCounters((c) => recordAnswer(c, modeRef.current));
+  }, [state.cardsAnswered]);
+
+  // A round begins when its first card is dismissed. Started is counted on the
+  // transition into card 1 so an abandoned round still counts as begun — which
+  // is the whole point of comparing the two.
+  const lastRoundCardsRef = useRef(state.roundCards);
+  useEffect(() => {
+    const prev = lastRoundCardsRef.current;
+    lastRoundCardsRef.current = state.roundCards;
+    if (state.roundCards !== 1 || prev === 1) return;
+    setCounters((c) => recordRoundStarted(c, practiceModeRef.current));
+  }, [state.roundCards]);
+
+  // Finished means the round filled to ROUND_SIZE, which is what
+  // `roundsCompleted` counts. That includes a round whose twelfth card also
+  // ended the session, so no interstitial was shown — deliberate, and the same
+  // rounds the streak counts as a day played.
+  const lastRoundsCompletedRef = useRef(state.roundsCompleted);
+  useEffect(() => {
+    const prev = lastRoundsCompletedRef.current;
+    lastRoundsCompletedRef.current = state.roundsCompleted;
+    if (state.roundsCompleted <= prev) return;
+    setCounters(recordRoundFinished);
+  }, [state.roundsCompleted]);
+
+  // The first session ends the first time the learner reaches a summary. After
+  // that `firstSessionAnswers` is frozen.
+  useEffect(() => {
+    if (!state.sessionDone) return;
+    setCounters(recordSessionEnded);
+  }, [state.sessionDone]);
+
+  useEffect(() => {
+    saveCounters(counters);
+  }, [counters]);
+
+  // Known countries over time, snapshotted whenever the figure moves. Counted
+  // across the whole store rather than the active scope, so switching the
+  // continent filter never looks like progress or a loss. Uses masteryTierOf
+  // so this can never disagree with the "Known" stat or the map's pigment.
+  const knownEverywhere = useMemo(() => {
+    let n = 0;
+    for (const iso3 in state.srsStore.records) {
+      if (masteryTierOf(state.srsStore.records[iso3]) === 2) n++;
+    }
+    return n;
+  }, [state.srsStore]);
+  useEffect(() => {
+    setCounters((c) => recordKnown(c, knownEverywhere, new Date()));
+  }, [knownEverywhere]);
 
   // A finished round marks today on the streak. recordDay returns the same
   // store when today is already there, so the save effect below is quiet.
@@ -1175,6 +1287,7 @@ export function useGame(): GameApi {
     [state.srsStore, scopeSet],
   );
 
+  const returns = useMemo(() => returnInfo(streakStore), [streakStore]);
   const streak = useMemo(
     () => streakInfo(streakStore, new Date()),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1190,6 +1303,8 @@ export function useGame(): GameApi {
   return {
     state,
     unlearnedCount: state.retryQueue.length,
+    counters,
+    returns,
     totalInScope,
     dueCount,
     newAvailableCount,
@@ -1225,10 +1340,13 @@ export function useGame(): GameApi {
     startReview: () => dispatch({ type: "startReview" }),
     resetSrs: () => {
       // "Erase all progress" means the streak too — otherwise the next
-      // finished round would continue the old day count — and the welcome
-      // flag, so the learner meets the app as a stranger on the next load.
+      // finished round would continue the old day count — the counters, and
+      // the welcome flag, so the learner meets the app as a stranger on the
+      // next load. A kept counters key would also re-freeze
+      // firstSessionAnswers against a session the learner no longer has.
       dispatch({ type: "resetSrs" });
       setStreakStore(emptyStreak());
+      setCounters(emptyCounters());
       saveSeenWelcome(false);
     },
     closeSummary: () => dispatch({ type: "closeSummary", now: new Date() }),
