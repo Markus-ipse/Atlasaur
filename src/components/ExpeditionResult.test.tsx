@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ExpeditionResult } from "./ExpeditionResult";
-import type { ExpeditionStore } from "../game/expedition";
+import { shareText, type ExpeditionStore } from "../game/expedition";
 
 const NAMES: Record<string, string> = {
   FRA: "France",
@@ -70,6 +70,7 @@ describe("ExpeditionResult", () => {
     // Selecting the box by hand must yield what Share sends, nothing more.
     renderCard();
     const line = document.getElementById("expedition-result-line")!;
+    expect(line.textContent).toBe(shareText(STORE));
     expect(line.textContent).toBe("Atlasaur · 6 September 2026\n■■□■■■□■■■ 8/10");
   });
 

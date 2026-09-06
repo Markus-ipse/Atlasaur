@@ -3,8 +3,8 @@ import {
   EXPEDITION_SIZE,
   formatDay,
   foundCount,
-  GLYPH_FOUND,
-  GLYPH_MISSED,
+  glyphFor,
+  glyphRow,
   shareText,
   type ExpeditionStore,
 } from "../game/expedition";
@@ -117,9 +117,7 @@ export function ExpeditionResult({ store, streakDay, nameFromIso3, onClose }: Pr
           Atlasaur · {formatDay(store.day)}
           {"\n"}
           <span className="text-xl tracking-[0.15em] text-ink-deep" aria-hidden>
-            {store.outcomes
-              .map((o) => (o === "found" ? GLYPH_FOUND : GLYPH_MISSED))
-              .join("")}
+            {glyphRow(store.outcomes)}
           </span>{" "}
           {found}/{EXPEDITION_SIZE}
         </p>
@@ -141,7 +139,7 @@ export function ExpeditionResult({ store, streakDay, nameFromIso3, onClose }: Pr
             return (
               <li key={iso3} className="flex gap-1.5 min-w-0">
                 <span className="shrink-0 text-ink-deep">
-                  {outcome === "found" ? GLYPH_FOUND : GLYPH_MISSED}
+                  {glyphFor(outcome)}
                 </span>
                 <span className="truncate">{nameFromIso3(iso3)}</span>
               </li>

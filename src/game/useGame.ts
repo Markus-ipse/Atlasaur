@@ -77,6 +77,13 @@ const COUNTRY_BY_ISO3 = new Map(COUNTRIES.map((c) => [c.iso3, c]));
 // the learner's continent filter or territories setting says: everyone gets
 // the same ten. Territories are never asked.
 const EXPEDITION_POOL = expeditionPool(COUNTRIES);
+const EXPEDITION_ISO3S: ReadonlySet<string> = new Set(
+  EXPEDITION_POOL.map((c) => c.iso3),
+);
+// What the map can ask during an expedition; also what a stored ten is
+// validated against, so a set this build cannot ask (a country since tagged
+// as a territory, say) is discarded rather than presented as an inert card.
+const isExpeditionIso3 = (iso3: string) => EXPEDITION_ISO3S.has(iso3);
 
 const CONTINENTS_STORAGE_KEY = "atlasaur:selectedContinents";
 const TERRITORIES_STORAGE_KEY = "atlasaur:includeTerritories";
@@ -287,7 +294,7 @@ export type Action =
   | { type: "startExpedition"; store: ExpeditionStore; now?: Date }
   // Another tab wrote the expedition store. Adopted only when it is further
   // along (see `supersedes`); a run in progress here jumps to its card.
-  | { type: "syncExpedition"; store: ExpeditionStore | null }
+  | { type: "syncExpedition"; store: ExpeditionStore | null; now?: Date }
   | { type: "setContinents"; continents: readonly Continent[]; now?: Date }
   | { type: "setIncludeTerritories"; value: boolean; now?: Date }
   | { type: "endSession" }
@@ -403,17 +410,11 @@ function withRoundAdvance(
   isNew: boolean,
 ): State {
   const roundCards = state.roundCards + 1;
-  // An expedition is a round of ten whose every credit is taken at answer
-  // time (applyCorrect / applyMiss): the answer count here, and the finish in
-  // the hook, off the store itself. advanceCard raises the result card
-  // (sessionDone) when the tenth dismisses, so the interstitial never
-  // appears inside one, and `roundsCompleted` stays a Study / test figure.
-  const expedition = state.practiceMode === "expedition";
-  const filled = !expedition && roundCards >= ROUND_SIZE;
+  const filled = roundCards >= ROUND_SIZE;
   return {
     ...state,
     roundCards,
-    cardsAnswered: expedition ? state.cardsAnswered : state.cardsAnswered + 1,
+    cardsAnswered: state.cardsAnswered + 1,
     roundRight: state.roundRight + (kind === "correct" ? 1 : 0),
     roundNew: state.roundNew + (isNew ? 1 : 0),
     roundDone: filled && !state.sessionDone,
@@ -549,22 +550,6 @@ function applyScope(
   includeTerritories: boolean,
   now: Date,
 ): State {
-  if (state.practiceMode === "expedition") {
-    // The expedition ignores scope by design: the ten are the same for
-    // everyone. The setting is kept for when the learner comes back to
-    // studying; the current card and the reveal stay where they are.
-    const normalized = normalizeScope(continents, includeTerritories);
-    const inScope = new Set(normalized.pool.map((c) => c.iso3));
-    return {
-      ...state,
-      selectedContinents: normalized.continents,
-      includeTerritories,
-      retryQueue: state.retryQueue.filter((e) => inScope.has(e.iso3)),
-      studyResurfaceQueue: state.studyResurfaceQueue.filter((e) =>
-        inScope.has(e.iso3),
-      ),
-    };
-  }
   // A Study reveal that is open when the scope changes still holds its
   // deferred grade. Commit it first (as endSession does) so the answer and
   // its resurface scheduling reach the SRS store instead of vanishing with
@@ -584,6 +569,19 @@ function applyScope(
   const studyResurfaceQueue = state.studyResurfaceQueue.filter((e) =>
     inScope.has(e.iso3),
   );
+  if (state.practiceMode === "expedition") {
+    // The expedition ignores scope by design: the ten are the same for
+    // everyone. The setting is kept, and the queues pruned, for when the
+    // learner comes back to studying; the current card and the reveal stay
+    // where they are.
+    return {
+      ...state,
+      selectedContinents: continents,
+      includeTerritories,
+      retryQueue,
+      studyResurfaceQueue,
+    };
+  }
   // A current card that fell out of scope is replaced: during a review pass
   // by the next queued retry (a review only ever asks queued cards); in
   // Study by the scheduler (so "Pick a region" on the welcome still starts
@@ -692,8 +690,7 @@ function applyMiss(
       streak: 0,
       feedback,
       srsStore,
-      expedition: recordOutcome(state.expedition, "missed"),
-      cardsAnswered: state.cardsAnswered + 1,
+      ...withExpeditionOutcome(state, "missed"),
     };
   }
 
@@ -785,8 +782,7 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
       completedSet,
       feedback,
       srsStore,
-      expedition: recordOutcome(state.expedition, "found"),
-      cardsAnswered: state.cardsAnswered + 1,
+      ...withExpeditionOutcome(state, "found"),
     };
   }
 
@@ -856,6 +852,12 @@ function commitStudyGrade(
 }
 
 function dismissFeedback(state: State, now: Date): State {
+  // An expedition took every credit at answer time (withExpeditionOutcome),
+  // and its round counters are read off the store, so the twelve-card round
+  // accounting does not apply: the interstitial never appears inside one.
+  if (state.practiceMode === "expedition" && state.expedition) {
+    return atExpeditionCard(state, state.expedition);
+  }
   const kind = state.feedback?.kind ?? "correct";
   const isNew =
     state.practiceMode === "study" &&
@@ -864,18 +866,50 @@ function dismissFeedback(state: State, now: Date): State {
   return withRoundAdvance(advanceCard(state, now), kind, isNew);
 }
 
+// Record an expedition answer: the glyph, the answer count (now, while the
+// mode it was given in is still current) and, on the tenth, the finished
+// round — `roundsCompleted` is what the hook reads to mark the streak day
+// and count a finished round, and it is per-tab reducer state, so only the
+// tab that played the tenth answer credits it, never one that merely adopts
+// the finished store from another tab or loads it already finished.
+function withExpeditionOutcome(
+  state: State,
+  outcome: "found" | "missed",
+): Pick<State, "expedition" | "cardsAnswered" | "roundsCompleted"> {
+  const expedition = recordOutcome(state.expedition!, outcome);
+  return {
+    expedition,
+    cardsAnswered: state.cardsAnswered + 1,
+    roundsCompleted: expeditionFinished(expedition)
+      ? state.roundsCompleted + 1
+      : state.roundsCompleted,
+  };
+}
+
+// Land on the expedition's current card: the one after its last answer, or
+// the result card (sessionDone) after the tenth. The one projection from the
+// store to game state, shared by starting, resuming, syncing from another
+// tab and advancing, so they can never disagree about what "card n" means.
+function atExpeditionCard(state: State, store: ExpeditionStore): State {
+  const finished = expeditionFinished(store);
+  const next = finished
+    ? undefined
+    : COUNTRY_BY_ISO3.get(store.iso3s[store.outcomes.length]);
+  return {
+    ...state,
+    expedition: store,
+    current: next ?? state.current,
+    feedback: null,
+    milestone: null,
+    sessionDone: finished,
+    roundCards: store.outcomes.length,
+    roundRight: foundCount(store),
+    roundNew: 0,
+    roundDone: false,
+  };
+}
+
 function advanceCard(state: State, now: Date): State {
-  if (state.practiceMode === "expedition" && state.expedition) {
-    // The outcome was recorded at answer time; the next card is simply the
-    // next of the ten. After the tenth, the result card is the summary.
-    const next = COUNTRY_BY_ISO3.get(
-      state.expedition.iso3s[state.expedition.outcomes.length] ?? "",
-    );
-    if (!next || expeditionFinished(state.expedition)) {
-      return { ...state, feedback: null, milestone: null, sessionDone: true };
-    }
-    return { ...state, current: next, feedback: null, milestone: null };
-  }
   if (state.practiceMode === "study") {
     // Commit the deferred auto-grade (Good on correct, Again on miss).
     // Picking the next country runs against the post-grade store so we
@@ -1005,52 +1039,39 @@ export function reducer(state: State, action: Action): State {
       return enterPracticeMode(state, action.mode, now);
     }
     case "startExpedition": {
-      const store = action.store;
+      // No door exists inside an expedition; a stray re-entry must not
+      // rebuild the run under the learner.
+      if (state.practiceMode === "expedition") return state;
       // Reached from the Today card and the Study summary, where no card is
       // open — but a Study grade in flight is committed all the same, as
-      // every other exit does.
+      // every other exit does, and counted, since it reached the store.
       const committed =
         state.practiceMode === "study" && state.autoGradePending
           ? commitStudyGrade(state, state.autoGradePending, state.studyStep, now)
           : null;
-      const current = COUNTRY_BY_ISO3.get(
-        store.iso3s[store.outcomes.length] ?? "",
-      );
-      return {
+      const entered: State = {
         ...state,
         ...(committed ?? {}),
+        cardsAnswered: committed ? state.cardsAnswered + 1 : state.cardsAnswered,
         practiceMode: "expedition",
-        expedition: store,
         // Name → Click only; the learner's own choice is restored on leaving.
         mode: "name-to-click",
-        modeBeforeExpedition:
-          state.practiceMode === "expedition"
-            ? state.modeBeforeExpedition
-            : state.mode,
-        // A resumed expedition keeps its place: the round counters pick up at
-        // the answers already given, so the round chip reads "5/10" and the
-        // started counter does not fire a second time.
-        current: current ?? state.current,
+        modeBeforeExpedition: state.mode,
         score: 0,
         streak: 0,
-        milestone: null,
         total: 0,
         missed: [],
         missedSet: new Set(),
         phase: "normal",
-        feedback: null,
-        // A finished expedition opens straight onto its result card, which is
-        // its summary; there is no replay.
-        sessionDone: expeditionFinished(store),
         studyResurfaceQueue: [],
         studyStep: 0,
         autoGradePending: null,
         spotlightSubregion: null,
-        roundCards: store.outcomes.length,
-        roundRight: foundCount(store),
-        roundNew: 0,
-        roundDone: false,
       };
+      // A resumed expedition keeps its place, so the chip picks up at the
+      // answers already given; a finished one opens straight onto its result
+      // card, which is its summary. There is no replay.
+      return atExpeditionCard(entered, action.store);
     }
     case "setContinents": {
       if (action.continents.length === 0) return state;
@@ -1067,30 +1088,31 @@ export function reducer(state: State, action: Action): State {
     }
     case "syncExpedition": {
       const store = action.store;
-      if (!store || !expeditionSupersedes(store, state.expedition)) return state;
+      if (store === null) {
+        // The key was removed: "Erase all progress" in another tab. The
+        // erase reaches this tab's expedition too, and a run in progress is
+        // left — the answers it would go on to give have no store to land
+        // in. The other stores stay last-write-wins per tab, as before.
+        if (state.expedition === null) return state;
+        const left =
+          state.practiceMode === "expedition"
+            ? enterPracticeMode(state, "study", now)
+            : state;
+        return { ...left, expedition: null };
+      }
+      if (!expeditionSupersedes(store, state.expedition)) return state;
       if (state.practiceMode !== "expedition") {
         return { ...state, expedition: store };
       }
-      // Mid-run: the other tab has answered cards this one is still showing.
-      // Move to the card after its last answer, closing any reveal here — the
-      // answer it was for is recorded, by the other tab. After the tenth,
-      // the result card, as advanceCard would. A later day's store (the other
-      // tab opened tomorrow's past midnight) lands on its first card the
-      // same way; the start was credited by the tab that built it.
-      const current = COUNTRY_BY_ISO3.get(
-        store.iso3s[store.outcomes.length] ?? "",
-      );
-      return {
-        ...state,
-        expedition: store,
-        current: current ?? state.current,
-        feedback: null,
-        milestone: null,
-        sessionDone: expeditionFinished(store),
-        roundCards: store.outcomes.length,
-        roundRight: foundCount(store),
-        roundDone: false,
-      };
+      // Mid-run, or on the result card, only the same day's store can move
+      // this tab. A later day's (another tab opened tomorrow's past
+      // midnight) would replace a run or a result the learner is looking at;
+      // it is picked up on leaving, when the door reads today afresh.
+      if (state.expedition && store.day !== state.expedition.day) return state;
+      // The other tab has answered cards this one is still showing. Move to
+      // the card after its last answer, closing any reveal here — the answer
+      // it was for is recorded, by the other tab.
+      return atExpeditionCard(state, store);
     }
     case "endSession": {
       // "Done" inside an expedition leaves it rather than ending it: the
@@ -1295,9 +1317,12 @@ export type GameApi = {
   isoFromNumeric: (numeric: string) => string | undefined;
   numericFromIso3: (iso3: string) => string | undefined;
   nameFromIso3: (iso3: string) => string;
+  // What the map can ask right now: the learner's scope, or every country in
+  // its own right during an expedition. The map reads this.
   isInScope: (iso3: string) => boolean;
-  // The learnable set (continents × territories setting). Components must
-  // read scope from here rather than recomputing it from continents.
+  // The learnable set (continents × territories setting). Every figure reads
+  // scope from here rather than recomputing it from continents, and it does
+  // not widen during an expedition.
   scopeSet: ReadonlySet<string>;
   matchTypedAnswer: (input: string) => string;
   answer: (iso3: string) => void;
@@ -1341,7 +1366,7 @@ export function useGame(): GameApi {
       srsStore: loadStore(),
       // A stored set this build cannot ask (a country dropped from the
       // table) is discarded rather than half-asked.
-      expedition: loadExpedition((iso3) => COUNTRY_BY_ISO3.has(iso3)),
+      expedition: loadExpedition(isExpeditionIso3),
     }),
   );
   const [seenSrsIntro, setSeenSrsIntro] = useState(loadSeenIntro);
@@ -1430,10 +1455,12 @@ export function useGame(): GameApi {
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key !== EXPEDITION_STORAGE_KEY) return;
-      dispatch({
-        type: "syncExpedition",
-        store: parseExpedition(e.newValue, (iso3) => COUNTRY_BY_ISO3.has(iso3)),
-      });
+      // A removed key is an erase and is passed through as null; a value
+      // that does not parse is nobody's expedition and is ignored.
+      const store =
+        e.newValue === null ? null : parseExpedition(e.newValue, isExpeditionIso3);
+      if (e.newValue !== null && store === null) return;
+      dispatch({ type: "syncExpedition", store, now: new Date() });
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
@@ -1515,25 +1542,6 @@ export function useGame(): GameApi {
     setStreakStore((prev) => recordDay(prev, new Date()));
   }, [state.roundsCompleted]);
 
-  // A finished expedition is a finished round, credited off the store the
-  // moment its tenth answer lands rather than at that answer's dismiss — the
-  // commoner ending for the last card is the tab closing on its reveal, and
-  // the store cannot say afterwards whether it was ever credited. Keyed on
-  // the day so a store loaded already finished (the ref starts at it) is not
-  // credited again, and tomorrow's is.
-  const finishedExpeditionDay =
-    state.expedition && expeditionFinished(state.expedition)
-      ? state.expedition.day
-      : null;
-  const lastFinishedExpeditionRef = useRef(finishedExpeditionDay);
-  useEffect(() => {
-    const prev = lastFinishedExpeditionRef.current;
-    lastFinishedExpeditionRef.current = finishedExpeditionDay;
-    if (finishedExpeditionDay === null || finishedExpeditionDay === prev) return;
-    setStreakStore((s) => recordDay(s, new Date()));
-    setCounters(recordRoundFinished);
-  }, [finishedExpeditionDay]);
-
   useEffect(() => {
     saveStreak(streakStore);
   }, [streakStore]);
@@ -1550,6 +1558,10 @@ export function useGame(): GameApi {
     });
   }, [state.sessionDone]);
 
+  // Hourly, on becoming visible, and at local midnight: the day-keyed
+  // figures (due counts, the streak, today's expedition) must turn over with
+  // the day, not up to an hour after it — the expedition door promises a
+  // result or a resume by what the memo saw, and acts on the clock.
   useEffect(() => {
     const tick = () => setNowBucket(Math.floor(Date.now() / 60_000));
     const onVis = () => {
@@ -1557,35 +1569,61 @@ export function useGame(): GameApi {
     };
     document.addEventListener("visibilitychange", onVis);
     const id = window.setInterval(tick, 60 * 60 * 1000);
+    let midnight = 0;
+    const armMidnight = () => {
+      const now = new Date();
+      const next = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1,
+        0,
+        0,
+        1,
+      );
+      midnight = window.setTimeout(() => {
+        tick();
+        armMidnight();
+      }, next.getTime() - now.getTime());
+    };
+    armMidnight();
     return () => {
       document.removeEventListener("visibilitychange", onVis);
       window.clearInterval(id);
+      window.clearTimeout(midnight);
     };
   }, []);
 
-  const { isInScope, totalInScope, scopeSet } = useMemo(() => {
-    // During an expedition the learnable set is the whole world: every
-    // country in its own right is a possible answer and a clickable one, and
-    // the map frames all of it.
-    const pool =
-      state.practiceMode === "expedition"
-        ? EXPEDITION_POOL
-        : filterPool(state.selectedContinents, state.includeTerritories);
-    const inScopeSet = new Set(pool.map((c) => c.iso3));
-    return {
-      isInScope: (iso3: string) => inScopeSet.has(iso3),
-      totalInScope: inScopeSet.size,
-      scopeSet: inScopeSet as ReadonlySet<string>,
-    };
-  }, [state.selectedContinents, state.includeTerritories, state.practiceMode]);
+  // The learner's own scope. Every figure — due, known, seen, not yet seen,
+  // the test's Done count — reads against this whatever round is up, so the
+  // settings never show world-wide numbers beside the learner's own chips.
+  const scopeSet = useMemo<ReadonlySet<string>>(
+    () =>
+      new Set(
+        filterPool(state.selectedContinents, state.includeTerritories).map(
+          (c) => c.iso3,
+        ),
+      ),
+    [state.selectedContinents, state.includeTerritories],
+  );
+  const totalInScope = scopeSet.size;
+  // What the map can ask and the learner can tap. During an expedition that
+  // is every country in its own right, so the map frames the world and
+  // nothing is inert. Keyed on the boolean, not the practice mode, so a
+  // Study / test flip keeps the same predicate and the map does not re-settle.
+  const isExpedition = state.practiceMode === "expedition";
+  const isInScope = useMemo(
+    () =>
+      isExpedition ? isExpeditionIso3 : (iso3: string) => scopeSet.has(iso3),
+    [isExpedition, scopeSet],
+  );
 
   const completedInScopeCount = useMemo(() => {
     let n = 0;
     state.completedSet.forEach((iso3) => {
-      if (isInScope(iso3)) n++;
+      if (scopeSet.has(iso3)) n++;
     });
     return n;
-  }, [state.completedSet, isInScope]);
+  }, [state.completedSet, scopeSet]);
 
   const dueCount = useMemo(
     () => srsDueCount(state.srsStore, scopeSet, new Date()),
@@ -1631,10 +1669,16 @@ export function useGame(): GameApi {
     startExpedition: () => {
       const now = new Date();
       const day = dayKey(now);
-      const fresh = !(state.expedition && state.expedition.day === day);
-      const store = fresh
-        ? newExpedition(day, EXPEDITION_POOL)
-        : state.expedition!;
+      // Storage is the record of what any tab has done today; re-read it,
+      // so a store this tab declined to adopt mid-run (another tab opened a
+      // later day's) or a missed event is picked up here rather than a
+      // second, competing expedition being built for the same day.
+      const stored = loadExpedition(isExpeditionIso3);
+      const latest = expeditionSupersedes(stored, state.expedition)
+        ? stored
+        : state.expedition;
+      const fresh = !(latest && latest.day === day);
+      const store = fresh ? newExpedition(day, EXPEDITION_POOL) : latest!;
       // Begun once, when today's is first opened; resuming is not a start.
       if (fresh) setCounters((c) => recordRoundStarted(c, "expedition"));
       dispatch({ type: "startExpedition", store, now });

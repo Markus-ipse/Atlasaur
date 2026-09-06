@@ -7,7 +7,7 @@
 // design — see the plan's decisions.
 
 import type { Country } from "../types";
-import { dayKey } from "./streak";
+import { dayKey, isDayKey } from "./streak";
 
 export const EXPEDITION_STORAGE_KEY = "atlasaur:expedition:v1";
 const STORE_VERSION = 1;
@@ -15,7 +15,6 @@ const STORE_VERSION = 1;
 // reads, and ten is the count a caption can say without a denominator that
 // needs explaining.
 export const EXPEDITION_SIZE = 10;
-const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
 export type ExpeditionOutcome = "found" | "missed";
 
@@ -156,7 +155,7 @@ export function parseExpedition(
     if (typeof parsed !== "object" || parsed === null) return null;
     const p = parsed as Record<string, unknown>;
     if (p.version !== STORE_VERSION) return null;
-    if (typeof p.day !== "string" || !DAY_KEY.test(p.day)) return null;
+    if (!isDayKey(p.day)) return null;
     if (!Array.isArray(p.iso3s) || p.iso3s.length !== EXPEDITION_SIZE) {
       return null;
     }
@@ -216,8 +215,12 @@ export function saveExpedition(store: ExpeditionStore | null): void {
 export const GLYPH_FOUND = "■";
 export const GLYPH_MISSED = "□";
 
+export function glyphFor(outcome: ExpeditionOutcome): string {
+  return outcome === "found" ? GLYPH_FOUND : GLYPH_MISSED;
+}
+
 export function glyphRow(outcomes: readonly ExpeditionOutcome[]): string {
-  return outcomes.map((o) => (o === "found" ? GLYPH_FOUND : GLYPH_MISSED)).join("");
+  return outcomes.map(glyphFor).join("");
 }
 
 const MONTHS = [

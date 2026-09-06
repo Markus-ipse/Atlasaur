@@ -137,6 +137,87 @@ describe("useGame — the Daily Expedition", () => {
       );
     });
     expect(result.current.state.expedition).toEqual(ahead);
+    // A removed key is an erase in another tab: the store goes and the run
+    // is left.
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: EXPEDITION_STORAGE_KEY, newValue: null }),
+      );
+    });
+    expect(result.current.state.expedition).toBeNull();
+    expect(result.current.state.practiceMode).toBe("study");
+  });
+
+  it("keeps the learner's own scope for the figures while the map opens up", () => {
+    window.localStorage.setItem(
+      "atlasaur:selectedContinents",
+      JSON.stringify(["Europe"]),
+    );
+    const { result } = renderHook(() => useGame());
+    const before = result.current.scopeSet.size;
+    expect(result.current.isInScope("BRA")).toBe(false);
+    act(() => result.current.startExpedition());
+    expect(result.current.scopeSet.size).toBe(before);
+    expect(result.current.totalInScope).toBe(before);
+    expect(result.current.isInScope("BRA")).toBe(true);
+    // Territories are never asked, so they stay inert.
+    expect(result.current.isInScope("GRL")).toBe(false);
+    act(() => result.current.setPracticeMode("study"));
+    expect(result.current.isInScope("BRA")).toBe(false);
+  });
+
+  it("keeps the same map predicate across a Study / test flip", () => {
+    // Otherwise the map's resting frame is recomputed and re-settled on
+    // every "Test me on these".
+    const { result } = renderHook(() => useGame());
+    const study = result.current.isInScope;
+    act(() => result.current.setPracticeMode("quiz"));
+    expect(result.current.isInScope).toBe(study);
+  });
+
+  it("discards a stored ten this build cannot ask", () => {
+    // Greenland is a territory: never in the pool, so never clickable in an
+    // expedition. A store naming it is dropped rather than half-asked.
+    const store: ExpeditionStore = {
+      version: 1,
+      day: "2026-09-06",
+      iso3s: ["FRA", "BRA", "JPN", "EGY", "AUS", "CAN", "IND", "ARG", "NGA", "GRL"],
+      outcomes: ["found"],
+    };
+    window.localStorage.setItem("atlasaur:expedition:v1", JSON.stringify(store));
+    const { result } = renderHook(() => useGame());
+    expect(result.current.state.expedition).toBeNull();
+    expect(result.current.expeditionToday).toEqual({ kind: "fresh" });
+  });
+
+  it("turns the door over at local midnight, not an hour later", () => {
+    vi.setSystemTime(new Date(2026, 8, 6, 23, 59, 30));
+    stored("2026-09-06", Array(EXPEDITION_SIZE).fill("found"));
+    const { result } = renderHook(() => useGame());
+    expect(result.current.expeditionToday).toEqual({ kind: "finished", found: 10 });
+    act(() => {
+      vi.advanceTimersByTime(45_000);
+    });
+    expect(result.current.expeditionToday).toEqual({ kind: "fresh" });
+    // And the click agrees: it builds tomorrow's ten.
+    act(() => result.current.startExpedition());
+    expect(result.current.state.expedition?.day).toBe("2026-09-07");
+    expect(result.current.state.expedition?.outcomes).toEqual([]);
+  });
+
+  it("re-reads storage at the door, so a store declined mid-run is not rebuilt", () => {
+    // Yesterday's run is in state; another tab has since written today's
+    // store with one answer, and no event reached this tab.
+    stored("2026-09-05", ["found", "missed"]);
+    const { result } = renderHook(() => useGame());
+    expect(result.current.state.expedition?.day).toBe("2026-09-05");
+    stored("2026-09-06", ["found"]);
+    act(() => result.current.startExpedition());
+    expect(result.current.state.expedition?.day).toBe("2026-09-06");
+    expect(result.current.state.expedition?.outcomes).toEqual(["found"]);
+    expect(result.current.state.roundCards).toBe(1);
+    // Resuming what another tab began is not a start.
+    expect(result.current.counters.roundsByPractice.expedition).toBe(0);
   });
 
   it("books an answer to Name → Click even when leaving restores typing", () => {

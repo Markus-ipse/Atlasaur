@@ -10,7 +10,13 @@
 // a second copy that could disagree.
 
 import type { PracticeMode, QuestionMode } from "../types";
-import { dayKey, daysBetween, MAX_DAYS, type StreakStore } from "./streak";
+import {
+  dayKey,
+  daysBetween,
+  isDayKey,
+  MAX_DAYS,
+  type StreakStore,
+} from "./streak";
 
 const COUNTERS_STORAGE_KEY = "atlasaur:counters:v1";
 const STORE_VERSION = 1;
@@ -19,9 +25,6 @@ const STORE_VERSION = 1;
 // calendar days. Every window this file reports on is a week, so the trim can
 // never remove a baseline a caller still needs.
 const MAX_KNOWN_DAYS = 400;
-// Same shape the streak store validates its days against. A `day` that is not
-// this is not a date, and a store carrying one cannot be reasoned about.
-const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
 export type Counters = {
   version: 1;
@@ -130,7 +133,9 @@ function normaliseKnownByDay(raw: unknown[]): { day: string; known: number }[] {
   for (const e of raw) {
     if (!isRecord(e)) continue;
     const day = e.day;
-    if (typeof day !== "string" || !DAY_KEY.test(day)) continue;
+    // A `day` that is not a day key is not a date, and a store carrying one
+    // cannot be reasoned about.
+    if (!isDayKey(day)) continue;
     byDay.set(day, num(e.known));
   }
   const out = [...byDay.entries()]

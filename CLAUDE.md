@@ -316,7 +316,9 @@ standing would carry on to a finish the emptied counters never saw begin, and
 the Data view would read "2 of 1".
 
 `roundsFinished` counts rounds that filled to `ROUND_SIZE`, which includes one
-whose twelfth card also ended the session so no interstitial appeared.
+whose twelfth card also ended the session so no interstitial appeared — and,
+since R3.1, a finished ten-card expedition, which credits `roundsCompleted`
+at its tenth answer.
 
 Days played and the longest gap are read from the streak store, which keeps at
 most `MAX_DAYS`. Past that its oldest days are dropped, so `returnInfo` returns
@@ -382,39 +384,48 @@ card's every exit (`App` wires Escape, backdrop and "Back to studying" to
 `resetSrs` all route there; the last also nulls the store, since "all
 progress" means all.
 
-**Every credit is taken at answer time, not at dismiss.** `recordOutcome` in
-`applyCorrect` / `applyMiss` records the glyph, the grade is written through
-at once like a test round's (`applyImmediateSrsWriteThrough`: `Correct →
-Good`, `Wrong → Again`, `Skip → Again`, normal phase only), and
-`cardsAnswered` is incremented there too, so the answer is booked to the mode
-it was given in even when leaving restores another. So an expedition
-abandoned mid-reveal keeps that answer and resumes on the next card.
-`advanceCard` walks `iso3s[outcomes.length]`; after the tenth it sets
-`sessionDone`, and `withRoundAdvance` neither counts the answer again nor
-fills the round, so `roundDone` never fires inside one and `roundsCompleted`
-stays a Study / test figure. The finish is credited by the hook **off the
-store**: an effect keyed on the day of a finished `state.expedition` records
-the streak day and `roundsFinished` the moment the tenth answer lands — the
-commoner ending for the last card is the tab closing on its reveal, and the
-store cannot say afterwards whether it was credited, so a store loaded
-already finished is never credited twice (the ref starts at it). "Done" on the
-tenth card's reveal lands on the result rather than leaving. A resumed
-expedition starts with `roundCards` at `outcomes.length`, so after five
-answers the chip reads "6/10"; because that re-entry can land on exactly 1,
+**Every credit is taken at answer time, not at dismiss.**
+`withExpeditionOutcome` in `applyCorrect` / `applyMiss` records the glyph,
+increments `cardsAnswered` (so the answer is booked to the mode it was given
+in even when leaving restores another) and, on the tenth, `roundsCompleted`
+— the same per-tab counter the hook already reads to mark the streak day and
+count a finished round, so only the tab that played the tenth answer credits
+it, never one that loads or adopts the store already finished. The grade is
+written through at once like a test round's (`applyImmediateSrsWriteThrough`:
+`Correct → Good`, `Wrong → Again`, `Skip → Again`, normal phase only). So an
+expedition abandoned mid-reveal keeps that answer and resumes on the next
+card, and a tab closed on the tenth reveal has still recorded the day.
+`atExpeditionCard(state, store)` is the one projection from the store to game
+state — the card after the last answer, or the result card (`sessionDone`)
+after the tenth, with `roundCards` / `roundRight` read off the store — shared
+by starting, resuming, syncing and advancing; `dismissFeedback` routes an
+expedition straight to it and skips `withRoundAdvance`, so the interstitial
+never appears inside one. "Done" on the tenth card's reveal lands on the
+result rather than leaving. Because a resumed expedition re-enters with
+`roundCards` already at the answers given (the chip reads "6/10" after five),
 the hook's round-started effect skips this mode and `startExpedition` records
 the start itself, once, when today's store is first built — so an expedition
 opened and left with no answer counts as begun for the started/finished
 ratio, while `expeditionStatus` reads such a store as fresh so the door does
-not say "resume". `roundsByPractice` gains `expedition`.
+not say "resume". `roundsByPractice` gains `expedition`. `nowBucket` ticks at
+local midnight as well as hourly, so the door's label turns over with the
+day and agrees with what a tap does.
 
 **The map is neutral**, as in a test round: `paintTiers` returns nothing for
 any non-Study mode, `App` withholds the continent percentages, and no
-milestone is computed (the streak note still is). `useGame`'s scope memo
-returns the expedition pool while one is up, so every country in its own right
-is clickable and `App` frames `ALL_CONTINENTS`; the learner's own selection is
-untouched. Every answer writes a record whether or not the country is in the
-learner's scope; out-of-scope records resurface when the scope widens, as they
-always have.
+milestone is computed (the streak note still is). Scope splits in two while
+one is up: `isInScope`, which the map reads, becomes the expedition pool
+(every country in its own right; territories stay inert) and `App` frames
+`ALL_CONTINENTS`, while `scopeSet` / `totalInScope` — and every figure
+derived from them: due, known, seen, not yet seen, the test's Done count —
+stay the learner's own filter, so the settings never show world-wide numbers
+beside the learner's chips. `isInScope` is keyed on the expedition boolean,
+not the practice mode, so a Study / test flip keeps the same predicate and
+the map does not re-settle. A stored ten is validated against the same pool,
+so a set this build cannot ask is discarded rather than presented as an
+inert card. Every answer writes a record whether or not the country is in
+the learner's scope; out-of-scope records resurface when the scope widens, as
+they always have.
 
 **One attempt a day holds across tabs.** Each tab keeps its own copy of the
 store and would otherwise save its snapshot over the other's answers. The
@@ -422,14 +433,20 @@ hook listens for the `storage` event on the expedition key (raised in every
 *other* tab on a write) and dispatches `syncExpedition`; the reducer adopts
 the incoming store only when `supersedes` says it is further along — a later
 day, or the same day with more answers — and a run in progress jumps to the
-card after the other tab's last answer, closing any reveal here (a later
-day's store, from a tab that opened tomorrow's past midnight, lands on its
-first card the same way). Ties and
-older stores are ignored, so the two converge on whichever got further,
-never on a row stitched from both. The adopted store round-trips through the
-save effect unchanged, which raises no event, so tabs cannot ping-pong. The
-other stores (SRS, streak, counters) still save last-write-wins per tab; only
-the expedition carries a one-attempt promise that divergence would break.
+card after the other tab's last answer, closing any reveal here. While a run
+or its result is on screen only the same day's store can move this tab: a
+later day's (a tab that opened tomorrow's past midnight) is ignored for
+now; the hook's `startExpedition` re-reads storage before deciding whether
+today's store is fresh, so it is picked up the next time the learner opens
+the door rather than a second, competing expedition being built for the same
+day. Ties and older stores
+are ignored, so the two converge on whichever got further, never on a row
+stitched from both. A removed key ("Erase all progress" in another tab)
+drops this tab's store too and leaves a run in progress. The adopted store
+round-trips through the save effect unchanged, which raises no event, so
+tabs cannot ping-pong. The other stores (SRS, streak, counters) still save
+last-write-wins per tab; only the expedition carries a one-attempt promise
+that divergence would break.
 
 `ExpeditionResult` is the expedition's summary and its round break: the row
 and the caption exactly as they leave the app (selectable, so they can be

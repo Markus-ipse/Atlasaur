@@ -1516,8 +1516,9 @@ describe("reducer — the Daily Expedition (R3.1)", () => {
     expect(s.sessionDone).toBe(true);
     // The result card is the round break: never both.
     expect(s.roundDone).toBe(false);
-    // The finished round is credited by the hook off the store, not here.
-    expect(s.roundsCompleted).toBe(0);
+    // The finished round was credited at the tenth answer, so the hook marks
+    // the streak day and counts it even if the tab closes on this reveal.
+    expect(s.roundsCompleted).toBe(1);
     expect(s.roundRight).toBe(9);
     expect(s.cardsAnswered).toBe(EXPEDITION_SIZE);
     // No eleventh card.
@@ -1535,6 +1536,24 @@ describe("reducer — the Daily Expedition (R3.1)", () => {
     for (let i = 4; i < EXPEDITION_SIZE; i++) t = answerAndDismiss(t, TEN[i]);
     expect(t.sessionDone).toBe(true);
     expect(t.roundCards).toBe(EXPEDITION_SIZE);
+    expect(t.roundsCompleted).toBe(1);
+  });
+
+  it("credits the finished round once, at the tenth answer, never on adoption or load", () => {
+    let s = start();
+    for (let i = 0; i < EXPEDITION_SIZE - 1; i++) s = answerAndDismiss(s, TEN[i]);
+    const tenth = reducer(s, { type: "skip", now: NOW });
+    expect(tenth.roundsCompleted).toBe(1);
+    expect(reducer(tenth, { type: "dismiss", now: NOW }).roundsCompleted).toBe(1);
+    // Loaded or adopted finished: no credit here — the tab that played it did.
+    const done = store(Array(EXPEDITION_SIZE).fill("found"));
+    expect(start(done).roundsCompleted).toBe(0);
+    const study = initialState({ practiceMode: "study" });
+    expect(
+      reducer(study, { type: "syncExpedition", store: done }).roundsCompleted,
+    ).toBe(0);
+    const mid = answerAndDismiss(start(), "FRA");
+    expect(reducer(mid, { type: "syncExpedition", store: done }).roundsCompleted).toBe(0);
   });
 
   it("a finished store opens straight onto its result, with no replay", () => {
@@ -1594,6 +1613,7 @@ describe("reducer — the Daily Expedition (R3.1)", () => {
     expect(t.sessionDone).toBe(true);
     expect(t.roundCards).toBe(EXPEDITION_SIZE);
     expect(t.cardsAnswered).toBe(EXPEDITION_SIZE);
+    expect(t.roundsCompleted).toBe(1);
   });
 
   it("closing the result card leaves to studying", () => {
@@ -1647,7 +1667,44 @@ describe("reducer — the Daily Expedition (R3.1)", () => {
     expect(
       reducer(s, { type: "syncExpedition", store: store(["missed", "missed"]) }),
     ).toBe(s);
-    expect(reducer(s, { type: "syncExpedition", store: null })).toBe(s);
+  });
+
+  it("ignores a later day's store while a run or its result is on screen", () => {
+    // Another tab opened tomorrow's past midnight. This tab's run stands;
+    // the door reads today afresh once the learner leaves.
+    const tomorrow: ExpeditionStore = { ...store(), day: "2026-09-07" };
+    const mid = answerAndDismiss(start(), "FRA");
+    expect(reducer(mid, { type: "syncExpedition", store: tomorrow })).toBe(mid);
+    const shown = start(store(Array(EXPEDITION_SIZE).fill("missed")));
+    expect(reducer(shown, { type: "syncExpedition", store: tomorrow })).toBe(shown);
+    // Outside a run it is simply tomorrow's store.
+    const study = initialState({ practiceMode: "study", expedition: store(["found"]) });
+    expect(
+      reducer(study, { type: "syncExpedition", store: tomorrow }).expedition,
+    ).toBe(tomorrow);
+  });
+
+  it("drops the store when another tab erased it, leaving a run in progress", () => {
+    const mid = reducer(answerAndDismiss(start(), "FRA"), {
+      type: "answer",
+      iso3: "XXX",
+      now: NOW,
+    });
+    const t = reducer(mid, { type: "syncExpedition", store: null, now: NOW });
+    expect(t.expedition).toBeNull();
+    expect(t.practiceMode).toBe("study");
+    expect(t.mode).toBe("shape-to-name");
+    expect(t.feedback).toBeNull();
+    const study = initialState({ practiceMode: "study", expedition: store(["found"]) });
+    expect(reducer(study, { type: "syncExpedition", store: null }).expedition).toBeNull();
+    // Nothing to drop: the same state back.
+    const none = initialState({ practiceMode: "study" });
+    expect(reducer(none, { type: "syncExpedition", store: null })).toBe(none);
+  });
+
+  it("is a no-op when dispatched inside a run", () => {
+    const mid = answerAndDismiss(start(), "FRA");
+    expect(reducer(mid, { type: "startExpedition", store: store(), now: NOW })).toBe(mid);
   });
 
   it("adopts another tab's store outside a run without touching the card", () => {
@@ -1666,5 +1723,8 @@ describe("reducer — the Daily Expedition (R3.1)", () => {
     const s = start(store(), missed);
     expect(s.srsStore.records.FRA.misses).toBe(1);
     expect(s.autoGradePending).toBeNull();
+    // That grade reached the store, so the answer is counted, as every
+    // other in-flight commit counts it.
+    expect(s.cardsAnswered).toBe(missed.cardsAnswered + 1);
   });
 });

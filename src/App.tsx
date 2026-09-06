@@ -99,8 +99,8 @@ export default function App() {
 
   // The expedition ignores the continent filter: its ten come from anywhere,
   // so the map frames the world and every country in its own right is
-  // clickable (game.scopeSet already says so). The learner's own selection
-  // is untouched and comes back with Study.
+  // clickable (game.isInScope already says so; game.scopeSet stays the
+  // learner's own). The selection is untouched and comes back with Study.
   const isExpedition = state.practiceMode === "expedition";
   const frameContinents = isExpedition
     ? ALL_CONTINENTS
