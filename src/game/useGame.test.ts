@@ -3,6 +3,12 @@ import { reducer, initialState, ROUND_SIZE, type State } from "./useGame";
 import { STUDY_NEW_CAP } from "./pickCountry";
 import { grade as srsGrade, introductionOrder } from "./srs";
 import { crossesIntoKnown } from "./milestones";
+import {
+  EXPEDITION_SIZE,
+  expeditionPool,
+  newExpedition,
+  type ExpeditionStore,
+} from "./expedition";
 import countriesData from "../data/countries.json";
 import { ALL_CONTINENTS, type Country } from "../types";
 
@@ -1402,5 +1408,323 @@ describe("reducer — counters (R2.4)", () => {
     expect(erased.roundCards).toBe(0);
     expect(erased.roundRight).toBe(0);
     expect(erased.cardsAnswered).toBe(0);
+  });
+});
+
+describe("reducer — the Daily Expedition (R3.1)", () => {
+  const POOL = expeditionPool(ALL_COUNTRIES);
+  const DAY = "2026-09-06";
+  const NOW = new Date(2026, 8, 6, 12, 0, 0);
+  // A hand-picked ten so the assertions can name countries. Spans every
+  // continent on purpose: the expedition ignores the continent filter.
+  const TEN = ["FRA", "BRA", "JPN", "EGY", "AUS", "CAN", "IND", "ARG", "NGA", "DEU"];
+  function store(outcomes: ExpeditionStore["outcomes"] = []): ExpeditionStore {
+    return { version: 1, day: DAY, iso3s: TEN, outcomes };
+  }
+  function start(
+    exp: ExpeditionStore = store(),
+    base: State = initialState({
+      practiceMode: "study",
+      mode: "shape-to-name",
+      selectedContinents: ["Europe"],
+    }),
+  ): State {
+    return reducer(base, { type: "startExpedition", store: exp, now: NOW });
+  }
+  function answerAndDismiss(s: State, iso3: string): State {
+    const answered = reducer(s, { type: "answer", iso3, now: NOW });
+    return reducer(answered, { type: "dismiss", now: NOW });
+  }
+
+  it("starts on the first of the ten, in Name → Click, remembering the learner's mode", () => {
+    const s = start();
+    expect(s.practiceMode).toBe("expedition");
+    expect(s.current.iso3).toBe("FRA");
+    expect(s.mode).toBe("name-to-click");
+    expect(s.modeBeforeExpedition).toBe("shape-to-name");
+    expect(s.expedition).toEqual(store());
+    expect(s.sessionDone).toBe(false);
+    expect(s.roundCards).toBe(0);
+  });
+
+  it("uses the seeded ten for the day from the module", () => {
+    const s = start(newExpedition(DAY, POOL));
+    expect(s.expedition?.iso3s).toEqual(newExpedition(DAY, POOL).iso3s);
+    expect(s.current.iso3).toBe(newExpedition(DAY, POOL).iso3s[0]);
+  });
+
+  it("a correct answer writes Good through at once and records a filled glyph", () => {
+    const s = reducer(start(), { type: "answer", iso3: "FRA", now: NOW });
+    expect(s.feedback?.kind).toBe("correct");
+    expect(s.expedition?.outcomes).toEqual(["found"]);
+    expect(s.srsStore.records.FRA).toBeDefined();
+    expect(s.srsStore.records.FRA.hits).toBe(1);
+    expect(s.streak).toBe(1);
+    // A measurement, not a ceremony.
+    expect(s.milestone).toBeNull();
+  });
+
+  it("a wrong answer and a skip both write Again and record an empty glyph", () => {
+    const wrong = reducer(start(), { type: "answer", iso3: "DEU", now: NOW });
+    expect(wrong.feedback).toEqual({ kind: "wrong", answerIso3: "DEU", correctIso3: "FRA" });
+    expect(wrong.expedition?.outcomes).toEqual(["missed"]);
+    expect(wrong.srsStore.records.FRA.misses).toBe(1);
+    // No test-round bookkeeping: there is no review pass to feed.
+    expect(wrong.retryQueue).toEqual([]);
+    expect(wrong.missed).toEqual([]);
+
+    const skipped = reducer(start(), { type: "skip", now: NOW });
+    expect(skipped.feedback?.kind).toBe("skipped");
+    expect(skipped.expedition?.outcomes).toEqual(["missed"]);
+    expect(skipped.srsStore.records.FRA.misses).toBe(1);
+  });
+
+  it("writes to the store for a country outside the learner's continent filter", () => {
+    // Scope is Europe; Brazil is the second card.
+    const s = answerAndDismiss(start(), "FRA");
+    expect(s.current.iso3).toBe("BRA");
+    const t = reducer(s, { type: "answer", iso3: "BRA", now: NOW });
+    expect(t.srsStore.records.BRA).toBeDefined();
+  });
+
+  it("dismiss advances through the ten in order, counting the round", () => {
+    let s = start();
+    for (let i = 0; i < 3; i++) s = answerAndDismiss(s, TEN[i]);
+    expect(s.current.iso3).toBe(TEN[3]);
+    expect(s.roundCards).toBe(3);
+    expect(s.roundRight).toBe(3);
+    expect(s.cardsAnswered).toBe(3);
+    expect(s.roundDone).toBe(false);
+  });
+
+  it("counts an answer when it is given, not when its reveal dismisses", () => {
+    // So a reveal left open when the tab closes, or when "Done" leaves, is
+    // still one answer in the mode it was given in.
+    const s = reducer(start(), { type: "answer", iso3: "XXX", now: NOW });
+    expect(s.cardsAnswered).toBe(1);
+    expect(reducer(s, { type: "dismiss", now: NOW }).cardsAnswered).toBe(1);
+    expect(reducer(s, { type: "endSession" }).cardsAnswered).toBe(1);
+  });
+
+  it("the tenth dismiss raises the result card and never the interstitial", () => {
+    let s = start();
+    for (let i = 0; i < EXPEDITION_SIZE - 1; i++) s = answerAndDismiss(s, TEN[i]);
+    expect(s.sessionDone).toBe(false);
+    s = answerAndDismiss(s, "XXX");
+    expect(s.expedition?.outcomes).toHaveLength(EXPEDITION_SIZE);
+    expect(s.expedition?.outcomes[9]).toBe("missed");
+    expect(s.sessionDone).toBe(true);
+    // The result card is the round break: never both.
+    expect(s.roundDone).toBe(false);
+    // The finished round was credited at the tenth answer, so the hook marks
+    // the streak day and counts it even if the tab closes on this reveal.
+    expect(s.roundsCompleted).toBe(1);
+    expect(s.roundRight).toBe(9);
+    expect(s.cardsAnswered).toBe(EXPEDITION_SIZE);
+    // No eleventh card.
+    expect(reducer(s, { type: "answer", iso3: "FRA", now: NOW })).toBe(s);
+  });
+
+  it("resumes a partial store at its index with the round counters caught up", () => {
+    const s = start(store(["found", "missed", "found", "found"]));
+    expect(s.current.iso3).toBe(TEN[4]);
+    expect(s.roundCards).toBe(4);
+    expect(s.roundRight).toBe(3);
+    expect(s.sessionDone).toBe(false);
+    // Six more finish it.
+    let t = s;
+    for (let i = 4; i < EXPEDITION_SIZE; i++) t = answerAndDismiss(t, TEN[i]);
+    expect(t.sessionDone).toBe(true);
+    expect(t.roundCards).toBe(EXPEDITION_SIZE);
+    expect(t.roundsCompleted).toBe(1);
+  });
+
+  it("credits the finished round once, at the tenth answer, never on adoption or load", () => {
+    let s = start();
+    for (let i = 0; i < EXPEDITION_SIZE - 1; i++) s = answerAndDismiss(s, TEN[i]);
+    const tenth = reducer(s, { type: "skip", now: NOW });
+    expect(tenth.roundsCompleted).toBe(1);
+    expect(reducer(tenth, { type: "dismiss", now: NOW }).roundsCompleted).toBe(1);
+    // Loaded or adopted finished: no credit here — the tab that played it did.
+    const done = store(Array(EXPEDITION_SIZE).fill("found"));
+    expect(start(done).roundsCompleted).toBe(0);
+    const study = initialState({ practiceMode: "study" });
+    expect(
+      reducer(study, { type: "syncExpedition", store: done }).roundsCompleted,
+    ).toBe(0);
+    const mid = answerAndDismiss(start(), "FRA");
+    expect(reducer(mid, { type: "syncExpedition", store: done }).roundsCompleted).toBe(0);
+  });
+
+  it("a finished store opens straight onto its result, with no replay", () => {
+    const done = store(Array(EXPEDITION_SIZE).fill("found"));
+    const s = start(done);
+    expect(s.sessionDone).toBe(true);
+    expect(s.practiceMode).toBe("expedition");
+    expect(reducer(s, { type: "answer", iso3: "FRA", now: NOW })).toBe(s);
+    expect(reducer(s, { type: "reset" })).toBe(s);
+  });
+
+  it("locks the question mode while an expedition is up", () => {
+    const s = start();
+    expect(reducer(s, { type: "setMode", mode: "shape-to-name" })).toBe(s);
+  });
+
+  it("keeps the current card across a scope change", () => {
+    const s = answerAndDismiss(start(), "FRA");
+    expect(s.current.iso3).toBe("BRA");
+    const t = reducer(s, {
+      type: "setContinents",
+      continents: ["Asia"],
+      now: NOW,
+    });
+    expect(t.current.iso3).toBe("BRA");
+    expect(t.selectedContinents).toEqual(["Asia"]);
+    expect(t.practiceMode).toBe("expedition");
+  });
+
+  it("Done leaves to studying, restores the mode and keeps the store", () => {
+    const s = reducer(answerAndDismiss(start(), "FRA"), {
+      type: "answer",
+      iso3: "XXX",
+      now: NOW,
+    });
+    const t = reducer(s, { type: "endSession" });
+    expect(t.practiceMode).toBe("study");
+    expect(t.mode).toBe("shape-to-name");
+    expect(t.modeBeforeExpedition).toBeNull();
+    expect(t.sessionDone).toBe(false);
+    expect(t.feedback).toBeNull();
+    // The answer whose reveal was open was counted when it was given: its
+    // grade is in the store and its glyph in the expedition.
+    expect(t.expedition?.outcomes).toEqual(["found", "missed"]);
+    expect(t.cardsAnswered).toBe(2);
+    // Resuming picks up at the third card.
+    expect(start(t.expedition!, t).current.iso3).toBe("JPN");
+  });
+
+  it("Done on the tenth card's reveal finishes the expedition instead of leaving it", () => {
+    let s = start();
+    for (let i = 0; i < EXPEDITION_SIZE - 1; i++) s = answerAndDismiss(s, TEN[i]);
+    s = reducer(s, { type: "skip", now: NOW });
+    expect(s.expedition?.outcomes).toHaveLength(EXPEDITION_SIZE);
+    const t = reducer(s, { type: "endSession" });
+    expect(t.practiceMode).toBe("expedition");
+    expect(t.sessionDone).toBe(true);
+    expect(t.roundCards).toBe(EXPEDITION_SIZE);
+    expect(t.cardsAnswered).toBe(EXPEDITION_SIZE);
+    expect(t.roundsCompleted).toBe(1);
+  });
+
+  it("closing the result card leaves to studying", () => {
+    const s = start(store(Array(EXPEDITION_SIZE).fill("missed")));
+    const t = reducer(s, { type: "closeSummary", now: NOW });
+    expect(t.practiceMode).toBe("study");
+    expect(t.sessionDone).toBe(false);
+    expect(t.expedition?.outcomes).toHaveLength(EXPEDITION_SIZE);
+  });
+
+  it("erasing all progress drops the expedition and leaves it", () => {
+    const s = answerAndDismiss(start(), "FRA");
+    const t = reducer(s, { type: "resetSrs" });
+    expect(t.expedition).toBeNull();
+    expect(t.practiceMode).toBe("study");
+    expect(t.srsStore.records).toEqual({});
+  });
+
+  it("carries the store through a question-mode flip outside an expedition", () => {
+    const s = reducer(start(store(["found"])), { type: "endSession" });
+    const t = reducer(s, { type: "setMode", mode: "name-to-click" });
+    expect(t.expedition).toEqual(store(["found"]));
+  });
+
+  it("adopts another tab's store when it is further along, mid-run", () => {
+    // This tab is on the second card with the first's reveal open; the other
+    // tab has answered three.
+    const s = reducer(answerAndDismiss(start(), "FRA"), {
+      type: "skip",
+      now: NOW,
+    });
+    const ahead = store(["found", "missed", "found"]);
+    const t = reducer(s, { type: "syncExpedition", store: ahead });
+    expect(t.expedition).toBe(ahead);
+    expect(t.current.iso3).toBe(TEN[3]);
+    expect(t.feedback).toBeNull();
+    expect(t.roundCards).toBe(3);
+    expect(t.roundRight).toBe(2);
+    expect(t.sessionDone).toBe(false);
+    // Finished elsewhere: the result card, as the tenth dismiss would give.
+    const done = store(Array(EXPEDITION_SIZE).fill("missed"));
+    const u = reducer(s, { type: "syncExpedition", store: done });
+    expect(u.sessionDone).toBe(true);
+    expect(u.roundDone).toBe(false);
+    expect(u.roundCards).toBe(EXPEDITION_SIZE);
+  });
+
+  it("ignores another tab's store that is no further along", () => {
+    const s = answerAndDismiss(answerAndDismiss(start(), "FRA"), "BRA");
+    expect(reducer(s, { type: "syncExpedition", store: store(["missed"]) })).toBe(s);
+    expect(
+      reducer(s, { type: "syncExpedition", store: store(["missed", "missed"]) }),
+    ).toBe(s);
+  });
+
+  it("ignores a later day's store while a run or its result is on screen", () => {
+    // Another tab opened tomorrow's past midnight. This tab's run stands;
+    // the door reads today afresh once the learner leaves.
+    const tomorrow: ExpeditionStore = { ...store(), day: "2026-09-07" };
+    const mid = answerAndDismiss(start(), "FRA");
+    expect(reducer(mid, { type: "syncExpedition", store: tomorrow })).toBe(mid);
+    const shown = start(store(Array(EXPEDITION_SIZE).fill("missed")));
+    expect(reducer(shown, { type: "syncExpedition", store: tomorrow })).toBe(shown);
+    // Outside a run it is simply tomorrow's store.
+    const study = initialState({ practiceMode: "study", expedition: store(["found"]) });
+    expect(
+      reducer(study, { type: "syncExpedition", store: tomorrow }).expedition,
+    ).toBe(tomorrow);
+  });
+
+  it("drops the store when another tab erased it, leaving a run in progress", () => {
+    const mid = reducer(answerAndDismiss(start(), "FRA"), {
+      type: "answer",
+      iso3: "XXX",
+      now: NOW,
+    });
+    const t = reducer(mid, { type: "syncExpedition", store: null, now: NOW });
+    expect(t.expedition).toBeNull();
+    expect(t.practiceMode).toBe("study");
+    expect(t.mode).toBe("shape-to-name");
+    expect(t.feedback).toBeNull();
+    const study = initialState({ practiceMode: "study", expedition: store(["found"]) });
+    expect(reducer(study, { type: "syncExpedition", store: null }).expedition).toBeNull();
+    // Nothing to drop: the same state back.
+    const none = initialState({ practiceMode: "study" });
+    expect(reducer(none, { type: "syncExpedition", store: null })).toBe(none);
+  });
+
+  it("is a no-op when dispatched inside a run", () => {
+    const mid = answerAndDismiss(start(), "FRA");
+    expect(reducer(mid, { type: "startExpedition", store: store(), now: NOW })).toBe(mid);
+  });
+
+  it("adopts another tab's store outside a run without touching the card", () => {
+    const study = initialState({ practiceMode: "study" });
+    const ahead = store(["found"]);
+    const t = reducer(study, { type: "syncExpedition", store: ahead });
+    expect(t.expedition).toBe(ahead);
+    expect(t.practiceMode).toBe("study");
+    expect(t.current).toBe(study.current);
+  });
+
+  it("commits a Study grade in flight when the expedition starts", () => {
+    const study = withCurrent(initialState({ practiceMode: "study" }), "FRA");
+    const missed = reducer(study, { type: "skip", now: NOW });
+    expect(missed.autoGradePending).toBe("Again");
+    const s = start(store(), missed);
+    expect(s.srsStore.records.FRA.misses).toBe(1);
+    expect(s.autoGradePending).toBeNull();
+    // That grade reached the store, so the answer is counted, as every
+    // other in-flight commit counts it.
+    expect(s.cardsAnswered).toBe(missed.cardsAnswered + 1);
   });
 });

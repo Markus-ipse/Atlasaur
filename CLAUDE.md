@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `src/game/useGame.ts` is the single source of truth. `App.tsx` calls `useGame()` once and passes the resulting `GameApi` (state + dispatchers + lookup helpers) down to `ControlZone`; `WorldMap` receives only the slices of `GameApi` it needs as individual props. Components are otherwise stateless — do not introduce parallel game state in components.
 
-The reducer (`reducer` in `useGame.ts`) handles `answer | skip | dismiss | setMode | setPracticeMode | setContinents | endSession | continueRound | startReview | resetSrs | closeSummary | setSpotlight | clearSpotlight | reset` (plus the toast actions). Effects (timed auto-dismiss of correct feedback, localStorage persistence) live in the `useGame` hook itself, not in the reducer.
+The reducer (`reducer` in `useGame.ts`) handles `answer | skip | dismiss | setMode | setPracticeMode | startExpedition | syncExpedition | setContinents | setIncludeTerritories | endSession | continueRound | startReview | resetSrs | closeSummary | setSpotlight | clearSpotlight | reset` (plus the toast actions). Effects (timed auto-dismiss of correct feedback, localStorage persistence) live in the `useGame` hook itself, not in the reducer.
 
 ### Two phases, one retry queue
 
@@ -33,7 +33,7 @@ State has a `phase: "normal" | "review"` and a `retryQueue: { iso3, dueAt }[]`:
 
 State has two orthogonal axes:
 
-- **`practiceMode: "quiz" | "study"`** — selects the scheduling regime.
+- **`practiceMode: "quiz" | "study" | "expedition"`** — selects the scheduling regime. `"expedition"` is the Daily Expedition (R3.1, below); it is entered only through `startExpedition` and never persisted as the current mode.
 - **`mode: QuestionMode = "name-to-click" | "shape-to-name"`** — selects the prompt type.
 
 Only the continent axis is persisted (`atlasaur:selectedContinents`). `practiceMode` is **not** persisted: Study is the home and every load starts there; a Quiz round is entered deliberately and ends back in Study. `Mode` was renamed to `QuestionMode` in M4 to avoid ambiguity with the practice axis.
@@ -316,7 +316,9 @@ standing would carry on to a finish the emptied counters never saw begin, and
 the Data view would read "2 of 1".
 
 `roundsFinished` counts rounds that filled to `ROUND_SIZE`, which includes one
-whose twelfth card also ended the session so no interstitial appeared.
+whose twelfth card also ended the session so no interstitial appeared — and,
+since R3.1, a finished ten-card expedition, which credits `roundsCompleted`
+at its tenth answer.
 
 Days played and the longest gap are read from the streak store, which keeps at
 most `MAX_DAYS`. Past that its oldest days are dropped, so `returnInfo` returns
@@ -349,6 +351,113 @@ against a session the learner no longer has.
 
 The Data view in `SettingsMenu` omits a row rather than showing zero when there
 is nothing to say yet, so a first-day profile does not read as a report card.
+
+### The Daily Expedition (R3.1)
+
+`src/game/expedition.ts` owns `atlasaur:expedition:v1` (`{ version: 1, day,
+iso3s: string[10], outcomes: ("found" | "missed")[] }`) and everything pure
+about the expedition: the seeded ten, the day's status, the share text.
+`expeditionFor(day, pool)` sorts the pool by iso3, Fisher–Yates shuffles it
+with a mulberry32 generator seeded from an FNV-1a hash of the `YYYY-MM-DD`
+key, and takes the first `EXPEDITION_SIZE = 10`. The pool is
+`expeditionPool(COUNTRIES)`: every non-territory entry, **whatever the
+continent filter or territories setting says** — everyone gets the same ten,
+or the result cannot be compared. Growing the pool (R3.4) changes every future
+day's ten by design; the seed is over the pool, not a fixed table.
+`expedition.test.ts` pins that a date yields the same ten across runs and
+across the pool's order.
+
+**In the reducer it is a third `practiceMode`**, not a parallel axis. The
+store lives in `state.expedition` in every mode (loaded by `useGame` through
+`loadExpedition`, which discards a stored set this build cannot ask; saved by
+an effect whenever it changes), so the Today card and the Study summary can
+offer today's expedition, resume it, or open its result. `startExpedition`
+(the only way in; carries the day's store, built by the hook when
+`state.expedition` is from another day) forces `mode: "name-to-click"` and
+stashes the learner's mode in `modeBeforeExpedition`, which `enterPracticeMode`
+restores on the way out. `setMode`, `reset` and `applyScope` are guarded while
+one is up: the picker is locked (`modeLocked` on `SettingsMenu`), there is no
+"try again", and a scope change keeps the current card. Leaving is always
+`enterPracticeMode(state, "study")` — `endSession` ("Done"), the result
+card's every exit (`App` wires Escape, backdrop and "Back to studying" to
+`setPracticeMode("study")`; `closeSummary` is guarded the same way) and
+`resetSrs` all route there; the last also nulls the store, since "all
+progress" means all.
+
+**Every credit is taken at answer time, not at dismiss.**
+`withExpeditionOutcome` in `applyCorrect` / `applyMiss` records the glyph,
+increments `cardsAnswered` (so the answer is booked to the mode it was given
+in even when leaving restores another) and, on the tenth, `roundsCompleted`
+— the same per-tab counter the hook already reads to mark the streak day and
+count a finished round, so only the tab that played the tenth answer credits
+it, never one that loads or adopts the store already finished. The grade is
+written through at once like a test round's (`applyImmediateSrsWriteThrough`:
+`Correct → Good`, `Wrong → Again`, `Skip → Again`, normal phase only). So an
+expedition abandoned mid-reveal keeps that answer and resumes on the next
+card, and a tab closed on the tenth reveal has still recorded the day.
+`atExpeditionCard(state, store)` is the one projection from the store to game
+state — the card after the last answer, or the result card (`sessionDone`)
+after the tenth, with `roundCards` / `roundRight` read off the store — shared
+by starting, resuming, syncing and advancing; `dismissFeedback` routes an
+expedition straight to it and skips `withRoundAdvance`, so the interstitial
+never appears inside one. "Done" on the tenth card's reveal lands on the
+result rather than leaving. Because a resumed expedition re-enters with
+`roundCards` already at the answers given (the chip reads "6/10" after five),
+the hook's round-started effect skips this mode and `startExpedition` records
+the start itself, once, when today's store is first built — so an expedition
+opened and left with no answer counts as begun for the started/finished
+ratio, while `expeditionStatus` reads such a store as fresh so the door does
+not say "resume". `roundsByPractice` gains `expedition`. `nowBucket` ticks at
+local midnight as well as hourly, so the door's label turns over with the
+day and agrees with what a tap does.
+
+**The map is neutral**, as in a test round: `paintTiers` returns nothing for
+any non-Study mode, `App` withholds the continent percentages, and no
+milestone is computed (the streak note still is). Scope splits in two while
+one is up: `isInScope`, which the map reads, becomes the expedition pool
+(every country in its own right; territories stay inert) and `App` frames
+`ALL_CONTINENTS`, while `scopeSet` / `totalInScope` — and every figure
+derived from them: due, known, seen, not yet seen, the test's Done count —
+stay the learner's own filter, so the settings never show world-wide numbers
+beside the learner's chips. `isInScope` is keyed on the expedition boolean,
+not the practice mode, so a Study / test flip keeps the same predicate and
+the map does not re-settle. A stored ten is validated against the same pool,
+so a set this build cannot ask is discarded rather than presented as an
+inert card. Every answer writes a record whether or not the country is in
+the learner's scope; out-of-scope records resurface when the scope widens, as
+they always have.
+
+**One attempt a day holds across tabs.** Each tab keeps its own copy of the
+store and would otherwise save its snapshot over the other's answers. The
+hook listens for the `storage` event on the expedition key (raised in every
+*other* tab on a write) and dispatches `syncExpedition`; the reducer adopts
+the incoming store only when `supersedes` says it is further along — a later
+day, or the same day with more answers — and a run in progress jumps to the
+card after the other tab's last answer, closing any reveal here. While a run
+or its result is on screen only the same day's store can move this tab: a
+later day's (a tab that opened tomorrow's past midnight) is ignored for
+now; the hook's `startExpedition` re-reads storage before deciding whether
+today's store is fresh, so it is picked up the next time the learner opens
+the door rather than a second, competing expedition being built for the same
+day. Ties and older stores
+are ignored, so the two converge on whichever got further, never on a row
+stitched from both. A removed key ("Erase all progress" in another tab)
+drops this tab's store too and leaves a run in progress. The adopted store
+round-trips through the save effect unchanged, which raises no event, so
+tabs cannot ping-pong. The other stores (SRS, streak, counters) still save
+last-write-wins per tab; only the expedition carries a one-attempt promise
+that divergence would break.
+
+`ExpeditionResult` is the expedition's summary and its round break: the row
+and the caption exactly as they leave the app (selectable, so they can be
+copied by hand), the ten by name, and one Share button — `navigator.share`
+where it exists (a dismissed sheet is not a failure and gets no fallback),
+`navigator.clipboard` otherwise, a pointer at the text when neither works.
+The text is plain: `Atlasaur · 6 September 2026` over `■■□■■■□■■■ 8/10`,
+formatted by `formatDay` in fixed English so two phones read the same.
+`ExpeditionDoor` is the shared button on the Today card and the Study summary;
+its label says what waits (fresh, resume with the count so far, or the
+result). There is no second go — that is tomorrow.
 
 ### Scope: continent filter × territories
 

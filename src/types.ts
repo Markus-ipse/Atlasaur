@@ -78,7 +78,10 @@ export type Country = {
 
 export type QuestionMode = "name-to-click" | "shape-to-name";
 
-export type PracticeMode = "quiz" | "study";
+// The kind of round the learner is in. Study is the home; "quiz" is a "Test
+// me on these" round; "expedition" is the Daily Expedition (R3.1), entered
+// only through `startExpedition` and never persisted as the current mode.
+export type PracticeMode = "quiz" | "study" | "expedition";
 
 export type Ease = "Again" | "Hard" | "Good" | "Easy";
 

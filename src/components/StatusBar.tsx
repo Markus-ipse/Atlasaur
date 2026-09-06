@@ -3,6 +3,7 @@ import { ScorePanel } from "./ScorePanel";
 import { SettingsMenu } from "./SettingsMenu";
 import { STUDY_NEW_CAP } from "../game/pickCountry";
 import { ROUND_SIZE } from "../game/useGame";
+import { EXPEDITION_SIZE } from "../game/expedition";
 import {
   learnedCount as srsLearnedCount,
   lifetimeAccuracy as srsLifetimeAccuracy,
@@ -23,6 +24,7 @@ type Props = {
 export function StatusBar({ game, className, themePref, onSetThemePref }: Props) {
   const { state } = game;
   const isStudy = state.practiceMode === "study";
+  const isExpedition = state.practiceMode === "expedition";
 
   const learned = useMemo(
     () => srsLearnedCount(state.srsStore, game.scopeSet),
@@ -60,7 +62,7 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
             newAvailable={game.newAvailableCount}
             newIntroduced={state.newIntroducedThisStretch}
           />
-        ) : (
+        ) : isExpedition ? null : (
           <>
             <ScorePanel
               completedCount={game.completedInScopeCount}
@@ -93,6 +95,7 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
       <SettingsMenu
         mode={state.mode}
         onSetMode={game.setMode}
+        modeLocked={isExpedition}
         selectedContinents={state.selectedContinents}
         onSetContinents={game.setContinents}
         includeTerritories={state.includeTerritories}
@@ -116,7 +119,8 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
 
 // Where the learner is in the current round. A test round is a run over the
 // whole scope with its own Done count, so the round chip is Study-only; a
-// review pass (Quiz phase "review") likewise has its own badge in Prompt.
+// review pass (Quiz phase "review") likewise has its own badge in Prompt. An
+// expedition is a round of ten and says so.
 function RoundChip({
   practiceMode,
   phase,
@@ -126,13 +130,20 @@ function RoundChip({
   phase: Phase;
   roundCards: number;
 }) {
-  if (practiceMode !== "study" || phase === "review") return null;
+  if (practiceMode === "quiz" || phase === "review") return null;
+  const size = practiceMode === "expedition" ? EXPEDITION_SIZE : ROUND_SIZE;
+  const card = Math.min(roundCards + 1, size);
   return (
     <span
       className="shrink-0 font-display text-xs uppercase tracking-wide text-ink-mid tabular-nums"
-      aria-label={`Card ${Math.min(roundCards + 1, ROUND_SIZE)} of ${ROUND_SIZE} this round`}
+      aria-label={`Card ${card} of ${size} this ${practiceMode === "expedition" ? "expedition" : "round"}`}
     >
-      {Math.min(roundCards + 1, ROUND_SIZE)}/{ROUND_SIZE}
+      {practiceMode === "expedition" && (
+        <>
+          Expedition<span aria-hidden> · </span>
+        </>
+      )}
+      {card}/{size}
     </span>
   );
 }

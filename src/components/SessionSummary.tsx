@@ -8,6 +8,8 @@ import {
   totalReviews as srsTotalReviews,
 } from "../game/srs";
 import { pickSpotlight } from "../game/pickCountry";
+import type { ExpeditionStatus } from "../game/expedition";
+import { ExpeditionDoor } from "./ExpeditionDoor";
 
 type Props = {
   practiceMode: PracticeMode;
@@ -28,6 +30,9 @@ type Props = {
   onBackToStudy: () => void;
   onKeepStudying: () => void;
   onSetSpotlight: (subregion: Subregion) => void;
+  // The Daily Expedition's door, on the Study summary only.
+  expedition: ExpeditionStatus;
+  onExpedition: () => void;
 };
 
 export function SessionSummary(props: Props) {
@@ -144,6 +149,8 @@ function StudySummary({
   onStartTest,
   onKeepStudying,
   onSetSpotlight,
+  expedition,
+  onExpedition,
 }: Props) {
   const learned = srsLearnedCount(srsStore, scopeIso3s);
   const seen = srsSeenCount(srsStore, scopeIso3s);
@@ -253,6 +260,12 @@ function StudySummary({
               {scopeLabel}
             </span>
           </button>
+          <ExpeditionDoor
+            status={expedition}
+            onClick={onExpedition}
+            className={secondaryClass}
+            subClassName="text-ink-faded"
+          />
           <button
             type="button"
             onClick={onKeepStudying}

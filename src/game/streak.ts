@@ -35,6 +35,13 @@ export function emptyStreak(): StreakStore {
 
 const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
+// The one definition of a stored day. Every store that keeps calendar days
+// (streak, counters, expedition) validates against this and compares its
+// days to `dayKey(now)`, so they can never disagree about what a day is.
+export function isDayKey(value: unknown): value is string {
+  return typeof value === "string" && DAY_KEY.test(value);
+}
+
 export function loadStreak(): StreakStore {
   try {
     const raw = window.localStorage.getItem(STREAK_STORAGE_KEY);
@@ -49,7 +56,7 @@ export function loadStreak(): StreakStore {
       return emptyStreak();
     }
     const days = ((parsed as StreakStore).days as unknown[])
-      .filter((d): d is string => typeof d === "string" && DAY_KEY.test(d))
+      .filter(isDayKey)
       .sort();
     return { version: STORE_VERSION, days: Array.from(new Set(days)) };
   } catch {

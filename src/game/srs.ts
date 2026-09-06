@@ -271,7 +271,9 @@ export function paintTiers(
   // scope could still answer by elimination, reading off the map the countries
   // they know instead of locating the one they were asked for, which is the
   // skill the test is scoring. Everything reads as unseen until the test ends.
-  if (practiceMode === "quiz") return new Map();
+  // The Daily Expedition is the one score a learner shows someone else, so it
+  // is the most neutral measurement of all and gets the same blank map.
+  if (practiceMode !== "study") return new Map();
   const tiers = masteryTiers(store);
   if (mode !== "name-to-click") return tiers;
   for (const [iso3, tier] of tiers) {

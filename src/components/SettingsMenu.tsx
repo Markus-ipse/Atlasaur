@@ -18,6 +18,8 @@ type PopupCoords = {
 type Props = {
   mode: QuestionMode;
   onSetMode: (mode: QuestionMode) => void;
+  // An expedition is Name → Click only; the picker is shown but inert.
+  modeLocked?: boolean;
   selectedContinents: readonly Continent[];
   onSetContinents: (continents: readonly Continent[]) => void;
   includeTerritories: boolean;
@@ -41,6 +43,7 @@ type Props = {
 export function SettingsMenu({
   mode,
   onSetMode,
+  modeLocked = false,
   selectedContinents,
   onSetContinents,
   includeTerritories,
@@ -173,21 +176,31 @@ export function SettingsMenu({
               <div
                 role="radiogroup"
                 aria-label="Question mode"
-                className="flex gap-1 p-1 rounded-full border border-ink-faded/40 bg-parchment-shadow"
+                className={
+                  "flex gap-1 p-1 rounded-full border border-ink-faded/40 bg-parchment-shadow" +
+                  (modeLocked ? " opacity-60" : "")
+                }
               >
                 <ModeButton
                   active={mode === "name-to-click"}
+                  disabled={modeLocked}
                   onClick={() => handleSetMode("name-to-click")}
                 >
                   Name → Click
                 </ModeButton>
                 <ModeButton
                   active={mode === "shape-to-name"}
+                  disabled={modeLocked}
                   onClick={() => handleSetMode("shape-to-name")}
                 >
                   Shape → Name
                 </ModeButton>
               </div>
+              {modeLocked && (
+                <p className="text-xs text-ink-mid mt-1">
+                  An expedition is always Name → Click.
+                </p>
+              )}
             </div>
             <div>
               <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Continents</p>
@@ -331,10 +344,12 @@ export function SettingsMenu({
 
 function ModeButton({
   active,
+  disabled = false,
   onClick,
   children,
 }: {
   active: boolean;
+  disabled?: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -343,6 +358,7 @@ function ModeButton({
       type="button"
       role="radio"
       aria-checked={active}
+      disabled={disabled}
       onClick={onClick}
       className={
         "flex-1 min-h-9 px-3 rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep " +
@@ -426,6 +442,10 @@ function MeasuredRows({
   const testRounds = counters.roundsByPractice.quiz;
   if (studyRounds + testRounds > 0) {
     rows.push(["Study / test rounds", `${studyRounds} / ${testRounds}`]);
+  }
+  const expeditions = counters.roundsByPractice.expedition;
+  if (expeditions > 0) {
+    rows.push(["Expeditions", String(expeditions)]);
   }
   if (rows.length === 0) return null;
 
