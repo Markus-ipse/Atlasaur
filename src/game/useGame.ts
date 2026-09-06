@@ -17,14 +17,17 @@ import {
 } from "./srs";
 import { milestoneFor, streakNote, type Milestone } from "./milestones";
 import {
+  EXPEDITION_STORAGE_KEY,
   expeditionPool,
   expeditionStatus,
   foundCount,
   isFinished as expeditionFinished,
   loadExpedition,
   newExpedition,
+  parseExpedition,
   recordOutcome,
   saveExpedition,
+  supersedes as expeditionSupersedes,
   type ExpeditionStatus,
   type ExpeditionStore,
 } from "./expedition";
@@ -282,6 +285,9 @@ export type Action =
   // day's store; setPracticeMode leaves one, never enters it.
   | { type: "setPracticeMode"; mode: Exclude<PracticeMode, "expedition">; now?: Date }
   | { type: "startExpedition"; store: ExpeditionStore; now?: Date }
+  // Another tab wrote the expedition store. Adopted only when it is further
+  // along (see `supersedes`); a run in progress here jumps to its card.
+  | { type: "syncExpedition"; store: ExpeditionStore | null }
   | { type: "setContinents"; continents: readonly Continent[]; now?: Date }
   | { type: "setIncludeTerritories"; value: boolean; now?: Date }
   | { type: "endSession" }
@@ -1059,6 +1065,33 @@ export function reducer(state: State, action: Action): State {
         action.now ?? new Date(),
       );
     }
+    case "syncExpedition": {
+      const store = action.store;
+      if (!store || !expeditionSupersedes(store, state.expedition)) return state;
+      if (state.practiceMode !== "expedition") {
+        return { ...state, expedition: store };
+      }
+      // Mid-run: the other tab has answered cards this one is still showing.
+      // Move to the card after its last answer, closing any reveal here — the
+      // answer it was for is recorded, by the other tab. After the tenth,
+      // the result card, as advanceCard would. A later day's store (the other
+      // tab opened tomorrow's past midnight) lands on its first card the
+      // same way; the start was credited by the tab that built it.
+      const current = COUNTRY_BY_ISO3.get(
+        store.iso3s[store.outcomes.length] ?? "",
+      );
+      return {
+        ...state,
+        expedition: store,
+        current: current ?? state.current,
+        feedback: null,
+        milestone: null,
+        sessionDone: expeditionFinished(store),
+        roundCards: store.outcomes.length,
+        roundRight: foundCount(store),
+        roundDone: false,
+      };
+    }
     case "endSession": {
       // "Done" inside an expedition leaves it rather than ending it: the
       // answers given so far are already in the store, and it resumes from
@@ -1387,6 +1420,24 @@ export function useGame(): GameApi {
   useEffect(() => {
     saveExpedition(state.expedition);
   }, [state.expedition]);
+
+  // One attempt a day has to hold across tabs. Each tab keeps its own copy
+  // of the store and would otherwise save its snapshot over the other's
+  // answers; the `storage` event (raised in every *other* tab on a write)
+  // hands the newer store here, and the reducer adopts it only when it is
+  // further along. The adopted store then round-trips through the save
+  // effect unchanged, which raises no event, so the two cannot ping-pong.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== EXPEDITION_STORAGE_KEY) return;
+      dispatch({
+        type: "syncExpedition",
+        store: parseExpedition(e.newValue, (iso3) => COUNTRY_BY_ISO3.has(iso3)),
+      });
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   // One card answered — meaning one whose grade reached the store, which is
   // usually a dismissed card but also covers an answer whose feedback is

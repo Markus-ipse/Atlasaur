@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `src/game/useGame.ts` is the single source of truth. `App.tsx` calls `useGame()` once and passes the resulting `GameApi` (state + dispatchers + lookup helpers) down to `ControlZone`; `WorldMap` receives only the slices of `GameApi` it needs as individual props. Components are otherwise stateless — do not introduce parallel game state in components.
 
-The reducer (`reducer` in `useGame.ts`) handles `answer | skip | dismiss | setMode | setPracticeMode | setContinents | endSession | continueRound | startReview | resetSrs | closeSummary | setSpotlight | clearSpotlight | reset` (plus the toast actions). Effects (timed auto-dismiss of correct feedback, localStorage persistence) live in the `useGame` hook itself, not in the reducer.
+The reducer (`reducer` in `useGame.ts`) handles `answer | skip | dismiss | setMode | setPracticeMode | startExpedition | syncExpedition | setContinents | setIncludeTerritories | endSession | continueRound | startReview | resetSrs | closeSummary | setSpotlight | clearSpotlight | reset` (plus the toast actions). Effects (timed auto-dismiss of correct feedback, localStorage persistence) live in the `useGame` hook itself, not in the reducer.
 
 ### Two phases, one retry queue
 
@@ -415,6 +415,21 @@ is clickable and `App` frames `ALL_CONTINENTS`; the learner's own selection is
 untouched. Every answer writes a record whether or not the country is in the
 learner's scope; out-of-scope records resurface when the scope widens, as they
 always have.
+
+**One attempt a day holds across tabs.** Each tab keeps its own copy of the
+store and would otherwise save its snapshot over the other's answers. The
+hook listens for the `storage` event on the expedition key (raised in every
+*other* tab on a write) and dispatches `syncExpedition`; the reducer adopts
+the incoming store only when `supersedes` says it is further along — a later
+day, or the same day with more answers — and a run in progress jumps to the
+card after the other tab's last answer, closing any reveal here (a later
+day's store, from a tab that opened tomorrow's past midnight, lands on its
+first card the same way). Ties and
+older stores are ignored, so the two converge on whichever got further,
+never on a row stitched from both. The adopted store round-trips through the
+save effect unchanged, which raises no event, so tabs cannot ping-pong. The
+other stores (SRS, streak, counters) still save last-write-wins per tab; only
+the expedition carries a one-attempt promise that divergence would break.
 
 `ExpeditionResult` is the expedition's summary and its round break: the row
 and the caption exactly as they leave the app (selectable, so they can be

@@ -9,7 +9,7 @@
 import type { Country } from "../types";
 import { dayKey } from "./streak";
 
-const EXPEDITION_STORAGE_KEY = "atlasaur:expedition:v1";
+export const EXPEDITION_STORAGE_KEY = "atlasaur:expedition:v1";
 const STORE_VERSION = 1;
 // A round of ten, not twelve: the result is a row of glyphs someone else
 // reads, and ten is the count a caption can say without a denominator that
@@ -135,7 +135,22 @@ export function loadExpedition(
   validIso3: (iso3: string) => boolean,
 ): ExpeditionStore | null {
   try {
-    const raw = window.localStorage.getItem(EXPEDITION_STORAGE_KEY);
+    return parseExpedition(
+      window.localStorage.getItem(EXPEDITION_STORAGE_KEY),
+      validIso3,
+    );
+  } catch {
+    return null;
+  }
+}
+
+// The same validation over a raw value, for the `storage` event another tab's
+// write raises: the hook feeds it the event's `newValue`.
+export function parseExpedition(
+  raw: string | null,
+  validIso3: (iso3: string) => boolean,
+): ExpeditionStore | null {
+  try {
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return null;
@@ -165,6 +180,22 @@ export function loadExpedition(
   } catch {
     return null;
   }
+}
+
+// Whether a store seen elsewhere (another tab's write) is further along than
+// the one in hand and should replace it: a later day, or the same day with
+// more answers given. The same day at the same count is a tie and ours
+// stands; an earlier day is history and is ignored. Only ever adopts, never
+// merges, so two tabs converge on whichever got further rather than on a row
+// stitched from both.
+export function supersedes(
+  incoming: ExpeditionStore | null,
+  current: ExpeditionStore | null,
+): boolean {
+  if (!incoming) return false;
+  if (!current) return true;
+  if (incoming.day !== current.day) return incoming.day > current.day;
+  return incoming.outcomes.length > current.outcomes.length;
 }
 
 export function saveExpedition(store: ExpeditionStore | null): void {

@@ -12,6 +12,7 @@ import {
   recordOutcome,
   saveExpedition,
   shareText,
+  supersedes,
   type ExpeditionStore,
 } from "./expedition";
 import countriesData from "../data/countries.json";
@@ -121,6 +122,30 @@ describe("expeditionStatus", () => {
   it("stops recording once the ten are answered", () => {
     const s = finished("2026-09-06", 10);
     expect(recordOutcome(s, "missed")).toBe(s);
+  });
+});
+
+describe("supersedes", () => {
+  const today = newExpedition("2026-09-06", POOL);
+  it("adopts anything over nothing, and nothing over anything", () => {
+    expect(supersedes(today, null)).toBe(true);
+    expect(supersedes(null, today)).toBe(false);
+    expect(supersedes(null, null)).toBe(false);
+  });
+
+  it("adopts a later day and ignores an earlier one", () => {
+    const yesterday = finished("2026-09-05", 10);
+    expect(supersedes(today, yesterday)).toBe(true);
+    expect(supersedes(yesterday, today)).toBe(false);
+  });
+
+  it("adopts the same day only when it is further along", () => {
+    const ahead = recordOutcome(recordOutcome(today, "found"), "missed");
+    const behind = recordOutcome(today, "missed");
+    expect(supersedes(ahead, behind)).toBe(true);
+    expect(supersedes(behind, ahead)).toBe(false);
+    // A tie is not a reason to move: ours stands.
+    expect(supersedes(behind, recordOutcome(today, "found"))).toBe(false);
   });
 });
 

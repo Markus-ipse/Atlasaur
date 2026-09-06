@@ -1618,6 +1618,47 @@ describe("reducer — the Daily Expedition (R3.1)", () => {
     expect(t.expedition).toEqual(store(["found"]));
   });
 
+  it("adopts another tab's store when it is further along, mid-run", () => {
+    // This tab is on the second card with the first's reveal open; the other
+    // tab has answered three.
+    const s = reducer(answerAndDismiss(start(), "FRA"), {
+      type: "skip",
+      now: NOW,
+    });
+    const ahead = store(["found", "missed", "found"]);
+    const t = reducer(s, { type: "syncExpedition", store: ahead });
+    expect(t.expedition).toBe(ahead);
+    expect(t.current.iso3).toBe(TEN[3]);
+    expect(t.feedback).toBeNull();
+    expect(t.roundCards).toBe(3);
+    expect(t.roundRight).toBe(2);
+    expect(t.sessionDone).toBe(false);
+    // Finished elsewhere: the result card, as the tenth dismiss would give.
+    const done = store(Array(EXPEDITION_SIZE).fill("missed"));
+    const u = reducer(s, { type: "syncExpedition", store: done });
+    expect(u.sessionDone).toBe(true);
+    expect(u.roundDone).toBe(false);
+    expect(u.roundCards).toBe(EXPEDITION_SIZE);
+  });
+
+  it("ignores another tab's store that is no further along", () => {
+    const s = answerAndDismiss(answerAndDismiss(start(), "FRA"), "BRA");
+    expect(reducer(s, { type: "syncExpedition", store: store(["missed"]) })).toBe(s);
+    expect(
+      reducer(s, { type: "syncExpedition", store: store(["missed", "missed"]) }),
+    ).toBe(s);
+    expect(reducer(s, { type: "syncExpedition", store: null })).toBe(s);
+  });
+
+  it("adopts another tab's store outside a run without touching the card", () => {
+    const study = initialState({ practiceMode: "study" });
+    const ahead = store(["found"]);
+    const t = reducer(study, { type: "syncExpedition", store: ahead });
+    expect(t.expedition).toBe(ahead);
+    expect(t.practiceMode).toBe("study");
+    expect(t.current).toBe(study.current);
+  });
+
   it("commits a Study grade in flight when the expedition starts", () => {
     const study = withCurrent(initialState({ practiceMode: "study" }), "FRA");
     const missed = reducer(study, { type: "skip", now: NOW });

@@ -2,7 +2,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { useGame } from "./useGame";
-import { EXPEDITION_SIZE, type ExpeditionStore } from "./expedition";
+import {
+  EXPEDITION_SIZE,
+  EXPEDITION_STORAGE_KEY,
+  type ExpeditionStore,
+} from "./expedition";
 import { loadStreak } from "./streak";
 import { loadCounters } from "./counters";
 
@@ -98,6 +102,41 @@ describe("useGame — the Daily Expedition", () => {
     expect(result.current.state.sessionDone).toBe(true);
     expect(loadStreak().days).toEqual([]);
     expect(loadCounters().roundsFinished).toBe(0);
+  });
+
+  it("follows another tab's write through the storage event", () => {
+    stored("2026-09-06", ["found"]);
+    const { result } = renderHook(() => useGame());
+    act(() => result.current.startExpedition());
+    expect(result.current.state.current.iso3).toBe("BRA");
+    const ahead: ExpeditionStore = {
+      ...result.current.state.expedition!,
+      outcomes: ["found", "missed", "missed"],
+    };
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: EXPEDITION_STORAGE_KEY,
+          newValue: JSON.stringify(ahead),
+        }),
+      );
+    });
+    expect(result.current.state.expedition).toEqual(ahead);
+    expect(result.current.state.current.iso3).toBe("EGY");
+    expect(result.current.state.roundCards).toBe(3);
+    // A write to some other key, or a malformed one, changes nothing.
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "atlasaur:streak:v1", newValue: "{}" }),
+      );
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: EXPEDITION_STORAGE_KEY,
+          newValue: "{not json",
+        }),
+      );
+    });
+    expect(result.current.state.expedition).toEqual(ahead);
   });
 
   it("books an answer to Name → Click even when leaving restores typing", () => {
