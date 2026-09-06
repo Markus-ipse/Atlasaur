@@ -9,6 +9,7 @@ import type {
   Continent,
   Country,
   Ease,
+  PracticeMode,
   QuestionMode,
   SrsRecord,
   SrsStore,
@@ -262,7 +263,15 @@ export function masteryTiers(store: SrsStore): Map<string, MasteryTier> {
 export function paintTiers(
   store: SrsStore,
   mode: QuestionMode,
+  practiceMode: PracticeMode,
 ): Map<string, MasteryTier> {
+  // A test round is a measurement, so the map carries no progress paint at
+  // all. Its picks are random rather than scheduler-driven, so there is no
+  // tier-to-pick correlation to leak — but a learner near the end of a small
+  // scope could still answer by elimination, reading off the map the countries
+  // they know instead of locating the one they were asked for, which is the
+  // skill the test is scoring. Everything reads as unseen until the test ends.
+  if (practiceMode === "quiz") return new Map();
   const tiers = masteryTiers(store);
   if (mode !== "name-to-click") return tiers;
   for (const [iso3, tier] of tiers) {

@@ -447,7 +447,7 @@ describe("mastery paint (R2.1)", () => {
     }
 
     it("keeps all three tiers in shape-to-name", () => {
-      const tiers = paintTiers(store(), "shape-to-name");
+      const tiers = paintTiers(store(), "shape-to-name", "study");
       expect(tiers.get("FRA")).toBe(2);
       expect(tiers.get("DEU")).toBe(1);
     });
@@ -455,19 +455,27 @@ describe("mastery paint (R2.1)", () => {
     it("collapses the introduced wash into unseen in name-to-click", () => {
       // Otherwise a resurfaced learning card would be the only washed country
       // on the map, narrowing "find Germany" to a set of three or four.
-      const tiers = paintTiers(store(), "name-to-click");
+      const tiers = paintTiers(store(), "name-to-click", "study");
       expect(tiers.get("DEU")).toBe(0);
     });
 
     it("still paints known countries in name-to-click", () => {
       // The known set is large, so it cannot narrow the answer — and it is the
       // whole point of the feature.
-      expect(paintTiers(store(), "name-to-click").get("FRA")).toBe(2);
+      expect(paintTiers(store(), "name-to-click", "study").get("FRA")).toBe(2);
     });
 
     it("leaves no tier 1 anywhere in name-to-click", () => {
-      const tiers = paintTiers(store(), "name-to-click");
+      const tiers = paintTiers(store(), "name-to-click", "study");
       expect([...tiers.values()]).not.toContain(1);
+    });
+
+    it("paints nothing at all during a test round, in either question mode", () => {
+      // A test is a measurement: a learner near the end of a small scope could
+      // otherwise read off the countries they know and answer by elimination
+      // instead of locating the one they were asked for.
+      expect(paintTiers(store(), "name-to-click", "quiz").size).toBe(0);
+      expect(paintTiers(store(), "shape-to-name", "quiz").size).toBe(0);
     });
   });
 

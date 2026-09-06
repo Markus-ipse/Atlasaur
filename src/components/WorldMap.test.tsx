@@ -344,6 +344,101 @@ describe("WorldMap — ambient mastery paint", () => {
     expect(Object.keys(captions(container))).toEqual([]);
   });
 
+  it("keeps the percentages as text when the captions are hidden", () => {
+    // Phone width drops the engraved captions; a screen-reader user must not
+    // lose the readout with them.
+    withMapSize(...PHONE);
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        feedback={null}
+        revealCapitalLonLat={null}
+        continentProgress={
+          new Map<Continent, { known: number; total: number }>([
+            ["Europe", { known: 39, total: 39 }],
+            ["Africa", { known: 0, total: 51 }],
+          ])
+        }
+      />,
+    );
+    expect(Object.keys(captions(container))).toEqual([]);
+    const srOnly = container.querySelector(".sr-only");
+    expect(srOnly?.textContent).toContain("Europe 100 percent");
+    expect(srOnly?.textContent).toContain("Africa 0 percent");
+  });
+
+  it("keeps the percentages as text during a miss reveal too", () => {
+    withMapSize(...DESKTOP);
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        feedback={WRONG}
+        revealCapitalLonLat={null}
+        continentProgress={
+          new Map<Continent, { known: number; total: number }>([
+            ["Europe", { known: 1, total: 39 }],
+          ])
+        }
+      />,
+    );
+    expect(Object.keys(captions(container))).toEqual([]);
+    expect(container.querySelector(".sr-only")?.textContent).toContain(
+      "Europe 2 percent",
+    );
+  });
+
+  it("hides the engraved captions from assistive tech, so they are not read twice", () => {
+    withMapSize(...DESKTOP);
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        feedback={null}
+        revealCapitalLonLat={null}
+        continentProgress={
+          new Map<Continent, { known: number; total: number }>([
+            ["Europe", { known: 1, total: 39 }],
+          ])
+        }
+      />,
+    );
+    const caption = container.querySelector("text[data-continent]");
+    expect(caption).not.toBeNull();
+    // The sr-only paragraph is the accessible source; the SVG is the picture.
+    expect(caption!.closest("g")?.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("reads the continents out in alphabetical order", () => {
+    withMapSize(...DESKTOP);
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        feedback={null}
+        revealCapitalLonLat={null}
+        continentProgress={
+          // Insertion order follows countries.json, which is neither
+          // alphabetical nor meaningful to someone hearing it read out.
+          new Map<Continent, { known: number; total: number }>([
+            ["Asia", { known: 0, total: 47 }],
+            ["Europe", { known: 39, total: 39 }],
+            ["Africa", { known: 0, total: 51 }],
+          ])
+        }
+      />,
+    );
+    const text = container.querySelector(".sr-only")!.textContent!;
+    expect(text.indexOf("Africa")).toBeLessThan(text.indexOf("Asia"));
+    expect(text.indexOf("Asia")).toBeLessThan(text.indexOf("Europe"));
+  });
+
+  it("reports no progress text when there is none to report", () => {
+    withMapSize(...DESKTOP);
+    const { container } = render(
+      <WorldMap {...BASE_PROPS} feedback={null} revealCapitalLonLat={null} />,
+    );
+    expect(container.querySelector(".sr-only")).toBeNull();
+  });
+
   it("still paints the mastery tiers on a phone, where the captions are hidden", () => {
     withMapSize(...PHONE);
     const { container } = render(

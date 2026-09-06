@@ -931,6 +931,23 @@ export function WorldMap({
       className="parchment-grain relative h-full w-full overflow-hidden [overscroll-behavior:none]"
       style={{ backgroundColor: palette.oceanTint }}
     >
+      {/* The engraved captions below are decorative and come and go with the
+          viewport and with reveals; these numbers do not. Rendered whenever
+          there is progress to report, regardless of whether the map is wide
+          enough to draw it. */}
+      {continentProgress.size > 0 && (
+        <p className="sr-only">
+          Countries known:{" "}
+          {[...continentProgress]
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .map(
+              ([continent, p]) =>
+                `${continent} ${masteryPercent(p.known, p.total)} percent`,
+            )
+            .join(", ")}
+          .
+        </p>
+      )}
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
@@ -1015,12 +1032,11 @@ export function WorldMap({
             );
           })}
           {/* Continent progress — the mastery paint's legend, engraved in the
-              same hand as the ocean labels. NOT aria-hidden: these percentages
-              exist nowhere else as text (the settings stats are global counts,
-              not per-continent), so hiding them would leave the release's
-              headline progress readout unavailable to a screen reader. Each
-              caption is one <text> reading "Europe 56%". */}
+              same hand as the ocean labels. aria-hidden because the sr-only
+              paragraph above carries the same numbers and, unlike these, is
+              not dropped on a narrow viewport or during a reveal. */}
           <g
+            aria-hidden="true"
             className="font-display"
             style={{
               letterSpacing: "0.1em",

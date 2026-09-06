@@ -119,6 +119,13 @@ the numbers in the settings stats. Like `learnedCount`, tier 2 includes FSRS
 Relearning, so a just-lapsed country keeps its pigment until it is graded down. There is no longer a single "in-scope land" tone; the
 old `--color-parchment-map` token is gone.
 
+**A test round (`practiceMode === "quiz"`) gets no paint at all**, in either
+question mode, and no percentages with it. Its picks are random rather than
+scheduler-driven, so there is no tier-to-pick correlation to leak — but a test
+is a measurement, and a learner near the end of a small scope could read off
+the countries they know and answer by elimination instead of locating the one
+they were asked for, which is the skill being scored.
+
 **The introduced wash is collapsed into unseen in `name-to-click`** (the memo in
 `App.tsx`). `pickNextStudy` partitions its picks exactly on that boundary — the
 new-introduction branch requires no record (tier 0), while the resurface, due
@@ -144,7 +151,10 @@ Per-continent percentages are drawn on the map from
 `masteryByContinent(store, countries, scope)` at hand-placed `[lon, lat]`
 anchors (`CONTINENT_ANCHOR_DATA` in `WorldMap.tsx` — computed centroids land in
 the Gulf of Guinea for Africa and inside Poland for Europe). They follow the
-continent filter and the territories setting, ride the ocean-label sizing at
+continent filter and the territories setting, are mirrored by an
+`sr-only` paragraph in the map container whenever there is progress to report (the engraved captions are
+`aria-hidden`, since they are dropped on a narrow viewport and during reveals
+while the text equivalent is not), ride the ocean-label sizing at
 `CONTINENT_CAPTION_RATIO`, and are suppressed both during a miss reveal (so
 they never compete with the reveal's own country labels) and whenever they
 would render below `CONTINENT_CAPTION_MIN_PX` on screen — which is the case for
