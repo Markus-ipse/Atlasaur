@@ -10,9 +10,10 @@ import { StatusBar } from "./components/StatusBar";
 import { Toast } from "./components/Toast";
 import { STUDY_NEW_CAP } from "./game/pickCountry";
 import countriesData from "./data/countries.json";
-import { ALL_CONTINENTS, type Country } from "./types";
+import { ALL_CONTINENTS, type Continent, type Country } from "./types";
 import { useTheme } from "./theme";
 import { readPaletteFromCss } from "./components/fillFor";
+import { masteryByContinent, paintTiers } from "./game/srs";
 
 const ALL_COUNTRIES = countriesData as Country[];
 
@@ -23,6 +24,12 @@ const NO_NEIGHBORS: readonly string[] = [];
 // Stable empty reference for when no spotlight is active, so the map's fill
 // computation sees a constant set rather than a fresh one each render.
 const NO_SPOTLIGHT: ReadonlySet<string> = new Set();
+
+// Stable empty reference for a test round, where the map reports no progress.
+const NO_CONTINENT_PROGRESS: ReadonlyMap<
+  Continent,
+  { known: number; total: number }
+> = new Map();
 
 export default function App() {
   const game = useGame();
@@ -66,6 +73,28 @@ export default function App() {
     }
     return out;
   }, [state.spotlightSubregion]);
+
+  // Ambient mastery paint (R2.1). The tier map is scope-independent — a
+  // country keeps the ink it earned even when filtered out, and the map's own
+  // inert branch decides whether that ink is shown. The per-continent
+  // percentages are scoped, so they follow the continent filter and the
+  // territories setting; they count tier 2 only and are unaffected by the
+  // collapse below.
+  const masteryByIso3 = useMemo(
+    () => paintTiers(state.srsStore, state.mode, state.practiceMode),
+    [state.srsStore, state.mode, state.practiceMode],
+  );
+  // The percentages follow the paint: a test round gets a neutral map, and a
+  // caption claiming "Europe 46%" over a blank one would contradict it. They
+  // cannot leak an answer themselves — they are aggregates — so this is for
+  // coherence, not safety.
+  const continentProgress = useMemo(
+    () =>
+      state.practiceMode === "quiz"
+        ? NO_CONTINENT_PROGRESS
+        : masteryByContinent(state.srsStore, ALL_COUNTRIES, game.scopeSet),
+    [state.srsStore, game.scopeSet, state.practiceMode],
+  );
 
   // Nothing due and today's new cards introduced: the scheduler has no
   // more work. Surfaced two ways — the RoundBreak's "That's everything for
@@ -118,6 +147,8 @@ export default function App() {
           feedback={state.feedback}
           correctNeighborIso3s={correctNeighborIso3s}
           spotlightIso3Set={spotlightIso3Set}
+          masteryByIso3={masteryByIso3}
+          continentProgress={continentProgress}
           revealCapitalLonLat={revealCapitalLonLat}
           selectedContinents={state.selectedContinents}
           isoFromNumeric={game.isoFromNumeric}

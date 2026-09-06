@@ -12,6 +12,11 @@ import {
   seenCount,
   loadStore,
   masteryBySubregion,
+  masteryByContinent,
+  masteryTierOf,
+  masteryTiers,
+  masteryPercent,
+  paintTiers,
   newAvailableCount,
   saveStore,
   toJSON,
@@ -333,5 +338,202 @@ describe("masteryBySubregion", () => {
     const map = masteryBySubregion(store, COUNTRIES, scope);
     expect(map.get("Southern Africa")).toEqual({ learned: 0, total: 2 });
     expect(map.has("Western Africa")).toBe(false);
+  });
+});
+
+describe("mastery paint (R2.1)", () => {
+  function country(iso3: string, continent: Country["continent"]): Country {
+    return {
+      numeric: "000",
+      iso3,
+      name: iso3,
+      aliases: [],
+      continent,
+      subregion: continent === "Europe" ? "Western Europe" : "Western Africa",
+      capital: "—",
+      capitalLonLat: [0, 0],
+      neighbors: [],
+      sizeTier: 0,
+      notabilityTier: 0,
+    };
+  }
+
+  function knownRecord(): SrsRecord {
+    return {
+      due: T0.toISOString(),
+      stability: 10,
+      difficulty: 5,
+      elapsed_days: 0,
+      scheduled_days: 10,
+      learning_steps: 0,
+      reps: 3,
+      lapses: 0,
+      state: 2,
+      hits: 3,
+      misses: 0,
+    };
+  }
+
+  describe("masteryTierOf", () => {
+    it("reads a missing record as unseen", () => {
+      expect(masteryTierOf(undefined)).toBe(0);
+    });
+
+    it("reads a fresh record as introduced", () => {
+      expect(masteryTierOf(grade(null, "Good", T0))).toBe(1);
+    });
+
+    it("reads a graduated record as known", () => {
+      expect(masteryTierOf(knownRecord())).toBe(2);
+    });
+
+    it("agrees with learnedCount on which records are known", () => {
+      const store: SrsStore = {
+        version: 1,
+        records: { FRA: knownRecord(), DEU: grade(null, "Good", T0) },
+      };
+      const scope = new Set(["FRA", "DEU"]);
+      const known = Object.keys(store.records).filter(
+        (iso3) => masteryTierOf(store.records[iso3]) === 2,
+      );
+      expect(known.length).toBe(learnedCount(store, scope));
+    });
+  });
+
+  describe("masteryTiers", () => {
+    it("maps only countries that have a record", () => {
+      const store: SrsStore = {
+        version: 1,
+        records: { FRA: knownRecord(), DEU: grade(null, "Again", T0) },
+      };
+      const tiers = masteryTiers(store);
+      expect(tiers.get("FRA")).toBe(2);
+      expect(tiers.get("DEU")).toBe(1);
+      expect(tiers.has("ESP")).toBe(false);
+      expect(tiers.size).toBe(2);
+    });
+
+    it("tiers every record in the store, including ones no scope would include", () => {
+      // masteryTiers takes no scope by design — a country keeps the ink it
+      // earned when the continent filter excludes it, and fillFor's own
+      // inScope branch decides whether that ink is shown. Assert the property
+      // that encodes: two countries on different continents, one of which any
+      // single-continent scope would drop, both come back tiered.
+      const store: SrsStore = {
+        version: 1,
+        records: { FRA: knownRecord(), NGA: knownRecord() },
+      };
+      const tiers = masteryTiers(store);
+      expect([...tiers.keys()].sort()).toEqual(["FRA", "NGA"]);
+      // ...while the scoped aggregate does drop it, so the two helpers are
+      // genuinely answering different questions.
+      const scoped = masteryByContinent(
+        store,
+        [country("FRA", "Europe"), country("NGA", "Africa")],
+        new Set(["FRA"]),
+      );
+      expect(scoped.has("Africa")).toBe(false);
+    });
+  });
+
+  describe("paintTiers", () => {
+    // A store mid-learning: one country known, one still in FSRS learning,
+    // which is the pair the scheduler's pick branches partition on.
+    function store(): SrsStore {
+      return {
+        version: 1,
+        records: { FRA: knownRecord(), DEU: grade(null, "Good", T0) },
+      };
+    }
+
+    it("keeps all three tiers in shape-to-name", () => {
+      const tiers = paintTiers(store(), "shape-to-name", "study");
+      expect(tiers.get("FRA")).toBe(2);
+      expect(tiers.get("DEU")).toBe(1);
+    });
+
+    it("collapses the introduced wash into unseen in name-to-click", () => {
+      // Otherwise a resurfaced learning card would be the only washed country
+      // on the map, narrowing "find Germany" to a set of three or four.
+      const tiers = paintTiers(store(), "name-to-click", "study");
+      expect(tiers.get("DEU")).toBe(0);
+    });
+
+    it("still paints known countries in name-to-click", () => {
+      // The known set is large, so it cannot narrow the answer — and it is the
+      // whole point of the feature.
+      expect(paintTiers(store(), "name-to-click", "study").get("FRA")).toBe(2);
+    });
+
+    it("leaves no tier 1 anywhere in name-to-click", () => {
+      const tiers = paintTiers(store(), "name-to-click", "study");
+      expect([...tiers.values()]).not.toContain(1);
+    });
+
+    it("paints nothing at all during a test round, in either question mode", () => {
+      // A test is a measurement: a learner near the end of a small scope could
+      // otherwise read off the countries they know and answer by elimination
+      // instead of locating the one they were asked for.
+      expect(paintTiers(store(), "name-to-click", "quiz").size).toBe(0);
+      expect(paintTiers(store(), "shape-to-name", "quiz").size).toBe(0);
+    });
+  });
+
+  describe("masteryByContinent", () => {
+    const COUNTRIES: Country[] = [
+      country("FRA", "Europe"),
+      country("DEU", "Europe"),
+      country("ESP", "Europe"),
+      country("NGA", "Africa"),
+    ];
+
+    it("counts known against every in-scope country on the continent", () => {
+      const store: SrsStore = {
+        version: 1,
+        records: { FRA: knownRecord(), DEU: grade(null, "Good", T0) },
+      };
+      const scope = new Set(["FRA", "DEU", "ESP", "NGA"]);
+      const map = masteryByContinent(store, COUNTRIES, scope);
+      expect(map.get("Europe")).toEqual({ known: 1, total: 3 });
+      expect(map.get("Africa")).toEqual({ known: 0, total: 1 });
+    });
+
+    it("omits a continent with nothing in scope", () => {
+      const store: SrsStore = { version: 1, records: {} };
+      const map = masteryByContinent(store, COUNTRIES, new Set(["NGA"]));
+      expect(map.has("Europe")).toBe(false);
+      expect(map.get("Africa")).toEqual({ known: 0, total: 1 });
+    });
+
+    it("does not count an out-of-scope known country toward its continent", () => {
+      const store: SrsStore = { version: 1, records: { FRA: knownRecord() } };
+      const map = masteryByContinent(store, COUNTRIES, new Set(["DEU", "ESP"]));
+      expect(map.get("Europe")).toEqual({ known: 0, total: 2 });
+    });
+  });
+});
+
+describe("masteryPercent", () => {
+  it("reserves 100% for a finished set", () => {
+    expect(masteryPercent(39, 39)).toBe(100);
+    expect(masteryPercent(38, 39)).toBe(97);
+  });
+
+  it("never rounds a near-finished set up to 100", () => {
+    // 199/200 is 99.5% — a naive round would claim the continent is done.
+    expect(masteryPercent(199, 200)).toBe(99);
+  });
+
+  it("never rounds a started set down to 0", () => {
+    // 1/300 is 0.33% — a naive floor would claim the learner had done nothing.
+    expect(masteryPercent(1, 300)).toBe(1);
+  });
+
+  it("reserves 0% for an untouched set", () => {
+    expect(masteryPercent(0, 39)).toBe(0);
+  });
+
+  it("returns 0 for an empty set rather than dividing by zero", () => {
+    expect(masteryPercent(0, 0)).toBe(0);
   });
 });

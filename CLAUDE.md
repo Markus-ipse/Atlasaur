@@ -103,9 +103,66 @@ Typed-answer matching (shape-to-name mode) compares `normalize(input)` against `
 
 The Equal-Earth projection, all path `d` strings, the label list, and `FEATURE_BY_NUMERIC` are computed once at module load — they only depend on the projection. Re-renders during pan/zoom apply a CSS `transform` to a single `<g>` element; the path data does not change. If you need to recompute paths, you're probably doing something wrong; consider whether the change can be expressed via fill/highlight state in `fillFor` instead.
 
-`fillFor` is the single decision point for country color (default / inert / in-scope / highlighted / correct / wrong / skipped / **neighbor**). Add new visual states there, not in the JSX. Precedence inside a feedback reveal: correct → wrong-clicked → neighbor → highlight → default. A neighbor that's also the wrong-clicked country stays red; the neighbor tone is the lowest-priority overlay so it never competes with primary signals.
+`fillFor` is the single decision point for country color (inert / **mastery paint** / highlighted / correct / wrong / skipped / neighbor / spotlight). Add new visual states there, not in the JSX. Precedence inside a feedback reveal: correct → wrong-clicked → neighbor → highlight → spotlight → inert → mastery paint. A neighbor that's also the wrong-clicked country stays red; the neighbor tone is the lowest-priority *reveal* overlay so it never competes with primary signals. Below every reveal state sit the spotlight wash and, at the very bottom, the ambient mastery paint.
 
 The reveal-zoom effect auto-frames the correct country when feedback appears (kind ≠ "correct") and zooms back out when feedback clears. `computeRevealTarget` in `src/components/revealZoom.ts` takes the answer country, optionally a wrong-clicked secondary, and optionally the answer country's neighbor bounds; it cascades the union (full → drop secondary → drop neighbors → bare primary), keeping `naturalK ≥ MIN_ZOOM` at each tier. Before the cascade, a giant neighbor is filtered out (when pairing it with the answer alone would drop the fit below `REVEAL_NEIGHBOR_K_FLOOR ×` the answer-alone fit — e.g. Russia next to Estonia) so the answer country stays visible; the dropped neighbor is still highlighted and labeled, just not framed. Both transitions honor `prefers-reduced-motion`.
+
+### Ambient mastery paint (R2.1)
+
+The map is the progress view. Every in-scope country is painted by how far the
+learner has taken it — `masteryTiers(store)` in `src/game/srs.ts` yields
+`iso3 → MasteryTier` (0 unseen, 1 introduced, 2 known), and `fillFor` resolves
+that to `--color-mastery-unseen` / `--color-mastery-seen` /
+`--color-mastery-known`. Tier 2 reuses `learnedCount`'s `state >= 2` predicate
+and `tier >= 1` is what `seenCount` counts, so the map can never disagree with
+the numbers in the settings stats. Like `learnedCount`, tier 2 includes FSRS
+Relearning, so a just-lapsed country keeps its pigment until it is graded down. There is no longer a single "in-scope land" tone; the
+old `--color-parchment-map` token is gone.
+
+**A test round (`practiceMode === "quiz"`) gets no paint at all**, in either
+question mode, and no percentages with it. Its picks are random rather than
+scheduler-driven, so there is no tier-to-pick correlation to leak — but a test
+is a measurement, and a learner near the end of a small scope could read off
+the countries they know and answer by elimination instead of locating the one
+they were asked for, which is the skill being scored.
+
+**The introduced wash is collapsed into unseen in `name-to-click`** (the memo in
+`App.tsx`). `pickNextStudy` partitions its picks exactly on that boundary — the
+new-introduction branch requires no record (tier 0), while the resurface, due
+and most-overdue branches all require one (tier 1 or 2) — and tier 1 is by
+construction tiny, the handful of cards still in FSRS learning, which is
+precisely the set the scheduler resurfaces. A wash on those would narrow "find
+Portugal" to three or four countries. Tiers 0 and 2 are both large, so a
+two-tone map leaks nothing. `shape-to-name` keeps all three tones: the shape is
+already highlighted there, and knowing you have met a country cannot supply its
+name. If you add a question mode that asks the learner to *find* something on
+the map, collapse the wash for it too.
+
+The tier map is deliberately **scope-independent** — a country keeps the ink it
+earned when the continent filter excludes it, and `fillFor`'s own `inScope`
+branch decides whether that ink is shown. That keeps the memo in `App.tsx`
+keyed on `state.srsStore` alone.
+
+Mastery sits at the **bottom** of `fillFor`'s precedence chain, below the
+spotlight wash: everything above it is either a transient reveal or a focus the
+learner switched on, and ambient progress must not compete with either.
+
+Per-continent percentages are drawn on the map from
+`masteryByContinent(store, countries, scope)` at hand-placed `[lon, lat]`
+anchors (`CONTINENT_ANCHOR_DATA` in `WorldMap.tsx` — computed centroids land in
+the Gulf of Guinea for Africa and inside Poland for Europe). They follow the
+continent filter and the territories setting, are mirrored by an
+`sr-only` paragraph in the map container whenever there is progress to report (the engraved captions are
+`aria-hidden`, since they are dropped on a narrow viewport and during reveals
+while the text equivalent is not), ride the ocean-label sizing at
+`CONTINENT_CAPTION_RATIO`, and are suppressed both during a miss reveal (so
+they never compete with the reveal's own country labels) and whenever they
+would render below `CONTINENT_CAPTION_MIN_PX` on screen — which is the case for
+the world view on a phone, where a two-line caption is wider than the continent
+it annotates. The paint carries progress on its own there, and the captions
+return on a bigger map, a continent filter, or a pinch. `masteryPercent` reserves
+100% for a finished continent and 0% for an untouched one, so neither is ever a
+rounding artefact.
 
 ### Small countries on a phone (R1.6)
 

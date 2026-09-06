@@ -5,7 +5,9 @@ import { fillFor, type Palette } from "./fillFor";
 // Distinct sentinel colors so a precedence bug shows up as a wrong return
 // value. Real palette resolution lives in App.tsx via readPaletteFromCss.
 const LIGHT_PALETTE: Palette = {
-  default: "#default",
+  masteryUnseen: "#unseen",
+  masterySeen: "#seen00",
+  masteryKnown: "#known0",
   inert: "#inert00",
   highlight: "#highlt",
   correct: "#correc",
@@ -158,7 +160,7 @@ describe("fillFor — no feedback", () => {
         },
         LIGHT_PALETTE,
       ),
-    ).toBe(LIGHT_PALETTE.default);
+    ).toBe(LIGHT_PALETTE.masteryUnseen);
   });
 
   it("out-of-scope returns inert", () => {
@@ -176,7 +178,7 @@ describe("fillFor — no feedback", () => {
     ).toBe(LIGHT_PALETTE.inert);
   });
 
-  it("in-scope, unhighlighted, no feedback returns default", () => {
+  it("in-scope, unhighlighted, no feedback returns the unseen paint", () => {
     expect(
       fillFor(
         {
@@ -188,7 +190,7 @@ describe("fillFor — no feedback", () => {
         },
         LIGHT_PALETTE,
       ),
-    ).toBe(LIGHT_PALETTE.default);
+    ).toBe(LIGHT_PALETTE.masteryUnseen);
   });
 });
 
@@ -292,5 +294,66 @@ describe("fillFor — degenerate inputs", () => {
         LIGHT_PALETTE,
       ),
     ).toBe(LIGHT_PALETTE.inert);
+  });
+});
+
+describe("fillFor — ambient mastery paint", () => {
+  const base = {
+    iso3: "BEL",
+    highlightedIso3: null,
+    feedback: null,
+    inScope: true,
+    neighborSet: NO_NEIGHBORS,
+  };
+
+  it("paints each tier with its own pigment", () => {
+    expect(fillFor({ ...base, masteryTier: 0 }, LIGHT_PALETTE)).toBe(
+      LIGHT_PALETTE.masteryUnseen,
+    );
+    expect(fillFor({ ...base, masteryTier: 1 }, LIGHT_PALETTE)).toBe(
+      LIGHT_PALETTE.masterySeen,
+    );
+    expect(fillFor({ ...base, masteryTier: 2 }, LIGHT_PALETTE)).toBe(
+      LIGHT_PALETTE.masteryKnown,
+    );
+  });
+
+  it("treats an omitted tier as unseen", () => {
+    expect(fillFor(base, LIGHT_PALETTE)).toBe(LIGHT_PALETTE.masteryUnseen);
+  });
+
+  it("keeps out-of-scope inert even for a known country", () => {
+    expect(
+      fillFor({ ...base, inScope: false, masteryTier: 2 }, LIGHT_PALETTE),
+    ).toBe(LIGHT_PALETTE.inert);
+  });
+
+  it("lets the spotlight wash win over the mastery paint", () => {
+    expect(
+      fillFor(
+        { ...base, masteryTier: 2, spotlightSet: new Set(["BEL"]) },
+        LIGHT_PALETTE,
+      ),
+    ).toBe(LIGHT_PALETTE.spotlight);
+  });
+
+  it("lets a reveal win over the mastery paint", () => {
+    const reveal: Feedback = {
+      kind: "wrong",
+      answerIso3: "BEL",
+      correctIso3: "FRA",
+    };
+    expect(
+      fillFor({ ...base, masteryTier: 2, feedback: reveal }, LIGHT_PALETTE),
+    ).toBe(LIGHT_PALETTE.wrong);
+  });
+
+  it("lets the shape-to-name highlight win over the mastery paint", () => {
+    expect(
+      fillFor(
+        { ...base, masteryTier: 2, highlightedIso3: "BEL" },
+        LIGHT_PALETTE,
+      ),
+    ).toBe(LIGHT_PALETTE.highlight);
   });
 });
