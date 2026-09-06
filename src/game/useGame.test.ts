@@ -144,7 +144,10 @@ describe("reducer — review phase", () => {
     expect(["FRA", "DEU"]).toContain(s.current.iso3);
   });
 
-  it("review: correct answer is ungraded — score/streak/total/missed unchanged", () => {
+  it("review: correct answer is unscored — score/total/missed unchanged", () => {
+    // `streak` is deliberately not in this list since R2.2: it drives the
+    // ceremony copy rather than the session summary, so it counts every
+    // answer in both phases. The session statistics still do not.
     const before = seedReview();
     const baseline = {
       score: before.score,
@@ -157,7 +160,7 @@ describe("reducer — review phase", () => {
       iso3: before.current.iso3,
     });
     expect(after.score).toBe(baseline.score);
-    expect(after.streak).toBe(baseline.streak);
+    expect(after.streak).toBe(baseline.streak + 1);
     expect(after.total).toBe(baseline.total);
     expect(after.missed).toBe(baseline.missed);
     expect(after.retryQueue.some((e) => e.iso3 === before.current.iso3)).toBe(
@@ -1247,6 +1250,34 @@ describe("reducer — ceremony (R2.2)", () => {
     expect(s1.milestone).toBeNull();
   });
 
+  it("builds the run on a correct answer during a Quiz review pass", () => {
+    // Symmetric with the miss case below: a phase where a run can only be
+    // lost and never built would freeze the streak just below a threshold.
+    const s0 = withCurrent(
+      {
+        ...initialState(),
+        phase: "review" as const,
+        streak: 4,
+        retryQueue: [{ iso3: "FRA", dueAt: 0 }],
+      },
+      "FRA",
+    );
+    // Pin the branch, not just the numbers: Study would also give streak 5
+    // with score and total at 0, so without these the test would keep passing
+    // if initialState's test-only practiceMode default ever flipped.
+    expect(s0.practiceMode).toBe("quiz");
+    expect(s0.phase).toBe("review");
+    const s1 = reducer(s0, { type: "answer", iso3: "FRA", now: T0 });
+    expect(s1.streak).toBe(5);
+    // Score and total stay out of the review pass, as they always have.
+    expect(s1.score).toBe(0);
+    expect(s1.total).toBe(0);
+    // Side effects unique to the Quiz review branch: the entry leaves the
+    // queue, and no Study auto-grade is staged.
+    expect(s1.retryQueue.some((e) => e.iso3 === "FRA")).toBe(false);
+    expect(s1.autoGradePending).toBeNull();
+  });
+
   it("breaks the run on a miss during a Quiz review pass", () => {
     // Review-phase answers do not move the score, but a run of correct
     // answers is a claim about recall — misses in review must break it, or
@@ -1255,8 +1286,13 @@ describe("reducer — ceremony (R2.2)", () => {
       { ...initialState(), phase: "review" as const, streak: 4 },
       "FRA",
     );
+    expect(s0.practiceMode).toBe("quiz");
+    expect(s0.phase).toBe("review");
     const s1 = reducer(s0, { type: "answer", iso3: "DEU", now: T0 });
     expect(s1.streak).toBe(0);
+    // The Quiz review branch re-queues the miss; Study would stage an Again
+    // instead, so this discriminates the branch as well as the outcome.
+    expect(s1.autoGradePending).toBeNull();
   });
 
   it("ends a ceremony in flight when the learner leaves the session", () => {

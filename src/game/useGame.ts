@@ -14,7 +14,7 @@ import {
   saveSeenWelcome,
   saveStore,
 } from "./srs";
-import { milestoneFor, type Milestone } from "./milestones";
+import { milestoneFor, streakNote, type Milestone } from "./milestones";
 import {
   emptyStreak,
   loadStreak,
@@ -137,6 +137,9 @@ const FEEDBACK_DURATION = { correct: 900, correctNameToClick: 1300 } as const;
 // survey's figure is "a one-second engraved hatch"; this is that plus the
 // ordinary flash it replaces.
 const MILESTONE_DURATION = 2400;
+// A streak note is one short line, so it needs less than the hatch does — but
+// more than the ordinary flash, which can be gone before the eye reaches it.
+const STREAK_NOTE_DURATION = 1700;
 const TOAST_DURATION = 3000;
 const RETRY_GAP_MIN = 3;
 const RETRY_GAP_MAX = 5;
@@ -662,8 +665,13 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
   const srsStore = applyQuizSrsWriteThrough(state, correctIso3, "Good", now);
 
   if (state.phase === "review") {
+    // Score and total stay out of the review pass, but the run of correct
+    // answers does not: it is a live "you are on a roll" signal, not a session
+    // statistic, and it now breaks on a review miss — so it has to build on a
+    // review hit too, or a run could only ever be lost there.
     return {
       ...state,
+      streak: state.streak + 1,
       retryQueue: withoutIso3(state.retryQueue, correctIso3),
       completedSet,
       feedback,
@@ -1062,17 +1070,21 @@ export function useGame(): GameApi {
 
   useEffect(() => {
     if (!state.feedback || state.feedback.kind !== "correct") return;
-    const ms = state.milestone
-      ? MILESTONE_DURATION
-      : state.mode === "name-to-click"
+    const ordinary =
+      state.mode === "name-to-click"
         ? FEEDBACK_DURATION.correctNameToClick
         : FEEDBACK_DURATION.correct;
+    const ms = state.milestone
+      ? MILESTONE_DURATION
+      : streakNote(state.streak) !== null
+        ? Math.max(ordinary, STREAK_NOTE_DURATION)
+        : ordinary;
     const id = window.setTimeout(
       () => dispatch({ type: "dismiss", now: new Date() }),
       ms,
     );
     return () => window.clearTimeout(id);
-  }, [state.feedback, state.mode, state.milestone]);
+  }, [state.feedback, state.mode, state.milestone, state.streak]);
 
   useEffect(() => {
     if (!state.transientMessage) return;
