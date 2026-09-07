@@ -85,6 +85,13 @@
   --color-map-border: #2b1f12; /* country path stroke — mirrors ink-deep in
                                   light but stays warm ochre in dark so
                                   borders read against the dark ocean */
+  --color-map-border-inverse: #f0e2c4; /* the same line at opposite polarity,
+                                          for fills --color-map-border would
+                                          disappear into. strokeFor picks it
+                                          per country; in light no fill comes
+                                          close enough to the ink to need it,
+                                          so this value is the dark theme's
+                                          counterpart standing ready. */
 
   /* Always-darker-than-base roles. Separate from --color-ink-deep because
      scrims and edge vignettes must stay darkening across theme flips — they
@@ -141,6 +148,14 @@
                                  --color-mastery-known, which it has to win
                                  over (see fillFor's precedence chain) */
   --color-map-border: #7a6440; /* warm faded ochre — visible against dark ocean */
+  --color-map-border-inverse: #14100a; /* pressed-ink near-black, below the
+                                          ocean tint. The ochre line above is
+                                          what lets a coastline read against
+                                          the ocean, and is exactly why it
+                                          vanishes into the bright pigments —
+                                          known land, the spotlight wash, a
+                                          reveal — so those get this instead
+                                          (see strokeFor in fillFor.ts). */
 
   /* Always-darker-than-base roles. Both stay in the warm family to match
      the rest of the dark palette; vignette is pure black to deepen map

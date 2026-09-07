@@ -18,6 +18,7 @@ const PALETTE: Palette = {
   neighbor: "#neighb",
   spotlight: "#spotlt",
   border: "#border",
+  borderInverse: "#bordin",
   oceanTint: "#ocean0",
   oceanLabel: "#oclbl0",
   capitalDot: "#capdot",

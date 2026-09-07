@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
 import type { Feedback } from "../types";
-import { fillFor, type Palette } from "./fillFor";
+import {
+  BORDER_MIN_CONTRAST,
+  contrastRatio,
+  fillFor,
+  strokeFor,
+  type Palette,
+} from "./fillFor";
 
 // Distinct sentinel colors so a precedence bug shows up as a wrong return
 // value. Real palette resolution lives in App.tsx via readPaletteFromCss.
@@ -16,6 +22,7 @@ const LIGHT_PALETTE: Palette = {
   neighbor: "#neighb",
   spotlight: "#spotlt",
   border: "#border",
+  borderInverse: "#bordin",
   oceanTint: "#ocean0",
   oceanLabel: "#oclbl0",
   capitalDot: "#capdot",
@@ -355,5 +362,146 @@ describe("fillFor — ambient mastery paint", () => {
         LIGHT_PALETTE,
       ),
     ).toBe(LIGHT_PALETTE.highlight);
+  });
+});
+
+// --- strokeFor -------------------------------------------------------------
+//
+// These two palettes mirror the shipped tokens in src/index.css — the same
+// kind of contract as the theme-color literals in index.html and the PWA
+// manifest, and for the same reason: a test can't read a CSS variable out of
+// a stylesheet Vitest never parses. Only the slots a country path can be
+// filled with are needed, plus the two border inks. Keep them in step with
+// @theme / [data-theme="dark"]; the point of the suite is that the pigments
+// we actually ship stay legible against the line that draws them.
+
+const LIGHT: Palette = {
+  ...LIGHT_PALETTE,
+  masteryUnseen: "#e3d9c0",
+  masterySeen: "#d8c28d",
+  masteryKnown: "#c0a271",
+  inert: "#e3d2ad", // --color-parchment-shadow
+  highlight: "#b08327", // --color-ochre
+  correct: "#5d7e3e", // --color-sap-green
+  wrong: "#b66556", // --color-vermillion-faded
+  skipped: "#9a7a2a",
+  neighbor: "#c5b791",
+  spotlight: "#dcb45a",
+  border: "#2b1f12",
+  borderInverse: "#f0e2c4",
+};
+
+const DARK: Palette = {
+  ...LIGHT_PALETTE,
+  masteryUnseen: "#362b1c",
+  masterySeen: "#4a3c26",
+  masteryKnown: "#6b5732",
+  inert: "#272118",
+  highlight: "#d49a3a",
+  correct: "#7d9a4c",
+  wrong: "#a64634",
+  skipped: "#c69a36",
+  neighbor: "#8a7a4a",
+  spotlight: "#8a6a2a",
+  border: "#7a6440",
+  borderInverse: "#14100a",
+};
+
+// Every Palette slot fillFor can hand back for a country path. The ocean,
+// label and capital-marker slots are not fills, so they never reach strokeFor.
+const COUNTRY_FILLS = [
+  "masteryUnseen",
+  "masterySeen",
+  "masteryKnown",
+  "inert",
+  "highlight",
+  "correct",
+  "wrong",
+  "skipped",
+  "neighbor",
+  "spotlight",
+] as const satisfies readonly (keyof Palette)[];
+
+describe("strokeFor — the engraved line", () => {
+  it("leaves the light map on its single ink", () => {
+    // Light's border is near-black and every fill is a parchment pigment, so
+    // nothing there comes close enough to the ink to need the second one.
+    for (const slot of COUNTRY_FILLS) {
+      expect(strokeFor(LIGHT[slot], LIGHT)).toBe(LIGHT.border);
+    }
+  });
+
+  it("keeps the ochre line where dark land still reads against it", () => {
+    // Out-of-scope land and unseen in-scope land are the map at rest; the
+    // ochre line is what draws them, and coastlines with it.
+    for (const slot of ["inert", "masteryUnseen"] as const) {
+      expect(strokeFor(DARK[slot], DARK)).toBe(DARK.border);
+    }
+  });
+
+  it("switches ink for the dark fills that swallowed it", () => {
+    // The reported bug: adjacent countries under the spotlight wash (or any
+    // other bright pigment) read as one landmass.
+    for (const slot of [
+      "masteryKnown",
+      "spotlight",
+      "highlight",
+      "correct",
+      "wrong",
+      "skipped",
+      "neighbor",
+    ] as const) {
+      expect(strokeFor(DARK[slot], DARK)).toBe(DARK.borderInverse);
+    }
+  });
+
+  it("clears the legibility floor wherever it switches", () => {
+    for (const palette of [LIGHT, DARK]) {
+      for (const slot of COUNTRY_FILLS) {
+        const fill = palette[slot];
+        const stroke = strokeFor(fill, palette);
+        if (stroke === palette.border) continue;
+        expect(contrastRatio(fill, stroke)).toBeGreaterThanOrEqual(
+          BORDER_MIN_CONTRAST,
+        );
+      }
+    }
+  });
+
+  it("never leaves a fill worse off than the default ink would", () => {
+    // The floor holds the default ink through a marginal gain (light's sap
+    // green would pick up 0.4 by switching, and doesn't) — but a switch can
+    // only ever be an improvement, never a trade.
+    for (const palette of [LIGHT, DARK]) {
+      for (const slot of COUNTRY_FILLS) {
+        const fill = palette[slot];
+        expect(
+          contrastRatio(fill, strokeFor(fill, palette))!,
+        ).toBeGreaterThanOrEqual(contrastRatio(fill, palette.border)!);
+      }
+    }
+  });
+
+  it("answers per palette, so a theme flip can't serve a stale ink", () => {
+    // Same fill string, both palettes — guards the memo key.
+    const fill = DARK.spotlight;
+    expect(strokeFor(fill, DARK)).toBe(DARK.borderInverse);
+    expect(strokeFor(fill, { ...DARK, borderInverse: "" })).toBe(DARK.border);
+  });
+
+  it("falls back to the default ink on a color it can't read", () => {
+    // Sentinel fixtures and a token that resolved empty under jsdom both
+    // land here — a legibility check it can't make must not repaint the map.
+    expect(strokeFor("#unseen", LIGHT_PALETTE)).toBe(LIGHT_PALETTE.border);
+    expect(strokeFor(DARK.spotlight, { ...DARK, border: "" })).toBe("");
+  });
+
+  it("reads the rgb() form as well as hex", () => {
+    const asRgb = { ...DARK, borderInverse: "rgb(20, 16, 10)" };
+    expect(strokeFor(DARK.spotlight, asRgb)).toBe("rgb(20, 16, 10)");
+  });
+
+  it("reads a three-digit hex", () => {
+    expect(contrastRatio("#fff", "#ffffff")).toBe(1);
   });
 });

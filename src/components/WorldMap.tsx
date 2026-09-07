@@ -37,7 +37,7 @@ import {
   type Label,
   type Rect,
 } from "./labelLayout";
-import { fillFor, type Palette } from "./fillFor";
+import { fillFor, strokeFor, type Palette } from "./fillFor";
 import { masteryPercent, type MasteryTier } from "../game/srs";
 import { Wordmark } from "./Wordmark";
 import {
@@ -129,6 +129,13 @@ const CONTINENT_CAPTION_MIN_PX = 10;
 // On-screen spacing of the engraved hatch drawn over a country that has just
 // become known.
 const HATCH_SCREEN_PX = 6;
+
+// Hoisted: one object shared by every country path rather than a fresh
+// literal per path per render. Stroke transitions alongside fill because
+// strokeFor can switch ink when the fill changes (see fillFor.ts).
+const PATH_TRANSITION = {
+  transition: "fill 200ms ease, stroke 200ms ease, filter 100ms ease",
+} as const;
 
 const collection = feature(
   topology,
@@ -1061,7 +1068,7 @@ export function WorldMap({
                 key={p.key}
                 d={p.d}
                 fill={fill}
-                stroke={palette.border}
+                stroke={strokeFor(fill, palette)}
                 strokeWidth={0.5}
                 vectorEffect="non-scaling-stroke"
                 className={className}
@@ -1069,7 +1076,7 @@ export function WorldMap({
                 onClick={
                   clickable && iso3 ? (e) => handleCountryClick(iso3, e) : undefined
                 }
-                style={{ transition: "fill 200ms ease, filter 100ms ease" }}
+                style={PATH_TRANSITION}
               />
             );
           })}
@@ -1096,7 +1103,11 @@ export function WorldMap({
                     y1={0}
                     x2={hatchTile / 2}
                     y2={hatchTile}
-                    stroke={palette.border}
+                    // The hatch only ever lands on the country under a
+                    // correct flash (App gates hatchIso3 on it), so it is
+                    // inked against that fill — the plain border colour
+                    // disappears into sap green on dark.
+                    stroke={strokeFor(palette.correct, palette)}
                     strokeWidth={hatchTile / 3.5}
                   />
                 </pattern>

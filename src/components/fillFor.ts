@@ -19,6 +19,7 @@ export type Palette = {
   neighbor: string; // miss-reveal land neighbors
   spotlight: string; // ambient tint for the focused spotlight subregion
   border: string; // country path stroke
+  borderInverse: string; // country path stroke where `border` would vanish
   oceanTint: string; // SVG/map background
   oceanLabel: string; // ocean label text
   capitalDot: string; // miss-reveal capital marker fill
@@ -39,6 +40,7 @@ const PALETTE_TOKENS: Record<keyof Palette, string> = {
   neighbor: "--color-neighbor",
   spotlight: "--color-spotlight",
   border: "--color-map-border",
+  borderInverse: "--color-map-border-inverse",
   oceanTint: "--color-ocean-tint",
   oceanLabel: "--color-ink-mid",
   capitalDot: "--color-ink-deep",
@@ -135,4 +137,105 @@ export function fillFor(
   // either a reveal (transient) or a focus the learner asked for; progress is
   // what shows when none of those apply.
   return palette[MASTERY_SLOT[args.masteryTier ?? 0]];
+}
+
+// --- The engraved line -----------------------------------------------------
+//
+// One border ink can't hold against a fill ramp that spans the whole
+// luminance range. In dark mode --color-map-border is a warm faded ochre so
+// coastlines read against the near-black ocean — which means it all but
+// disappears into the bright pigments above it in fillFor's chain: known
+// land, the spotlight wash, a reveal's green/red/neighbour tones. Two gold
+// countries side by side then look like one landmass, which is exactly the
+// shape a learner is being asked to find.
+//
+// So the line has a second ink. `strokeFor` keeps --color-map-border unless
+// it is failing against the fill it sits on, and only then reaches for
+// --color-map-border-inverse (dark near-black under dark, pale under light).
+// The floor keeps it from flipping on marginal gains: in light mode nothing
+// reaches it, so the map there is untouched.
+//
+// Where two countries meet only one of the two strokes wins by paint order.
+// That's fine — each is chosen against its own fill, so the shared edge
+// always reads against at least one side of it.
+
+export const BORDER_MIN_CONTRAST = 2.5;
+
+// Relative luminance per WCAG 2.x. Returns null for anything we can't parse
+// — a palette fixture with sentinel values, or a token that resolved empty
+// under jsdom — so the caller falls back to the default ink rather than
+// guessing.
+function relativeLuminance(color: string): number | null {
+  const rgb = parseColor(color);
+  if (!rgb) return null;
+  const [r, g, b] = rgb.map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+// #rgb, #rrggbb and rgb()/rgba() — the forms getPropertyValue can hand back
+// for a color token across browsers.
+function parseColor(color: string): [number, number, number] | null {
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim());
+  if (hex) {
+    const h = hex[1];
+    const full =
+      h.length === 3
+        ? h
+            .split("")
+            .map((c) => c + c)
+            .join("")
+        : h;
+    return [
+      parseInt(full.slice(0, 2), 16),
+      parseInt(full.slice(2, 4), 16),
+      parseInt(full.slice(4, 6), 16),
+    ];
+  }
+  const fn = /^rgba?\(([^)]+)\)$/i.exec(color.trim());
+  if (fn) {
+    const parts = fn[1]
+      .split(/[\s,/]+/)
+      .filter(Boolean)
+      .slice(0, 3);
+    if (parts.length !== 3) return null;
+    const nums = parts.map((p) =>
+      p.endsWith("%") ? (parseFloat(p) / 100) * 255 : parseFloat(p),
+    );
+    if (nums.some((n) => !Number.isFinite(n))) return null;
+    return nums as [number, number, number];
+  }
+  return null;
+}
+
+export function contrastRatio(a: string, b: string): number | null {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  if (la === null || lb === null) return null;
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+// Runs for every path on every render, over a handful of distinct fills.
+// Keyed on the ink pair too, so a theme flip can't serve a stale answer.
+const STROKE_CACHE = new Map<string, string>();
+
+export function strokeFor(fill: string, palette: Palette): string {
+  const key = `${fill}|${palette.border}|${palette.borderInverse}`;
+  const hit = STROKE_CACHE.get(key);
+  if (hit !== undefined) return hit;
+  const stroke = chooseStroke(fill, palette);
+  STROKE_CACHE.set(key, stroke);
+  return stroke;
+}
+
+function chooseStroke(fill: string, palette: Palette): string {
+  const onBorder = contrastRatio(fill, palette.border);
+  if (onBorder === null || onBorder >= BORDER_MIN_CONTRAST) {
+    return palette.border;
+  }
+  const onInverse = contrastRatio(fill, palette.borderInverse);
+  if (onInverse === null || onInverse <= onBorder) return palette.border;
+  return palette.borderInverse;
 }

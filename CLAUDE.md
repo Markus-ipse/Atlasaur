@@ -105,6 +105,26 @@ The Equal-Earth projection, all path `d` strings, the label list, and `FEATURE_B
 
 `fillFor` is the single decision point for country color (inert / **mastery paint** / highlighted / correct / wrong / skipped / neighbor / spotlight). Add new visual states there, not in the JSX. Precedence inside a feedback reveal: correct → wrong-clicked → neighbor → highlight → spotlight → inert → mastery paint. A neighbor that's also the wrong-clicked country stays red; the neighbor tone is the lowest-priority *reveal* overlay so it never competes with primary signals. Below every reveal state sit the spotlight wash and, at the very bottom, the ambient mastery paint.
 
+`strokeFor` (same file) is the matching decision point for the **engraved
+line**. One border ink can't hold against a fill ramp that spans the whole
+luminance range: in dark, `--color-map-border` is a warm faded ochre so
+coastlines read against the near-black ocean, which means it all but
+disappears into every bright pigment above it — known land, the spotlight
+wash, a reveal's green/red/neighbour tones — and two adjacent countries under
+the same paint read as one landmass. So the line has a second ink,
+`--color-map-border-inverse`, and `strokeFor` reaches for it only when the
+default is below `BORDER_MIN_CONTRAST` (2.5:1) against the fill *and* the
+inverse does better. Light hits neither condition — its border is near-black
+under parchment pigments — so that map is untouched; dark switches for the
+mastery-known, spotlight, highlight, correct, wrong, skipped and neighbor
+fills. Where two countries meet only one stroke wins by paint order, which is
+fine: each is chosen against its own fill, so the shared edge reads against at
+least one side. The milestone hatch is inked the same way, against
+`palette.correct` — the only fill it is ever drawn over. Add a fill and the
+line follows it automatically; add a *token* and mirror it in `fillFor.test.ts`'s
+`LIGHT` / `DARK` fixtures, which pin the shipped pigments against the ink that
+draws them.
+
 ### Keeping the world in the reveal (R2.3)
 
 `computeRevealTarget` picks the tightest frame that fits the answer and its
