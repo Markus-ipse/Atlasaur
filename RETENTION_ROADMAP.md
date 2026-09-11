@@ -1,5 +1,11 @@
 # Improving Learning & Retention in Atlasaur — Prioritized Roadmap
 
+> **Historical roadmap — superseded by the
+> [September 2026 product survey](docs/product-survey-2026-09.md)** and its
+> release plans in [`docs/plans/`](docs/plans/README.md). Kept for the
+> original research and rationale; several proposals below have since shipped
+> or changed, and the unshipped ones are not the active backlog.
+
 ## Context
 
 Atlasaur's current learning loop is minimal: a flat 3–5 question retry gap, no cross-session memory, no adaptive difficulty, no metadata beyond name/aliases/continent. There are exactly two modes (name-to-click, shape-to-name) and one one-shot remediation pass at session end. The map is decoupled from country data and re-renders cleanly on state change, which makes most of the changes below cheap to wire up.
