@@ -25,10 +25,9 @@ here is not a backlog — each item needs its own plan before it is built.
 
 ## Question kinds
 
-- **"Which borders…"**, held from R3 on 2026-09-12 — see the Decisions in
-  `r3-variety-and-a-hook.md` for why. The version worth reviving is one that
-  tests a skill `location` does not: a specific neighbour asked for by clue
-  ("the one to Mongolia's north"), not any neighbour.
+- **"Which borders…"**, held from R3 on 2026-09-12. The reasons and the
+  shape worth reviving are in the Decisions of `r3-variety-and-a-hook.md`;
+  this entry is only so the idea is findable from here.
 
 ## Remediation
 
