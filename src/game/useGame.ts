@@ -643,6 +643,40 @@ function applyImmediateSrsWriteThrough(
   return withGrade(state.srsStore, answerFact(state), iso3, next);
 }
 
+// Close the card whose feedback is on screen, on a path that does not go
+// through dismissFeedback and then CARRIES ON in the same round: a scope
+// change, or a question-mode switch. Commits a Study grade still in flight
+// and counts the card into its round — without this a twelve-card round
+// quietly needs thirteen answers, and the break's "N right" is short by one.
+//
+// `cardsAnswered` is deliberately left alone. applyScope counts it at its own
+// return, which also covers a test round's answer (no grade is in flight
+// there — it was written at answer time); the question-mode switch is counted
+// by the hook instead, against the mode the answer was actually given in,
+// because the counters effect reads a ref that already holds the new one.
+//
+// endSession and startExpedition commit a grade too, but the round ends with
+// them, so they only count the answer and leave the round where it stopped.
+function closeCardIntoRound(state: State, now: Date): State {
+  // An expedition takes every credit at answer time and never advances a
+  // round here; dismissFeedback skips withRoundAdvance for it too.
+  if (!state.feedback || state.practiceMode === "expedition") return state;
+  const kind = state.feedback.kind;
+  const pending = state.practiceMode === "study" && state.autoGradePending;
+  const isNew = Boolean(pending) && !recordsFor(state)[state.current.iso3];
+  const committed: State = pending
+    ? {
+        ...state,
+        ...commitStudyGrade(state, state.autoGradePending!, state.studyStep, now),
+        autoGradePending: null,
+      }
+    : state;
+  return {
+    ...withRoundAdvance(committed, kind, isNew),
+    cardsAnswered: committed.cardsAnswered,
+  };
+}
+
 function poolComplete(
   pool: readonly Country[],
   completedSet: ReadonlySet<string>,
@@ -663,17 +697,11 @@ function applyScope(
   includeTerritories: boolean,
   now: Date,
 ): State {
-  // A Study reveal that is open when the scope changes still holds its
-  // deferred grade. Commit it first (as endSession does) so the answer and
-  // its resurface scheduling reach the SRS store instead of vanishing with
-  // the feedback.
-  if (state.practiceMode === "study" && state.autoGradePending) {
-    state = {
-      ...state,
-      ...commitStudyGrade(state, state.autoGradePending, state.studyStep, now),
-      autoGradePending: null,
-    };
-  }
+  // A reveal that is open when the scope changes belongs to an answer the
+  // learner gave. Commit any deferred grade (as endSession does) so it reaches
+  // the SRS store instead of vanishing with the feedback, and count the card
+  // into the round it was part of — the round carries on across a scope change.
+  state = closeCardIntoRound(state, now);
   const normalized = normalizeScope(
     continents,
     includeTerritories,
@@ -1152,15 +1180,12 @@ function enterQuestionMode(
   ) {
     return state;
   }
-  // A miss reveal open at the moment of the switch still holds its deferred
-  // grade. Commit it under the OLD mode's fact, before `mode` moves.
-  if (state.practiceMode === "study" && state.autoGradePending) {
-    state = {
-      ...state,
-      ...commitStudyGrade(state, state.autoGradePending, state.studyStep, now),
-      autoGradePending: null,
-    };
-  }
+  // A reveal open at the moment of the switch belongs to an answer already
+  // given. Commit any deferred grade under the OLD mode's fact, before `mode`
+  // moves, and count the card into the round — which carries on across the
+  // switch, so an uncounted card would leave a twelve-card round needing
+  // thirteen answers.
+  state = closeCardIntoRound(state, now);
   // Study's in-session state is per fact, not per mode: the miss queue and the
   // new-card cap refer to cards of one fact, so Name → Click ⇄ Shape → Name
   // keeps them and a switch to a capital mode starts a fresh stretch.

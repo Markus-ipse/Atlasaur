@@ -2078,3 +2078,95 @@ describe("reducer — a question mode that cannot be asked (R3.2)", () => {
     expect(next.current.capital).not.toBeNull();
   });
 });
+
+describe("reducer — a card answered on the way out of a round", () => {
+  const NOW = new Date("2026-09-12T12:00:00Z");
+
+  // Five cards answered and dismissed cleanly, then a sixth answered with its
+  // feedback still on screen. Both paths below close that feedback without
+  // going through dismissFeedback, and both keep the round running — so the
+  // sixth card has to land in it, or twelve cards take thirteen answers.
+  function sixthAnswerPending(kind: "correct" | "wrong"): State {
+    let s: State = initialState({
+      mode: "name-to-click",
+      practiceMode: "study",
+    });
+    for (let i = 0; i < 5; i++) {
+      s = reducer(s, { type: "answer", iso3: s.current.iso3, now: NOW });
+      s = reducer(s, { type: "dismiss", now: NOW });
+    }
+    expect(s.roundCards).toBe(5);
+    return reducer(s, {
+      type: "answer",
+      iso3: kind === "correct" ? s.current.iso3 : "ZZZ",
+      now: NOW,
+    });
+  }
+
+  it("counts it into the round when the question mode changes", () => {
+    const pending = sixthAnswerPending("correct");
+    const next = reducer(pending, {
+      type: "setMode",
+      mode: "shape-to-name",
+      now: NOW,
+    });
+    expect(next.roundCards).toBe(6);
+    expect(next.roundRight).toBe(6);
+    // The hook books this answer against the old mode itself, so the reducer
+    // must NOT also bump cardsAnswered or it is counted twice.
+    expect(next.cardsAnswered).toBe(pending.cardsAnswered);
+  });
+
+  it("counts a miss into the round, without crediting it as right", () => {
+    const pending = sixthAnswerPending("wrong");
+    const next = reducer(pending, {
+      type: "setMode",
+      mode: "shape-to-name",
+      now: NOW,
+    });
+    expect(next.roundCards).toBe(6);
+    expect(next.roundRight).toBe(5);
+  });
+
+  it("counts it into the round when the scope changes", () => {
+    const pending = sixthAnswerPending("correct");
+    const next = reducer(pending, {
+      type: "setContinents",
+      continents: ["Europe", "Africa", "Asia"],
+      now: NOW,
+    });
+    expect(next.roundCards).toBe(6);
+    expect(next.roundRight).toBe(6);
+    // A scope change counts the answer itself — nothing else does it there.
+    expect(next.cardsAnswered).toBe(pending.cardsAnswered + 1);
+  });
+
+  it("still commits the grade it closed", () => {
+    const pending = sixthAnswerPending("correct");
+    const iso3 = pending.current.iso3;
+    expect(pending.autoGradePending).toBe("Good");
+    const next = reducer(pending, {
+      type: "setMode",
+      mode: "shape-to-name",
+      now: NOW,
+    });
+    expect(next.srsStore.facts.location[iso3]).toBeDefined();
+    expect(next.autoGradePending).toBeNull();
+  });
+
+  it("leaves the round alone when no card was open", () => {
+    let s: State = initialState({
+      mode: "name-to-click",
+      practiceMode: "study",
+    });
+    s = reducer(s, { type: "answer", iso3: s.current.iso3, now: NOW });
+    s = reducer(s, { type: "dismiss", now: NOW });
+    const next = reducer(s, {
+      type: "setMode",
+      mode: "shape-to-name",
+      now: NOW,
+    });
+    expect(next.roundCards).toBe(1);
+    expect(next.cardsAnswered).toBe(s.cardsAnswered);
+  });
+});
