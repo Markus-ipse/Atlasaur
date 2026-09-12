@@ -14,7 +14,8 @@ import countriesData from "./data/countries.json";
 import { ALL_CONTINENTS, type Continent, type Country } from "./types";
 import { useTheme } from "./theme";
 import { readPaletteFromCss } from "./components/fillFor";
-import { masteryByContinent, paintTiers } from "./game/srs";
+import { masteryByContinent, paintsProgress, paintTiers } from "./game/srs";
+import { isTypedMode } from "./game/questionModes";
 
 const ALL_COUNTRIES = countriesData as Country[];
 
@@ -47,8 +48,10 @@ export default function App() {
     setPalette(readPaletteFromCss());
   }, [theme]);
 
-  const highlightedIso3 =
-    state.mode === "shape-to-name" ? state.current.iso3 : null;
+  // The typed modes are exactly the ones that highlight: both name a country
+  // the learner is being asked ABOUT, so showing which one is the question,
+  // not the answer.
+  const highlightedIso3 = isTypedMode(state.mode) ? state.current.iso3 : null;
 
   // True during a wrong/skipped reveal — drives all the elaborative-encoding
   // cues (neighbor tint, capital dot). False when no feedback or a correct
@@ -81,20 +84,25 @@ export default function App() {
   // percentages are scoped, so they follow the continent filter and the
   // territories setting; they count tier 2 only and are unaffected by the
   // collapse below.
+  // Keyed on the location records rather than the whole store, which is what
+  // withGrade's identity preservation is for: a capital answer leaves this
+  // memo — and so every fill on the map — untouched.
+  const locationRecords = state.srsStore.facts.location;
   const masteryByIso3 = useMemo(
-    () => paintTiers(state.srsStore, state.mode, state.practiceMode),
-    [state.srsStore, state.mode, state.practiceMode],
+    () => paintTiers(locationRecords, state.mode, state.practiceMode),
+    [locationRecords, state.mode, state.practiceMode],
   );
-  // The percentages follow the paint: a test round gets a neutral map, and a
-  // caption claiming "Europe 46%" over a blank one would contradict it. They
-  // cannot leak an answer themselves — they are aggregates — so this is for
-  // coherence, not safety.
+  // The percentages follow the paint, through the same predicate: a test
+  // round and Capital → Click both get a neutral map, and a caption claiming
+  // "Europe 46%" over a blank one would contradict it. They cannot leak an
+  // answer themselves — they are aggregates — so this is for coherence, not
+  // safety.
   const continentProgress = useMemo(
     () =>
-      state.practiceMode !== "study"
+      !paintsProgress(state.mode, state.practiceMode)
         ? NO_CONTINENT_PROGRESS
-        : masteryByContinent(state.srsStore, ALL_COUNTRIES, game.scopeSet),
-    [state.srsStore, game.scopeSet, state.practiceMode],
+        : masteryByContinent(locationRecords, ALL_COUNTRIES, game.scopeSet),
+    [locationRecords, game.scopeSet, state.mode, state.practiceMode],
   );
 
   // The expedition ignores the continent filter: its ten come from anywhere,
@@ -209,6 +217,7 @@ export default function App() {
           dueCount={game.dueCount}
           newAvailableCount={game.newAvailableCount}
           srsStore={state.srsStore}
+          fact={game.fact}
           scopeIso3s={game.scopeSet}
           countries={ALL_COUNTRIES}
           onReview={game.startReview}
@@ -223,12 +232,20 @@ export default function App() {
       )}
       {showWelcome && (
         <Welcome
+          includeTerritories={state.includeTerritories}
           onStartBig={() => {
+            // Every door starts on locations, which is what the welcome's own
+            // chip filter assumes. The question mode is a preference that
+            // survives "Erase all progress", so without this a learner who
+            // erased from a capital mode would meet the welcome and be dropped
+            // straight into capital prompts.
+            game.setMode("name-to-click");
             game.setPracticeMode("study");
             game.setContinents(ALL_CONTINENTS);
             game.dismissWelcome();
           }}
           onStartRegion={(continents) => {
+            game.setMode("name-to-click");
             game.setPracticeMode("study");
             game.setContinents(continents);
             game.dismissWelcome();
@@ -236,7 +253,9 @@ export default function App() {
           onStartTest={() => {
             // "Test me" promises everything: a scope narrowed before this
             // profile was wiped (or on a pre-welcome install) must not
-            // silently shrink it.
+            // silently shrink it, and a question mode carried over from
+            // before the wipe must not change what is being tested.
+            game.setMode("name-to-click");
             game.setContinents(ALL_CONTINENTS);
             game.setPracticeMode("quiz");
             game.dismissWelcome();

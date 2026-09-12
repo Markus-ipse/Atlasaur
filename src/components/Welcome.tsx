@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { ALL_CONTINENTS, type Continent } from "../types";
+import { continentAskable } from "../game/useGame";
 import { ContinentChip } from "./ContinentChip";
 
 type Props = {
+  // The territories setting, so the chips here match the settings menu's.
+  // A first-run learner has it off, which hides Antarctica — it holds only
+  // territories, and a chip with nothing behind it is a dead end.
+  includeTerritories: boolean;
   // Study, every continent; the introduction order does the rest.
   onStartBig: () => void;
   // Study, narrowed to the chosen continents.
@@ -14,7 +19,12 @@ type Props = {
 // The first screen a stranger sees, once. One sentence on what this is,
 // then three doors. No tour, no account, no settings — the app explains
 // itself by being played.
-export function Welcome({ onStartBig, onStartRegion, onStartTest }: Props) {
+export function Welcome({
+  includeTerritories,
+  onStartBig,
+  onStartRegion,
+  onStartTest,
+}: Props) {
   const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState<Set<Continent>>(new Set());
   const primaryRef = useRef<HTMLButtonElement>(null);
@@ -82,7 +92,10 @@ export function Welcome({ onStartBig, onStartRegion, onStartTest }: Props) {
                 aria-label="Continents"
                 className="flex flex-wrap gap-1"
               >
-                {ALL_CONTINENTS.map((c) => (
+                {ALL_CONTINENTS.filter((c) =>
+                  // The welcome always starts a Study stretch on locations.
+                  continentAskable(c, includeTerritories, "location"),
+                ).map((c) => (
                   <ContinentChip
                     key={c}
                     active={picked.has(c)}

@@ -5,7 +5,7 @@
 // Everything here is pure so the reducer can compute a milestone at answer
 // time and the panel can render it without either owning the rules.
 
-import type { Continent, Country, SrsRecord, SrsStore } from "../types";
+import type { Continent, Country, SrsRecord, SrsRecords } from "../types";
 import { masteryTierOf } from "./srs";
 
 // The country that just crossed into "known", plus the continent it finished
@@ -47,16 +47,16 @@ export function crossesIntoKnown(
 // continent, the same way it moves the percentage on the map.
 export function milestoneFor(
   country: Country,
-  store: SrsStore,
+  records: SrsRecords,
   after: SrsRecord,
   pool: readonly Country[],
 ): Milestone | null {
-  if (!crossesIntoKnown(store.records[country.iso3], after)) return null;
+  if (!crossesIntoKnown(records[country.iso3], after)) return null;
   const completesContinent = pool.every(
     (c) =>
       c.continent !== country.continent ||
       c.iso3 === country.iso3 ||
-      masteryTierOf(store.records[c.iso3]) === 2,
+      masteryTierOf(records[c.iso3]) === 2,
   );
   return {
     iso3: country.iso3,

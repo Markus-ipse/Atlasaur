@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { crossesIntoKnown, milestoneFor, streakNote } from "./milestones";
 import { grade } from "./srs";
-import type { Country, SrsRecord, SrsStore } from "../types";
+import type { Country, SrsRecord, SrsRecords } from "../types";
 
 const T0 = new Date("2026-05-16T12:00:00Z");
 
@@ -80,33 +80,33 @@ describe("milestoneFor", () => {
   const POOL = [FRA, DEU, NGA];
 
   it("returns null when the answer does not carry the country into known", () => {
-    const store: SrsStore = { version: 1, records: { FRA: record(1) } };
-    expect(milestoneFor(FRA, store, record(1), POOL)).toBeNull();
+    const records: SrsRecords = { FRA: record(1) };
+    expect(milestoneFor(FRA, records, record(1), POOL)).toBeNull();
   });
 
   it("names the country that just landed on the map", () => {
-    const store: SrsStore = { version: 1, records: {} };
-    const m = milestoneFor(FRA, store, record(2), POOL);
+    const records: SrsRecords = {};
+    const m = milestoneFor(FRA, records, record(2), POOL);
     expect(m).toEqual({ iso3: "FRA", name: "FRA", continentComplete: null });
   });
 
   it("seals the continent when it was the last one in scope", () => {
     // Germany already known; France is the last European country in the pool.
-    const store: SrsStore = { version: 1, records: { DEU: record(2) } };
-    const m = milestoneFor(FRA, store, record(2), POOL);
+    const records: SrsRecords = { DEU: record(2) };
+    const m = milestoneFor(FRA, records, record(2), POOL);
     expect(m?.continentComplete).toBe("Europe");
   });
 
   it("does not seal while another country on the continent is unknown", () => {
-    const store: SrsStore = { version: 1, records: {} };
-    const m = milestoneFor(FRA, store, record(2), POOL);
+    const records: SrsRecords = {};
+    const m = milestoneFor(FRA, records, record(2), POOL);
     expect(m?.continentComplete).toBeNull();
   });
 
   it("ignores other continents when deciding to seal", () => {
     // Nigeria is untouched, but it is not in Europe.
-    const store: SrsStore = { version: 1, records: { DEU: record(2) } };
-    expect(milestoneFor(FRA, store, record(2), POOL)?.continentComplete).toBe(
+    const records: SrsRecords = { DEU: record(2) };
+    expect(milestoneFor(FRA, records, record(2), POOL)?.continentComplete).toBe(
       "Europe",
     );
   });
@@ -114,16 +114,16 @@ describe("milestoneFor", () => {
   it("seals against the learner's scope, not the whole continent", () => {
     // Only France is in scope, so France alone finishes Europe. Widening the
     // scope later un-finishes it, exactly as the map percentage does.
-    const store: SrsStore = { version: 1, records: {} };
-    expect(milestoneFor(FRA, store, record(2), [FRA])?.continentComplete).toBe(
+    const records: SrsRecords = {};
+    expect(milestoneFor(FRA, records, record(2), [FRA])?.continentComplete).toBe(
       "Europe",
     );
   });
 
   it("does not seal a continent the country is not in scope for", () => {
-    const store: SrsStore = { version: 1, records: {} };
+    const records: SrsRecords = {};
     expect(
-      milestoneFor(FRA, store, record(2), [NGA])?.continentComplete,
+      milestoneFor(FRA, records, record(2), [NGA])?.continentComplete,
     ).toBeNull();
   });
 });

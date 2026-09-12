@@ -10,7 +10,7 @@ import {
   seenCount as srsSeenCount,
   totalReviews as srsTotalReviews,
 } from "../game/srs";
-import type { Phase, PracticeMode } from "../types";
+import type { Fact, Phase, PracticeMode } from "../types";
 import type { GameApi } from "../game/useGame";
 import type { ThemePref } from "../theme";
 
@@ -26,13 +26,17 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
   const isStudy = state.practiceMode === "study";
   const isExpedition = state.practiceMode === "expedition";
 
+  // The learner's own fact, so an expedition's forced Name → Click never
+  // shows location figures to someone studying capitals. The two lifetime
+  // rows below are across every fact, and say so.
+  const factRecords = state.srsStore.facts[game.fact];
   const learned = useMemo(
-    () => srsLearnedCount(state.srsStore, game.scopeSet),
-    [state.srsStore, game.scopeSet],
+    () => srsLearnedCount(factRecords, game.scopeSet),
+    [factRecords, game.scopeSet],
   );
   const seen = useMemo(
-    () => srsSeenCount(state.srsStore, game.scopeSet),
-    [state.srsStore, game.scopeSet],
+    () => srsSeenCount(factRecords, game.scopeSet),
+    [factRecords, game.scopeSet],
   );
   const reviews = useMemo(
     () => srsTotalReviews(state.srsStore),
@@ -61,6 +65,7 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
             due={game.dueCount}
             newAvailable={game.newAvailableCount}
             newIntroduced={state.newIntroducedThisStretch}
+            fact={game.fact}
           />
         ) : isExpedition ? null : (
           <>
@@ -94,6 +99,7 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
         </button>
       <SettingsMenu
         mode={state.mode}
+        fact={game.fact}
         onSetMode={game.setMode}
         modeLocked={isExpedition}
         selectedContinents={state.selectedContinents}
@@ -152,13 +158,24 @@ function StudyChips({
   due,
   newAvailable,
   newIntroduced,
+  fact,
 }: {
   due: number;
   newAvailable: number;
   newIntroduced: number;
+  fact: Fact;
 }) {
   return (
     <div className="flex items-baseline gap-2 text-xs text-ink-mid tabular-nums">
+      {/* These count the learner's fact, which is not always what the prompt
+          beside them is asking. Name it, so the numbers can't be read as the
+          other fact's. */}
+      {fact === "capital" && (
+        <>
+          <span className="italic">capitals</span>
+          <span aria-hidden>·</span>
+        </>
+      )}
       <span>
         <span className="font-semibold text-ink-deep">{due}</span> to review
       </span>

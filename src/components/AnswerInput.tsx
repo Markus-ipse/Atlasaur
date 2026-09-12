@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import type { Country, Feedback } from "../types";
+import { factOf } from "../game/questionModes";
+import type { Country, Feedback, QuestionMode } from "../types";
 
 type Props = {
+  mode: QuestionMode;
   current: Country;
   feedback: Feedback | null;
   // True while the round break is up. The input is disabled underneath
@@ -9,15 +11,18 @@ type Props = {
   // (current, feedback) changes on "Keep going", so the other refocus
   // effects would not fire.
   paused?: boolean;
-  matchTypedAnswer: (input: string) => string;
+  // The iso3 the typed answer names — a country or the country whose capital
+  // it is. The hook picks the matcher; this input never branches on the fact.
+  matchTyped: (input: string) => string;
   onAnswer: (iso3: string) => void;
 };
 
 export function AnswerInput({
+  mode,
   current,
   feedback,
   paused = false,
-  matchTypedAnswer,
+  matchTyped,
   onAnswer,
 }: Props) {
   const [value, setValue] = useState("");
@@ -41,7 +46,7 @@ export function AnswerInput({
     if (feedback || paused) return;
     const trimmed = value.trim();
     if (!trimmed) return;
-    const iso3 = matchTypedAnswer(trimmed);
+    const iso3 = matchTyped(trimmed);
     inputRef.current?.blur();
     onAnswer(iso3);
   };
@@ -54,7 +59,11 @@ export function AnswerInput({
         value={value}
         onChange={(e) => setValue(e.target.value)}
         disabled={Boolean(feedback) || paused}
-        placeholder="Type the country name…"
+        placeholder={
+          factOf(mode) === "capital"
+            ? "Type the capital…"
+            : "Type the country name…"
+        }
         autoFocus
         autoCapitalize="none"
         autoCorrect="off"

@@ -9,6 +9,7 @@
 // (`atlasaur:streak:v1`), so `returnInfo` below reads them rather than keeping
 // a second copy that could disagree.
 
+import { QUESTION_MODES } from "../types";
 import type { PracticeMode, QuestionMode } from "../types";
 import {
   dayKey,
@@ -69,10 +70,23 @@ export function emptyCounters(): Counters {
     sessionsStarted: 0,
     roundsStarted: 0,
     roundsFinished: 0,
-    answersByQuestionMode: { "name-to-click": 0, "shape-to-name": 0 },
+    answersByQuestionMode: countsBy(QUESTION_MODES),
     roundsByPractice: { study: 0, quiz: 0, expedition: 0 },
     knownByDay: [],
   };
+}
+
+// Counts keyed by every member of `keys`, missing or malformed entries read
+// as 0. So a question mode added in a later release loads from an older store
+// at zero, with no version bump — the same additive rule the SRS store's
+// facts follow.
+function countsBy<K extends string>(
+  keys: readonly K[],
+  raw: Record<string, unknown> = {},
+): Record<K, number> {
+  const out = {} as Record<K, number>;
+  for (const key of keys) out[key] = num(raw[key]);
+  return out;
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -105,10 +119,7 @@ export function loadCounters(): Counters {
       sessionsStarted: num(parsed.sessionsStarted),
       roundsStarted: num(parsed.roundsStarted),
       roundsFinished: num(parsed.roundsFinished),
-      answersByQuestionMode: {
-        "name-to-click": num(modes["name-to-click"]),
-        "shape-to-name": num(modes["shape-to-name"]),
-      },
+      answersByQuestionMode: countsBy(QUESTION_MODES, modes),
       roundsByPractice: {
         study: num(practice.study),
         quiz: num(practice.quiz),

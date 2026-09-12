@@ -61,6 +61,11 @@ export type Country = {
   // reveal renders `Capitals: primary, ...alternates` when present;
   // see docs/plans/m2-capital-decisions.md for the per-row rationale.
   capitalAlternates?: string[];
+  // Accepted spellings of the capital that are never displayed: historic or
+  // alternative transliterations (Kiev, Sanaa, Ulan Bator), and the bare form
+  // of a "… City" capital. Kept separate from `capitalAlternates`, which is a
+  // list of real additional capitals and IS rendered in the reveal.
+  capitalAliases?: string[];
   // iso3 codes; land borders only, derived from topology at build time with
   // hand overrides for overseas-territory artefacts (e.g. France/Brazil).
   neighbors: string[];
@@ -76,7 +81,23 @@ export type Country = {
   topoName?: string;
 };
 
-export type QuestionMode = "name-to-click" | "shape-to-name";
+// The prompt types. Two ask where a country is, two ask what its capital is;
+// `factOf` in src/game/questionModes.ts is the only place that mapping lives.
+export const QUESTION_MODES = [
+  "name-to-click",
+  "shape-to-name",
+  "capital-to-click",
+  "country-to-capital",
+] as const;
+
+export type QuestionMode = (typeof QUESTION_MODES)[number];
+
+// What a card teaches. One SRS record per country AND fact, so knowing where
+// Peru is says nothing about knowing its capital. `borders` and `flag` are
+// planned for R3.3 and R3.5; adding one is additive within store version 2.
+export const FACTS = ["location", "capital"] as const;
+
+export type Fact = (typeof FACTS)[number];
 
 // The kind of round the learner is in. Study is the home; "quiz" is a "Test
 // me on these" round; "expedition" is the Daily Expedition (R3.1), entered
@@ -120,7 +141,13 @@ export type SrsRecord = {
   misses: number;
 };
 
+export type SrsRecords = Record<string, SrsRecord>;
+
+// One set of records per fact. Version 1 held a single `records` map, which
+// migrates into `facts.location` (see loadStore). A fact key this build does
+// not know is kept as it is rather than dropped, so a rolled-back build cannot
+// save the store without a later release's records.
 export type SrsStore = {
-  version: 1;
-  records: Record<string, SrsRecord>;
+  version: 2;
+  facts: Record<Fact, SrsRecords> & Record<string, SrsRecords>;
 };

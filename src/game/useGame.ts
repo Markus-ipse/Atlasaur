@@ -14,7 +14,11 @@ import {
   saveSeenIntro,
   saveSeenWelcome,
   saveStore,
+  clearStore,
+  hasAnyRecord,
+  withGrade,
 } from "./srs";
+import { factOf, isClickMode } from "./questionModes";
 import { milestoneFor, streakNote, type Milestone } from "./milestones";
 import {
   EXPEDITION_STORAGE_KEY,
@@ -56,15 +60,18 @@ import {
 } from "./streak";
 import {
   ALL_CONTINENTS,
+  QUESTION_MODES,
   type Continent,
   type Country,
   type Ease,
+  type Fact,
   type Feedback,
   type FeedbackKind,
   type PracticeMode,
   type QuestionMode,
   type Phase,
   type RetryEntry,
+  type SrsRecords,
   type SrsStore,
   type Subregion,
 } from "../types";
@@ -87,6 +94,7 @@ const isExpeditionIso3 = (iso3: string) => EXPEDITION_ISO3S.has(iso3);
 
 const CONTINENTS_STORAGE_KEY = "atlasaur:selectedContinents";
 const TERRITORIES_STORAGE_KEY = "atlasaur:includeTerritories";
+const QUESTION_MODE_STORAGE_KEY = "atlasaur:questionMode";
 
 function loadIncludeTerritories(): boolean {
   try {
@@ -111,16 +119,37 @@ function saveIncludeTerritories(value: boolean): void {
 export const ROUND_SIZE = 12;
 
 // The learnable pool: the selected continents, minus dependent territories
-// and uninhabited land unless the learner has opted them in. The single
-// scope predicate — every count, picker and map fill derives from it.
-function filterPool(
+// and uninhabited land unless the learner has opted them in, minus anything
+// the fact cannot be asked about. The single scope predicate — every count,
+// picker and map fill derives from it.
+//
+// The fact matters because a handful of rows have no capital at all
+// (Antarctica, the French Southern Territories). Without dropping them, a
+// capital test round with territories on could never finish.
+export function filterPool(
   continents: readonly Continent[],
   includeTerritories: boolean,
+  fact: Fact,
 ): Country[] {
   const set = new Set(continents);
   return COUNTRIES.filter(
-    (c) => set.has(c.continent) && (includeTerritories || !c.territory),
+    (c) =>
+      set.has(c.continent) &&
+      (includeTerritories || !c.territory) &&
+      (fact !== "capital" || c.capital !== null),
   );
+}
+
+// Whether a continent has anything to ask under this setting and fact. One
+// predicate behind every chip: it hides a chip with nothing askable and
+// drives the settings menu's "keep at least one" lock. Generalises what used
+// to be a hard-coded Antarctica case.
+export function continentAskable(
+  continent: Continent,
+  includeTerritories: boolean,
+  fact: Fact,
+): boolean {
+  return filterPool([continent], includeTerritories, fact).length > 0;
 }
 
 // The selection is the learner's choice of continents and is kept as-is
@@ -133,12 +162,13 @@ function filterPool(
 function normalizeScope(
   continents: readonly Continent[],
   includeTerritories: boolean,
+  fact: Fact,
 ): { continents: readonly Continent[]; pool: Country[] } {
-  const pool = filterPool(continents, includeTerritories);
+  const pool = filterPool(continents, includeTerritories, fact);
   if (pool.length > 0) return { continents, pool };
   return {
     continents: ALL_CONTINENTS,
-    pool: filterPool(ALL_CONTINENTS, includeTerritories),
+    pool: filterPool(ALL_CONTINENTS, includeTerritories, fact),
   };
 }
 
@@ -169,6 +199,28 @@ function saveContinents(continents: readonly Continent[]): void {
   }
 }
 
+// The question mode IS persisted, unlike practiceMode: it is a standing
+// preference (which of the four things you are here to practise), where the
+// practice mode is a round you enter deliberately and leave. "Erase all
+// progress" leaves it alone, like the continent filter and the theme.
+function loadQuestionMode(): QuestionMode {
+  try {
+    const raw = window.localStorage.getItem(QUESTION_MODE_STORAGE_KEY);
+    const valid: readonly string[] = QUESTION_MODES;
+    return raw && valid.includes(raw) ? (raw as QuestionMode) : "name-to-click";
+  } catch {
+    return "name-to-click";
+  }
+}
+
+function saveQuestionMode(mode: QuestionMode): void {
+  try {
+    window.localStorage.setItem(QUESTION_MODE_STORAGE_KEY, mode);
+  } catch {
+    // ignore
+  }
+}
+
 // name-to-click correct answers hold longer: the on-map "✔ Correct!" badge +
 // glow get a beat to land at the click point, and the map's return-to-base
 // settle (which fires on dismiss) is delayed with it. shape-to-name (typing)
@@ -195,12 +247,44 @@ const numericFromIso3 = (iso3: string) => NUMERIC_BY_ISO3.get(iso3);
 const nameFromIso3 = (iso3: string): string =>
   COUNTRY_BY_ISO3.get(iso3)?.name ?? iso3;
 
-function matchTypedAnswer(input: string): string {
+export function matchTypedName(input: string): string {
   const n = normalize(input);
   if (!n) return "";
   for (const country of COUNTRIES) {
     const candidates = [country.name, ...country.aliases];
     if (candidates.some((c) => normalize(c) === n)) return country.iso3;
+  }
+  return "";
+}
+
+// Every spelling of a country's capital that counts as typing it: the
+// capital, any additional capitals (which are real answers, and shown in the
+// reveal), and the aliases, which are accepted but never displayed.
+function capitalSpellings(country: Country): string[] {
+  if (country.capital === null) return [];
+  return [
+    country.capital,
+    ...(country.capitalAlternates ?? []),
+    ...(country.capitalAliases ?? []),
+  ];
+}
+
+// The country a typed capital names, or "" for no match. `current` is checked
+// first so a correct answer never resolves elsewhere; after that the whole
+// list, so a wrong capital resolves to the country it actually belongs to and
+// the map can paint and label THAT country red — the same courtesy
+// Shape → Name already does for a wrong country name.
+export function matchTypedCapital(input: string, current: Country): string {
+  const n = normalize(input);
+  if (!n) return "";
+  if (capitalSpellings(current).some((c) => normalize(c) === n)) {
+    return current.iso3;
+  }
+  for (const country of COUNTRIES) {
+    if (country.iso3 === current.iso3) continue;
+    if (capitalSpellings(country).some((c) => normalize(c) === n)) {
+      return country.iso3;
+    }
   }
   return "";
 }
@@ -287,7 +371,7 @@ export type Action =
   | { type: "answer"; iso3: string; now?: Date }
   | { type: "skip"; now?: Date }
   | { type: "dismiss"; now?: Date }
-  | { type: "setMode"; mode: QuestionMode }
+  | { type: "setMode"; mode: QuestionMode; now?: Date }
   // An expedition is entered only through startExpedition, which carries the
   // day's store; setPracticeMode leaves one, never enters it.
   | { type: "setPracticeMode"; mode: Exclude<PracticeMode, "expedition">; now?: Date }
@@ -307,6 +391,29 @@ export type Action =
   | { type: "setTransientMessage"; message: string }
   | { type: "clearTransientMessage" }
   | { type: "reset" };
+
+// Two fact roles, which differ only during an expedition.
+//
+// The ANSWER fact is what the card on screen grades and picks against.
+export function answerFact(state: Pick<State, "mode">): Fact {
+  return factOf(state.mode);
+}
+
+// The LEARNER fact is the one they chose to work on. It scopes the pool and
+// every figure the app displays — due, new, known, seen, the spotlight offer.
+// An expedition forces Name → Click, so while one is up the settings keep
+// showing the learner's own fact over the learner's own scope, the same rule
+// CLAUDE.md already states for the continent filter.
+export function learnerFact(
+  state: Pick<State, "mode" | "modeBeforeExpedition">,
+): Fact {
+  return factOf(state.modeBeforeExpedition ?? state.mode);
+}
+
+// The records the current card grades into and is picked from.
+function recordsFor(state: State): SrsRecords {
+  return state.srsStore.facts[answerFact(state)];
+}
 
 function nowOf(action: Action): Date {
   // Reducer-level fallback so tests can dispatch without supplying a
@@ -349,12 +456,13 @@ export function initialState(
   const { continents: selectedContinents, pool } = normalizeScope(
     options.selectedContinents ?? ALL_CONTINENTS,
     includeTerritories,
+    factOf(mode),
   );
   const srsStore = options.srsStore ?? emptyStore();
   const current = pickInitialCountry(
     pool,
     practiceMode,
-    srsStore,
+    srsStore.facts[factOf(mode)],
     options.retryQueue ?? [],
   );
   return {
@@ -425,7 +533,7 @@ function withRoundAdvance(
 function pickInitialCountry(
   pool: Country[],
   practiceMode: PracticeMode,
-  srsStore: SrsStore,
+  records: SrsRecords,
   retryQueue: readonly RetryEntry[],
 ): Country {
   if (practiceMode === "study") {
@@ -433,7 +541,7 @@ function pickInitialCountry(
       pool,
       byIso3: COUNTRY_BY_ISO3,
       excludeIso3: "",
-      srsStore,
+      records,
       now: new Date(),
       newIntroducedThisStretch: 0,
       resurfaceQueue: [],
@@ -449,7 +557,11 @@ function nextCurrent(state: State, now: Date = new Date()): Country {
     // Spotlight narrows the Study pool to one subregion (the narrowing
     // lives here, not in filterPool/pickNextStudy, so it can't leak into
     // Quiz's shared pickNext path).
-    let pool = filterPool(state.selectedContinents, state.includeTerritories);
+    let pool = filterPool(
+      state.selectedContinents,
+      state.includeTerritories,
+      answerFact(state),
+    );
     if (state.spotlightSubregion !== null) {
       pool = pool.filter((c) => c.subregion === state.spotlightSubregion);
     }
@@ -457,7 +569,7 @@ function nextCurrent(state: State, now: Date = new Date()): Country {
       pool,
       byIso3: COUNTRY_BY_ISO3,
       excludeIso3: state.current.iso3,
-      srsStore: state.srsStore,
+      records: recordsFor(state),
       now,
       newIntroducedThisStretch: state.newIntroducedThisStretch,
       resurfaceQueue: state.studyResurfaceQueue,
@@ -468,7 +580,11 @@ function nextCurrent(state: State, now: Date = new Date()): Country {
     return picked ?? state.current;
   }
   return pickNext({
-    pool: filterPool(state.selectedContinents, state.includeTerritories),
+    pool: filterPool(
+      state.selectedContinents,
+      state.includeTerritories,
+      answerFact(state),
+    ),
     byIso3: COUNTRY_BY_ISO3,
     excludeIso3: state.current.iso3,
     total: state.total,
@@ -523,11 +639,8 @@ function applyImmediateSrsWriteThrough(
   if (state.practiceMode === "study" || state.phase !== "normal") {
     return state.srsStore;
   }
-  const next = srsGrade(state.srsStore.records[iso3] ?? null, ease, now);
-  return {
-    ...state.srsStore,
-    records: { ...state.srsStore.records, [iso3]: next },
-  };
+  const next = srsGrade(recordsFor(state)[iso3] ?? null, ease, now);
+  return withGrade(state.srsStore, answerFact(state), iso3, next);
 }
 
 function poolComplete(
@@ -561,7 +674,11 @@ function applyScope(
       autoGradePending: null,
     };
   }
-  const normalized = normalizeScope(continents, includeTerritories);
+  const normalized = normalizeScope(
+    continents,
+    includeTerritories,
+    learnerFact(state),
+  );
   continents = normalized.continents;
   const pool = normalized.pool;
   const inScope = new Set(pool.map((c) => c.iso3));
@@ -750,7 +867,7 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
     // test pins that the two agree, since a milestone the commit does not
     // deliver would be a lie.
     const prospective = srsGrade(
-      state.srsStore.records[correctIso3] ?? null,
+      recordsFor(state)[correctIso3] ?? null,
       "Good",
       now,
     );
@@ -758,12 +875,22 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
       ...state,
       completedSet,
       streak: state.streak + 1,
-      milestone: milestoneFor(
-        state.current,
-        state.srsStore,
-        prospective,
-        filterPool(state.selectedContinents, state.includeTerritories),
-      ),
+      // Location only. "Now on your map" and the engraved hatch are map
+      // ceremonies, and the map paints where countries are — there is nothing
+      // for a capital answer to draw on. The streak note still plays.
+      milestone:
+        answerFact(state) === "location"
+          ? milestoneFor(
+              state.current,
+              recordsFor(state),
+              prospective,
+              filterPool(
+                state.selectedContinents,
+                state.includeTerritories,
+                answerFact(state),
+              ),
+            )
+          : null,
       feedback,
       autoGradePending: "Good",
     };
@@ -827,14 +954,11 @@ function commitStudyGrade(
   now: Date,
 ): Pick<State, "srsStore" | "newIntroducedThisStretch" | "studyResurfaceQueue"> {
   const iso3 = state.current.iso3;
-  const rec = state.srsStore.records[iso3];
+  const rec = recordsFor(state)[iso3];
   const isNew = !rec;
   const next = srsGrade(rec ?? null, ease, now);
   return {
-    srsStore: {
-      ...state.srsStore,
-      records: { ...state.srsStore.records, [iso3]: next },
-    },
+    srsStore: withGrade(state.srsStore, answerFact(state), iso3, next),
     newIntroducedThisStretch: isNew
       ? state.newIntroducedThisStretch + 1
       : state.newIntroducedThisStretch,
@@ -862,7 +986,7 @@ function dismissFeedback(state: State, now: Date): State {
   const isNew =
     state.practiceMode === "study" &&
     state.autoGradePending !== null &&
-    !state.srsStore.records[state.current.iso3];
+    !recordsFor(state)[state.current.iso3];
   return withRoundAdvance(advanceCard(state, now), kind, isNew);
 }
 
@@ -940,7 +1064,11 @@ function advanceCard(state: State, now: Date): State {
   if (
     state.phase === "normal" &&
     poolComplete(
-      filterPool(state.selectedContinents, state.includeTerritories),
+      filterPool(
+        state.selectedContinents,
+        state.includeTerritories,
+        answerFact(state),
+      ),
       state.completedSet,
       state.retryQueue,
     )
@@ -998,6 +1126,75 @@ function enterPracticeMode(
   return { ...next, current: nextCurrent(next, now) };
 }
 
+// Switch the question mode. The counterpart of enterPracticeMode, and
+// deliberately NOT a rebuild through initialState: that dropped a pending
+// Study grade, reset `cardsAnswered` (so the answer on screen vanished from
+// the counters, against CLAUDE.md's rule that every answer whose grade
+// reaches the store is counted), cleared the Study miss queue and the
+// new-card cap even between two modes of the same fact, and started a fresh
+// round — inflating `roundsStarted` every time a learner looked at another
+// prompt type.
+function enterQuestionMode(
+  state: State,
+  mode: QuestionMode,
+  now: Date,
+): State {
+  // Nothing in the learner's scope can be asked this way, so there is no card
+  // to show: refuse rather than enter. The settings already disable such an
+  // option, but the reducer must not depend on a UI guard — an empty pool
+  // makes Quiz's pickRandom throw, and leaves Study on a capital-less card
+  // with a blank prompt. Refusing rather than widening the scope keeps the
+  // promise that a mode switch never rewrites the learner's selection; the
+  // option simply waits until they pick a region that has one.
+  if (
+    filterPool(state.selectedContinents, state.includeTerritories, factOf(mode))
+      .length === 0
+  ) {
+    return state;
+  }
+  // A miss reveal open at the moment of the switch still holds its deferred
+  // grade. Commit it under the OLD mode's fact, before `mode` moves.
+  if (state.practiceMode === "study" && state.autoGradePending) {
+    state = {
+      ...state,
+      ...commitStudyGrade(state, state.autoGradePending, state.studyStep, now),
+      autoGradePending: null,
+    };
+  }
+  // Study's in-session state is per fact, not per mode: the miss queue and the
+  // new-card cap refer to cards of one fact, so Name → Click ⇄ Shape → Name
+  // keeps them and a switch to a capital mode starts a fresh stretch.
+  const sameFact = factOf(state.mode) === factOf(mode);
+  // A test round's queue refers to the old question type either way, so a
+  // test restarts exactly as it did before. Study keeps everything below.
+  const inTest = state.practiceMode === "quiz";
+  const next: State = {
+    ...state,
+    mode,
+    completedSet: inTest ? new Set() : state.completedSet,
+    retryQueue: inTest ? [] : state.retryQueue,
+    score: inTest ? 0 : state.score,
+    total: inTest ? 0 : state.total,
+    missed: inTest ? [] : state.missed,
+    missedSet: inTest ? new Set() : state.missedSet,
+    phase: inTest ? "normal" : state.phase,
+    // A run of correct answers is a run at one prompt; changing the prompt
+    // ends it rather than carrying it over.
+    streak: 0,
+    milestone: null,
+    feedback: null,
+    autoGradePending: null,
+    sessionDone: false,
+    newIntroducedThisStretch: sameFact ? state.newIntroducedThisStretch : 0,
+    studyResurfaceQueue: sameFact ? state.studyResurfaceQueue : [],
+    studyStep: sameFact ? state.studyStep : 0,
+    // Study keeps its round and its spotlight lens: the learner is still in
+    // the same sitting, asking about the same places a different way.
+    ...(inTest ? FRESH_ROUND : {}),
+  };
+  return { ...next, current: nextCurrent(next, now) };
+}
+
 export function reducer(state: State, action: Action): State {
   const now = nowOf(action);
   switch (action.type) {
@@ -1021,18 +1218,7 @@ export function reducer(state: State, action: Action): State {
       // An expedition is Name → Click only; the picker is locked while one is
       // up, and a stray dispatch must not rebuild the state under it.
       if (state.practiceMode === "expedition") return state;
-      // Question-mode flip resets in-session state (retryQueue,
-      // completedSet, score) — those refer to the old question type.
-      // Preserve cross-cutting state: practiceMode, srsStore, scope, and
-      // today's expedition.
-      return initialState({
-        mode: action.mode,
-        practiceMode: state.practiceMode,
-        selectedContinents: state.selectedContinents,
-        includeTerritories: state.includeTerritories,
-        srsStore: state.srsStore,
-        expedition: state.expedition,
-      });
+      return enterQuestionMode(state, action.mode, now);
     }
     case "setPracticeMode": {
       if (state.practiceMode === action.mode) return state;
@@ -1324,7 +1510,14 @@ export type GameApi = {
   // scope from here rather than recomputing it from continents, and it does
   // not widen during an expedition.
   scopeSet: ReadonlySet<string>;
-  matchTypedAnswer: (input: string) => string;
+  // The fact the learner is working on, which is what every displayed figure
+  // counts over. Not the fact the current card grades — those differ during
+  // an expedition. See learnerFact.
+  fact: Fact;
+  // The iso3 a typed answer names — a country name or a capital, depending on
+  // the mode — or "" for no match. One entry point so components never branch
+  // on the fact themselves.
+  matchTyped: (input: string) => string;
   answer: (iso3: string) => void;
   skip: () => void;
   dismiss: () => void;
@@ -1356,7 +1549,7 @@ export type GameApi = {
 export function useGame(): GameApi {
   const [state, dispatch] = useReducer(reducer, undefined, () =>
     initialState({
-      mode: "name-to-click",
+      mode: loadQuestionMode(),
       // Study is the home. A "Test me on these" round is entered
       // deliberately from the Study summary and is never persisted, so a
       // reload always lands back on Study.
@@ -1379,10 +1572,7 @@ export function useGame(): GameApi {
   // that had SRS records before this key existed has no measurable first
   // session at all.
   const [counters, setCounters] = useState(() =>
-    startSession(
-      loadCounters(),
-      Object.keys(loadStore().records).length > 0,
-    ),
+    startSession(loadCounters(), hasAnyRecord(state.srsStore)),
   );
   // Read by the counter effects below, which fire on a card or round count and
   // must not re-run when only the mode changes.
@@ -1392,12 +1582,11 @@ export function useGame(): GameApi {
   practiceModeRef.current = state.practiceMode;
   // Returning learner = any SRS record at load. Decided once so the card
   // doesn't appear mid-session after the first answer.
-  const [todayCardOpen, setTodayCardOpen] = useState(
-    () => Object.keys(state.srsStore.records).length > 0,
+  const [todayCardOpen, setTodayCardOpen] = useState(() =>
+    hasAnyRecord(state.srsStore),
   );
   const [welcomeOpen, setWelcomeOpen] = useState(
-    () =>
-      !loadSeenWelcome() && Object.keys(state.srsStore.records).length === 0,
+    () => !loadSeenWelcome() && !hasAnyRecord(state.srsStore),
   );
   // Tick on visibility change + hourly to recompute due counts when the
   // day rolls over for users who leave the tab open.
@@ -1405,10 +1594,9 @@ export function useGame(): GameApi {
 
   useEffect(() => {
     if (!state.feedback || state.feedback.kind !== "correct") return;
-    const ordinary =
-      state.mode === "name-to-click"
-        ? FEEDBACK_DURATION.correctNameToClick
-        : FEEDBACK_DURATION.correct;
+    const ordinary = isClickMode(state.mode)
+      ? FEEDBACK_DURATION.correctNameToClick
+      : FEEDBACK_DURATION.correct;
     const ms = state.milestone
       ? MILESTONE_DURATION
       : streakNote(state.streak) !== null
@@ -1437,6 +1625,12 @@ export function useGame(): GameApi {
   useEffect(() => {
     saveIncludeTerritories(state.includeTerritories);
   }, [state.includeTerritories]);
+
+  // The learner's own choice, never the expedition's forced Name → Click —
+  // otherwise playing today's ten would quietly rewrite the preference.
+  useEffect(() => {
+    saveQuestionMode(state.modeBeforeExpedition ?? state.mode);
+  }, [state.mode, state.modeBeforeExpedition]);
 
   useEffect(() => {
     saveStore(state.srsStore);
@@ -1524,13 +1718,16 @@ export function useGame(): GameApi {
   // across the whole store rather than the active scope, so switching the
   // continent filter never looks like progress or a loss. Uses masteryTierOf
   // so this can never disagree with the "Known" stat or the map's pigment.
+  // Always the location fact, like the paint it mirrors: "known" here means a
+  // country the learner can find, whatever else they have been practising.
+  const locationRecords = state.srsStore.facts.location;
   const knownEverywhere = useMemo(() => {
     let n = 0;
-    for (const iso3 in state.srsStore.records) {
-      if (masteryTierOf(state.srsStore.records[iso3]) === 2) n++;
+    for (const iso3 in locationRecords) {
+      if (masteryTierOf(locationRecords[iso3]) === 2) n++;
     }
     return n;
-  }, [state.srsStore]);
+  }, [locationRecords]);
   useEffect(() => {
     setCounters((c) => recordKnown(c, knownEverywhere, new Date()));
   }, [knownEverywhere]);
@@ -1596,14 +1793,23 @@ export function useGame(): GameApi {
   // The learner's own scope. Every figure — due, known, seen, not yet seen,
   // the test's Done count — reads against this whatever round is up, so the
   // settings never show world-wide numbers beside the learner's own chips.
-  const scopeSet = useMemo<ReadonlySet<string>>(
+  // The learner's own fact: an expedition's forced Name → Click must not make
+  // the settings count locations while they are studying capitals.
+  const fact = learnerFact(state);
+  // Memoised on the pool's CONTENT rather than the fact, so a mode switch
+  // that leaves the pool identical (the two facts differ only in the handful
+  // of rows with no capital, and only with territories on) hands back the same
+  // Set and the map never re-settles because of scope.
+  const scopeKey = useMemo(
     () =>
-      new Set(
-        filterPool(state.selectedContinents, state.includeTerritories).map(
-          (c) => c.iso3,
-        ),
-      ),
-    [state.selectedContinents, state.includeTerritories],
+      filterPool(state.selectedContinents, state.includeTerritories, fact)
+        .map((c) => c.iso3)
+        .join(),
+    [state.selectedContinents, state.includeTerritories, fact],
+  );
+  const scopeSet = useMemo<ReadonlySet<string>>(
+    () => new Set(scopeKey ? scopeKey.split(",") : []),
+    [scopeKey],
   );
   const totalInScope = scopeSet.size;
   // What the map can ask and the learner can tap. During an expedition that
@@ -1625,16 +1831,23 @@ export function useGame(): GameApi {
     return n;
   }, [state.completedSet, scopeSet]);
 
+  const learnerRecords = state.srsStore.facts[fact];
+
   const dueCount = useMemo(
-    () => srsDueCount(state.srsStore, scopeSet, new Date()),
+    () => srsDueCount(learnerRecords, scopeSet, new Date()),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state.srsStore, scopeSet, nowBucket],
+    [learnerRecords, scopeSet, nowBucket],
   );
 
   const newAvailableCount = useMemo(
-    () => srsNewAvailableCount(state.srsStore, scopeSet),
-    [state.srsStore, scopeSet],
+    () => srsNewAvailableCount(learnerRecords, scopeSet),
+    [learnerRecords, scopeSet],
   );
+
+  const matchTyped = (input: string) =>
+    answerFact(state) === "capital"
+      ? matchTypedCapital(input, state.current)
+      : matchTypedName(input);
 
   const returns = useMemo(() => returnInfo(streakStore), [streakStore]);
   const expeditionToday = useMemo(
@@ -1696,11 +1909,22 @@ export function useGame(): GameApi {
     nameFromIso3,
     isInScope,
     scopeSet,
-    matchTypedAnswer,
+    fact,
+    matchTyped,
     answer: (iso3) => dispatch({ type: "answer", iso3, now: new Date() }),
     skip: () => dispatch({ type: "skip", now: new Date() }),
     dismiss: () => dispatch({ type: "dismiss", now: new Date() }),
-    setMode: (mode) => dispatch({ type: "setMode", mode }),
+    setMode: (mode) => {
+      // The answer still on screen was given in the OLD mode, and it is
+      // counted here rather than through `cardsAnswered`: the counters effect
+      // reads the mode through modeRef, which already holds the new one by
+      // the time it fires. Guarded the same way the reducer guards the
+      // switch, so an ignored dispatch records nothing.
+      if (state.feedback && state.mode !== mode && !isExpedition) {
+        setCounters((c) => recordAnswer(c, state.mode));
+      }
+      dispatch({ type: "setMode", mode, now: new Date() });
+    },
     setPracticeMode: (mode) =>
       dispatch({ type: "setPracticeMode", mode, now: new Date() }),
     setContinents: (continents) =>
@@ -1717,6 +1941,8 @@ export function useGame(): GameApi {
       // next load. A kept counters key would also re-freeze
       // firstSessionAnswers against a session the learner no longer has.
       dispatch({ type: "resetSrs" });
+      // Both SRS keys, or the v1 blob would be migrated back on the next load.
+      clearStore();
       setStreakStore(emptyStreak());
       setCounters(startSession(emptyCounters(), false));
       saveSeenWelcome(false);

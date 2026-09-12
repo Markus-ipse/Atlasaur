@@ -6,6 +6,7 @@ import { CorrectHero } from "./CorrectHero";
 import { StatusBar } from "./StatusBar";
 import { StudyIntro } from "./StudyIntro";
 import { CaughtUp } from "./CaughtUp";
+import { isTypedMode } from "../game/questionModes";
 import type { GameApi } from "../game/useGame";
 import type { ThemePref } from "../theme";
 
@@ -84,6 +85,7 @@ export function ControlZone({
         ) : correctFeedback ? (
           <CorrectHero
             current={state.current}
+            mode={state.mode}
             streak={state.streak}
             milestone={state.milestone}
           />
@@ -92,12 +94,13 @@ export function ControlZone({
         )}
       </div>
 
-      {state.mode === "shape-to-name" && !showCaughtUp && (
+      {isTypedMode(state.mode) && !showCaughtUp && (
         <AnswerInput
+          mode={state.mode}
           current={state.current}
           feedback={state.feedback}
           paused={paused}
-          matchTypedAnswer={game.matchTypedAnswer}
+          matchTyped={game.matchTyped}
           onAnswer={game.answer}
         />
       )}

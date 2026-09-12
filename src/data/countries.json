@@ -1375,6 +1375,9 @@
       "HND",
       "MEX",
       "SLV"
+    ],
+    "capitalAliases": [
+      "Guatemala"
     ]
   },
   {
@@ -1752,6 +1755,10 @@
       "RUS",
       "TKM",
       "UZB"
+    ],
+    "capitalAliases": [
+      "Nur-Sultan",
+      "Akmola"
     ]
   },
   {
@@ -1798,6 +1805,9 @@
       "MKD",
       "MNE",
       "SRB"
+    ],
+    "capitalAliases": [
+      "Prishtina"
     ]
   },
   {
@@ -1817,6 +1827,9 @@
     "neighbors": [
       "IRQ",
       "SAU"
+    ],
+    "capitalAliases": [
+      "Kuwait"
     ]
   },
   {
@@ -2123,6 +2136,10 @@
       "BLZ",
       "GTM",
       "USA"
+    ],
+    "capitalAliases": [
+      "Mexico",
+      "Ciudad de Mexico"
     ]
   },
   {
@@ -2161,6 +2178,9 @@
     "neighbors": [
       "CHN",
       "RUS"
+    ],
+    "capitalAliases": [
+      "Ulan Bator"
     ]
   },
   {
@@ -2249,6 +2269,9 @@
       "IND",
       "LAO",
       "THA"
+    ],
+    "capitalAliases": [
+      "Nay Pyi Taw"
     ]
   },
   {
@@ -2587,6 +2610,9 @@
     "neighbors": [
       "COL",
       "CRI"
+    ],
+    "capitalAliases": [
+      "Panama"
     ]
   },
   {
@@ -3148,6 +3174,9 @@
     "neighbors": [],
     "capitalAlternates": [
       "Sri Jayawardenepura Kotte"
+    ],
+    "capitalAliases": [
+      "Kotte"
     ]
   },
   {
@@ -3234,6 +3263,9 @@
       "DEU",
       "FRA",
       "ITA"
+    ],
+    "capitalAliases": [
+      "Berne"
     ]
   },
   {
@@ -3512,6 +3544,9 @@
       "ROU",
       "RUS",
       "SVK"
+    ],
+    "capitalAliases": [
+      "Kiev"
     ]
   },
   {
@@ -3581,6 +3616,9 @@
     "neighbors": [
       "CAN",
       "MEX"
+    ],
+    "capitalAliases": [
+      "Washington"
     ]
   },
   {
@@ -3701,6 +3739,9 @@
       "DZA",
       "MAR",
       "MRT"
+    ],
+    "capitalAliases": [
+      "Laayoune"
     ]
   },
   {
