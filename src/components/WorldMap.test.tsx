@@ -5,8 +5,8 @@ import { WorldMap } from "./WorldMap";
 import type { Palette } from "./fillFor";
 import { ALL_CONTINENTS, type Continent, type Feedback } from "../types";
 import type { MasteryTier } from "../game/srs";
-import { LABELS_BY_NUMERIC, POLYGONS_BY_NUMERIC } from "./mapGeometry";
-import { pointInPolygon } from "./labelLayout";
+import { LABELS_BY_NUMERIC, polygonsFor } from "./mapGeometry";
+import { pointInPolygon } from "./polygon";
 
 const PALETTE: Palette = {
   masteryUnseen: "#unseen",
@@ -545,7 +545,7 @@ describe("WorldMap — off-frame neighbour labels (R3.3a)", () => {
     const rusAnchor = LABELS_BY_NUMERIC.get(IDS.RUS)!;
     const [rx, ry] = at(russia);
     expect([rx, ry]).not.toEqual([rusAnchor.cx, rusAnchor.cy]);
-    expect(POLYGONS_BY_NUMERIC.get(IDS.RUS)!.some((poly) => pointInPolygon([rx, ry], poly))).toBe(true);
+    expect(polygonsFor(IDS.RUS).some((poly) => pointInPolygon([rx, ry], poly))).toBe(true);
     const estAnchor = LABELS_BY_NUMERIC.get(IDS.EST)!;
     expect(at(estonia)).toEqual([estAnchor.cx, estAnchor.cy]);
   });

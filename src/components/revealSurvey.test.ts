@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import countriesData from "../data/countries.json";
 import type { Country } from "../types";
-import { LABELS_BY_NUMERIC, POLYGONS_BY_NUMERIC, type ProjPolygon } from "./mapGeometry";
-import { H, MIN_ZOOM, W, computeRevealTarget, widenForContext } from "./revealZoom";
-import { LABEL_EM, TARGET_LABEL_PX, pinOffFrameLabels, pointInPolygon, type Label } from "./labelLayout";
+import { LABELS_BY_NUMERIC, polygonsFor } from "./mapGeometry";
+import { H, MIN_ZOOM, W, computeRevealTarget, visibleFrame, widenForContext } from "./revealZoom";
+import { LABEL_EM, TARGET_LABEL_PX, pinOffFrameLabels, type Label } from "./labelLayout";
+import { pointInPolygon, type Polygon } from "./polygon";
 
 const COUNTRIES = countriesData as Country[];
 const BY_ISO3 = new Map(COUNTRIES.map((c) => [c.iso3, c]));
@@ -19,9 +20,7 @@ function labelOf(iso3: string): Label | undefined {
 // the claims below are for the world resting frame.
 function finalFrame(answer: Label, neighbours: Label[]) {
   const t = widenForContext(computeRevealTarget(answer, null, neighbours), answer, MIN_ZOOM);
-  const hw = W / (2 * t.k);
-  const hh = H / (2 * t.k);
-  return { k: t.k, x0: t.cx - hw, x1: t.cx + hw, y0: t.cy - hh, y1: t.cy + hh };
+  return { k: t.k, ...visibleFrame({ x: W / 2 - t.cx * t.k, y: H / 2 - t.cy * t.k, k: t.k }) };
 }
 
 describe("reveal survey over the real table", () => {
@@ -68,7 +67,7 @@ describe("reveal survey over the real table", () => {
     ]);
   });
 
-  const onLand = (p: readonly [number, number], polygons: readonly ProjPolygon[]) =>
+  const onLand = (p: readonly [number, number], polygons: readonly Polygon[]) =>
     polygons.some((poly) => pointInPolygon(p, poly));
 
   // Label em at the desktop reference and on a 390px phone, where the label
@@ -88,21 +87,19 @@ describe("reveal survey over the real table", () => {
       if (!answer || c.neighbors.length === 0) continue;
       const neighbours = c.neighbors.map(labelOf).filter((l): l is Label => !!l);
       const f = finalFrame(answer, neighbours);
-      const reveal = new Set([answer.numericId, ...neighbours.map((n) => n.numericId)]);
       const placed = pinOffFrameLabels([answer, ...neighbours], {
         frame: f,
         k: f.k,
         em,
-        isReveal: (n) => reveal.has(n),
-        mayPin: (n) => n !== answer.numericId,
-        near: [answer.cx, answer.cy],
-        polygonsOf: (n) => POLYGONS_BY_NUMERIC.get(n) ?? [],
+        answerNumericId: answer.numericId,
+        revealNumerics: new Set([answer.numericId, ...neighbours.map((n) => n.numericId)]),
+        polygonsOf: polygonsFor,
       });
       for (const n of neighbours) {
         const p = placed.find((q) => q.label.numericId === n.numericId);
         if (!p) dropped.push(`${c.iso3}: ${n.name}`);
         else if (p.x < f.x0 || p.x > f.x1 || p.y < f.y0 || p.y > f.y1) escaped.push(`${c.iso3}: ${n.name}`);
-        else if (p.pinned && !onLand([p.x, p.y], POLYGONS_BY_NUMERIC.get(n.numericId) ?? []))
+        else if (p.pinned && !onLand([p.x, p.y], polygonsFor(n.numericId)))
           offLand.push(`${c.iso3}: ${n.name}`);
       }
     }

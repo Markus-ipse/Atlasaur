@@ -204,8 +204,11 @@ reveal, not Novaya Zemlya) — and drops it when no piece is visible. **Not
 the frame edge nearest the anchor**, which the plan proposed and the PR
 disproved: for Azerbaijan that corner is across the Caspian, over
 Kazakhstan, and a pinned label looks exactly like an anchored one. Holes are
-honoured (Lesotho is the one in this topology); a sliver smaller than the
-label yields to a real piece; a pole polylabel could not place is rejected.
+honoured (Lesotho is the one in this topology); the labels that carry the
+reveal are subtracted from the visible land before the pole is searched, so
+a pinned label is clear of them by construction; a piece with no room for
+the label yields to one with room; a pole polylabel could not place is
+rejected.
 The wrong click may move too, under the same own-land rule — Sweden clicked
 for Denmark is named where it shows, Spain clicked for New Caledonia is not
 on screen and gets no label. A pinned label yields to every label drawn at
@@ -219,9 +222,10 @@ label can hop between pieces while the reveal animates, which is accepted.
 desktop and phone label sizes, and that every one is placed inside the
 frame and on its own land with none dropped — for the world resting frame;
 a continent filter floors the pull-back higher and is not surveyed. The
-geometry it needs (the projection, `LABELS`, every projected polygon per
-country in `POLYGONS_BY_NUMERIC`) lives in `mapGeometry.ts` so the test can
-import it without the component.
+geometry it needs lives in `mapGeometry.ts` (the projection, `LABELS`, and
+`polygonsFor`, every projected polygon of a country, streamed on first use
+and cached rather than built for all at load) with the planar primitives in
+`polygon.ts`, so the test can import it without the component.
 
 The reveal-zoom effect auto-frames the correct country when feedback appears (kind ≠ "correct") and zooms back out when feedback clears. `computeRevealTarget` in `src/components/revealZoom.ts` takes the answer country, optionally a wrong-clicked secondary, and optionally the answer country's neighbor bounds; it cascades the union (full → drop secondary → drop neighbors → bare primary), keeping `naturalK ≥ MIN_ZOOM` at each tier. Before the cascade, a giant neighbor is filtered out (when pairing it with the answer alone would drop the fit below `REVEAL_NEIGHBOR_K_FLOOR ×` the answer-alone fit — e.g. Russia next to Estonia) so the answer country stays visible; the dropped neighbor is still highlighted and labeled, just not framed. Both transitions honor `prefers-reduced-motion`.
 

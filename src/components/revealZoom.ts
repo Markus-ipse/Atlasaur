@@ -170,3 +170,24 @@ export function computeRevealTarget(
     cy: (primary.y0 + primary.y1) / 2,
   };
 }
+
+// The part of the projection on screen under a zoom transform, in projection
+// units. `viewport` is the rendered SVG in viewBox units — W × H exactly when
+// the container is 2:1; with preserveAspectRatio "meet" a taller container
+// shows land above and below the band and a wider one beside it, and the
+// extra is centred on the viewBox. Shared by WorldMap (which measures the
+// container) and the reveal survey (which assumes 2:1), so the two agree on
+// what "on screen" means.
+export function visibleFrame(
+  t: { x: number; y: number; k: number },
+  viewport: { width: number; height: number } = { width: W, height: H },
+): Bounds {
+  const sx0 = W / 2 - viewport.width / 2;
+  const sy0 = H / 2 - viewport.height / 2;
+  return {
+    x0: (sx0 - t.x) / t.k,
+    y0: (sy0 - t.y) / t.k,
+    x1: (sx0 + viewport.width - t.x) / t.k,
+    y1: (sy0 + viewport.height - t.y) / t.k,
+  };
+}

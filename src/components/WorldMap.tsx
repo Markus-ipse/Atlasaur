@@ -15,7 +15,7 @@ import { isClickMode } from "../game/questionModes";
 import {
   LABELS,
   LABELS_BY_NUMERIC,
-  POLYGONS_BY_NUMERIC,
+  polygonsFor,
   collection,
   numericIdFor,
   pathGen,
@@ -29,6 +29,7 @@ import {
   computeRevealTarget,
   widenForContext,
   tryFitUnion,
+  visibleFrame,
   type Bounds,
   type Target,
 } from "./revealZoom";
@@ -90,8 +91,6 @@ const BADGE_LIFT_Y = 18;
 // stays up this long.
 const PINCH_HINT_SETTLE_MS = 800;
 const PINCH_HINT_MS = 5000;
-
-const NO_POLYGONS: readonly [number, number][][][] = [];
 
 type HitDisc = { numericId: string; iso3: string; cx: number; cy: number; r: number };
 
@@ -780,55 +779,39 @@ export function WorldMap({
   // frame is moved onto the part of that country that is on screen. Re-runs on every zoom frame
   // — it needs the full transform, not just k, so it sits outside the
   // collision memo above.
-  const answerAnchor = useMemo<readonly [number, number]>(() => {
-    const numeric = revealCorrectIso3 ? numericFromIso3(revealCorrectIso3) : undefined;
-    const l = numeric ? LABELS_BY_NUMERIC.get(numeric) : undefined;
-    return l ? [l.cx, l.cy] : [W / 2, H / 2];
-  }, [revealCorrectIso3, numericFromIso3]);
-  const placedLabels = useMemo(() => {
-    if (visibleLabels.length === 0) return [];
-    const { x, y, k } = transform;
-    // The visible part of the projection. With preserveAspectRatio "meet" a
-    // container that is not 2:1 shows more than the viewBox — a portrait
-    // phone shows land above and below the band — so the frame is the
-    // measured SVG size in projection units, centred on the viewBox, and the
-    // viewBox itself until the resize observer has reported.
-    const vw = effectiveScale > 0 ? svgSize.width / effectiveScale : W;
-    const vh = effectiveScale > 0 ? svgSize.height / effectiveScale : H;
-    const sx0 = W / 2 - vw / 2;
-    const sy0 = H / 2 - vh / 2;
-    return pinOffFrameLabels(visibleLabels, {
-      frame: {
-        x0: (sx0 - x) / k,
-        y0: (sy0 - y) / k,
-        x1: (sx0 + vw - x) / k,
-        y1: (sy0 + vh - y) / k,
-      },
-      k,
-      em: labelEm,
-      isReveal: (numericId) => {
-        const iso3 = isoFromNumeric(numericId);
-        return iso3 !== undefined && revealIso3s.has(iso3);
-      },
-      mayPin: (numericId) => {
-        const iso3 = isoFromNumeric(numericId);
-        return iso3 !== undefined && (neighborSet.has(iso3) || iso3 === revealWrongIso3);
-      },
-      near: answerAnchor,
-      polygonsOf: (numericId) => POLYGONS_BY_NUMERIC.get(numericId) ?? NO_POLYGONS,
-    });
-  }, [
-    visibleLabels,
-    transform,
-    labelEm,
-    isoFromNumeric,
-    revealIso3s,
-    neighborSet,
-    revealWrongIso3,
-    answerAnchor,
-    effectiveScale,
-    svgSize,
-  ]);
+  // The reveal set by numeric id, for the pin pass below — resolved once per
+  // reveal rather than per label per zoom frame.
+  const revealNumerics = useMemo(() => {
+    const set = new Set<string>();
+    for (const iso3 of revealIso3s) {
+      const n = numericFromIso3(iso3);
+      if (n) set.add(n);
+    }
+    return set;
+  }, [revealIso3s, numericFromIso3]);
+  const answerNumericId = revealCorrectIso3 ? (numericFromIso3(revealCorrectIso3) ?? null) : null;
+  // R3.3a: a reveal label whose anchor is outside the frame is moved onto
+  // the part of that country that is on screen. Re-runs on every zoom frame
+  // — it needs the full transform, not just k, so it sits outside the
+  // collision memo above; it is O(N) over the visible labels plus one clip
+  // and one coarse polylabel per pinned giant.
+  const placedLabels = useMemo(
+    () =>
+      pinOffFrameLabels(visibleLabels, {
+        frame: visibleFrame(
+          transform,
+          effectiveScale > 0
+            ? { width: svgSize.width / effectiveScale, height: svgSize.height / effectiveScale }
+            : undefined,
+        ),
+        k: transform.k,
+        em: labelEm,
+        answerNumericId,
+        revealNumerics,
+        polygonsOf: polygonsFor,
+      }),
+    [visibleLabels, transform, labelEm, answerNumericId, revealNumerics, effectiveScale, svgSize],
+  );
 
   // Project the reveal capital once per change; the projection itself is
   // module-level and never moves, so this only runs when the answer flips.

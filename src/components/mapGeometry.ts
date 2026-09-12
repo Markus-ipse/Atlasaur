@@ -14,7 +14,15 @@ import topologyJson from "../data/world-110m.json";
 import countriesData from "../data/countries.json";
 import type { Country } from "../types";
 import { H, W } from "./revealZoom";
-import { pointInRing, type Label } from "./labelLayout";
+import type { Label } from "./labelLayout";
+import {
+  largestRing,
+  pointInRing,
+  ringArea,
+  ringBounds,
+  type Polygon,
+  type Ring,
+} from "./polygon";
 
 const topology = topologyJson as unknown as Topology;
 
@@ -43,45 +51,16 @@ export const collection = feature(
 export const projection = geoEqualEarth().fitSize([W, H], collection);
 export const pathGen = geoPath(projection);
 
-export type ProjRing = [number, number][];
-
-export function ringArea(ring: ProjRing): number {
-  let a = 0;
-  const n = ring.length;
-  for (let i = 0; i < n; i++) {
-    const [x1, y1] = ring[i];
-    const [x2, y2] = ring[(i + 1) % n];
-    a += x1 * y2 - x2 * y1;
-  }
-  return Math.abs(a) / 2;
-}
-
-function ringBounds(
-  ring: ProjRing,
-): { x0: number; x1: number; y0: number; y1: number } {
-  let xMin = Infinity;
-  let yMin = Infinity;
-  let xMax = -Infinity;
-  let yMax = -Infinity;
-  for (const [x, y] of ring) {
-    if (x < xMin) xMin = x;
-    if (y < yMin) yMin = y;
-    if (x > xMax) xMax = x;
-    if (y > yMax) yMax = y;
-  }
-  return { x0: xMin, x1: xMax, y0: yMin, y1: yMax };
-}
-
 // Stream the feature through the projection so antimeridian clipping (and
 // any other projection-level clipping) happens before we see points;
 // otherwise rings spanning ±180° (Fiji, Russia, Antarctica) project as a
-// stripe across the whole map and polylabel lands in the ocean. Holes are
-// not distinguished: at 110m resolution real holes are rare, and antimeridian
-// splits emit disjoint pieces as multiple rings of one polygon, so a strict
-// outer/hole reading wouldn't be reliable anyway.
-export function projectedRings(feat: Feature<Geometry>): ProjRing[] {
-  const rings: ProjRing[] = [];
-  let curRing: ProjRing | null = null;
+// stripe across the whole map and polylabel lands in the ocean. The rings
+// come back flat — the stream's polygon boundaries are not kept, since an
+// antimeridian split emits disjoint pieces as rings of one polygon — and
+// `groupPolygons` sorts holes from outers afterwards.
+export function projectedRings(feat: Feature<Geometry>): Ring[] {
+  const rings: Ring[] = [];
+  let curRing: Ring | null = null;
   geoStream(
     feat,
     projection.stream({
@@ -105,36 +84,16 @@ export function projectedRings(feat: Feature<Geometry>): ProjRing[] {
   return rings;
 }
 
-// Across all clipped rings, pick the largest by area as the country's
-// "main" landmass — that's where the label belongs (continental US, not
-// Alaska; mainland Russia, not Chukotka).
-function pickLargestRing(
-  rings: readonly ProjRing[],
-): { ring: ProjRing; area: number } | null {
-  let best: ProjRing | null = null;
-  let bestArea = 0;
-  for (const ring of rings) {
-    const a = ringArea(ring);
-    if (a > bestArea) {
-      best = ring;
-      bestArea = a;
-    }
-  }
-  return best ? { ring: best, area: bestArea } : null;
-}
-
 // A polygon is an outer ring followed by its holes. The streamed rings do
 // not say which is which, so a ring whose first vertex lies inside a larger
 // ring of the same country is taken as that ring's hole. At 110m the only
 // hole is Lesotho in South Africa; a label placed by the outer ring alone
 // would sit in it.
-export type ProjPolygon = ProjRing[];
-
-export function groupPolygons(rings: readonly ProjRing[]): ProjPolygon[] {
+export function groupPolygons(rings: readonly Ring[]): Polygon[] {
   const byArea = rings
     .map((ring) => ({ ring, area: ringArea(ring) }))
     .sort((a, b) => b.area - a.area);
-  const polygons: ProjPolygon[] = [];
+  const polygons: Polygon[] = [];
   for (const { ring } of byArea) {
     const outer = polygons.find((poly) => pointInRing(ring[0], poly[0]));
     if (outer) outer.push(ring);
@@ -143,11 +102,22 @@ export function groupPolygons(rings: readonly ProjRing[]): ProjPolygon[] {
   return polygons;
 }
 
-// Every projected polygon per country, keyed by numeric. LABELS below reads
-// the largest ring; the reveal's off-frame neighbour labels (R3.3a) read
-// them all, because the part of a neighbour that touches the answer need not
-// be its largest ring (Indonesia meets Timor-Leste on Timor, not Borneo).
-export const POLYGONS_BY_NUMERIC = new Map<string, ProjPolygon[]>();
+// Every projected polygon of a country, on demand. The reveal's off-frame
+// labels (R3.3a) read them all, because the part of a neighbour that touches
+// the answer need not be its largest ring (Indonesia meets Timor-Leste on
+// Timor, not Borneo) — but only a handful of countries per reveal, so they
+// are streamed again on first use and cached rather than built for every
+// country at load and held for the life of the tab.
+const FEATURE_BY_NUMERIC = new Map<string, Feature<Geometry>>();
+const POLYGONS_CACHE = new Map<string, readonly Polygon[]>();
+export function polygonsFor(numericId: string): readonly Polygon[] {
+  const hit = POLYGONS_CACHE.get(numericId);
+  if (hit) return hit;
+  const f = FEATURE_BY_NUMERIC.get(numericId);
+  const polygons = f ? groupPolygons(projectedRings(f)) : [];
+  POLYGONS_CACHE.set(numericId, polygons);
+  return polygons;
+}
 
 export const LABELS: Label[] = [];
 for (const f of collection.features) {
@@ -155,9 +125,11 @@ for (const f of collection.features) {
   if (!numericId) continue;
   const name = f.properties?.name;
   if (!name) continue;
-  const rings = projectedRings(f);
-  POLYGONS_BY_NUMERIC.set(numericId, groupPolygons(rings));
-  const result = pickLargestRing(rings);
+  FEATURE_BY_NUMERIC.set(numericId, f);
+  // Across all clipped rings, the largest by area is the country's "main"
+  // landmass — that's where the label belongs (continental US, not Alaska;
+  // mainland Russia, not Chukotka).
+  const result = largestRing(projectedRings(f));
   if (!result) continue;
   const { ring, area } = result;
   // Pole of inaccessibility — point inside the polygon furthest from any

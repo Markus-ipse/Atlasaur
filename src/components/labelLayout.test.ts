@@ -3,15 +3,13 @@ import {
   computeVisibleLabels,
   fontSizeFor,
   COLLISION_PADDING,
-  clipRingToRect,
   pinOffFrameLabels,
   GLYPH_W_RATIO,
   LABEL_EM,
   type Label,
-  type Polygon,
   type Rect,
-  type Ring,
 } from "./labelLayout";
+import { clipRingToRect, type Polygon, type Ring } from "./polygon";
 
 function makeLabel(partial: Partial<Label> & Pick<Label, "numericId" | "name">): Label {
   return {
@@ -510,16 +508,26 @@ describe("pinOffFrameLabels (R3.3a)", () => {
   const halfH = fontSize / 2 + pad;
   const frame: Rect = { x0: 100, y0: 100, x1: 300, y1: 200 };
   // "1" is the answer, "2" and "3" its neighbours, "4" a wrong click.
-  const revealSet = new Set(["1", "2", "3", "4"]);
-  const isReveal = (n: string) => revealSet.has(n);
-  const mayPin = (n: string) => n !== "1";
-  const near: [number, number] = [150, 180];
+  const revealNumerics = new Set(["1", "2", "3", "4"]);
   // The giant "2" is a big square whose south-west corner reaches into the
   // frame's north-east; its anchor is far outside.
   const GIANT_RING: Ring = [[250, -400], [900, -400], [900, 150], [250, 150]];
   const polygons: Record<string, Polygon[]> = { "2": [[GIANT_RING]] };
-  const args = { frame, k, isReveal, mayPin, near, polygonsOf: (n: string) => polygons[n] ?? [] };
+  const args = {
+    frame,
+    k,
+    answerNumericId: "1",
+    revealNumerics,
+    polygonsOf: (n: string) => polygons[n] ?? [],
+  };
   const giant = () => makeLabel({ numericId: "2", name: "Russia", cx: 700, cy: -200, area: 1e6 });
+  const rectOf = (p: { label: Label; x: number; y: number }): Rect => ({
+    x0: p.x - halfW(p.label.name),
+    x1: p.x + halfW(p.label.name),
+    y0: p.y - halfH,
+    y1: p.y + halfH,
+  });
+  const overlap = (a: Rect, b: Rect) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
 
   it("leaves a reveal label wholly inside the frame at its anchor", () => {
     const answer = makeLabel({ numericId: "1", name: "Estonia", cx: 200, cy: 150 });
@@ -555,10 +563,21 @@ describe("pinOffFrameLabels (R3.3a)", () => {
     expect(placed).toEqual([]);
   });
 
+  it("places clear of a fixed label that sits on the pole", () => {
+    // The answer's label covers the middle of the giant's visible corner; the
+    // giant's label lands elsewhere on that corner, not on top of it.
+    const answer = makeLabel({ numericId: "1", name: "Estonia", cx: 275, cy: 125 });
+    const placed = pinOffFrameLabels([answer, giant()], args);
+    const p = placed.find((q) => q.label.numericId === "2")!;
+    expect(p.pinned).toBe(true);
+    expect(overlap(rectOf(p), rectOf(placed[0]))).toBe(false);
+    expect(p.x).toBeGreaterThanOrEqual(250);
+    expect(p.y).toBeLessThanOrEqual(150);
+  });
+
   it("drops a pinned label that would cover the answer and has nowhere on its land to go", () => {
-    // The giant's only visible piece is a speck under the answer's label, so
-    // no nudge can stay on the piece and clear the answer.
-    const speck: Ring = [[270, 120], [280, 120], [280, 130], [270, 130]];
+    // The giant's only visible piece is a speck under the answer's label.
+    const speck: Ring = [[273, 124], [277, 124], [277, 126], [273, 126]];
     const answer = makeLabel({ numericId: "1", name: "Estonia", cx: 275, cy: 125 });
     const placed = pinOffFrameLabels([answer, giant()], { ...args, polygonsOf: () => [[speck]] });
     expect(placed.map((p) => p.label.numericId)).toEqual(["1"]);
@@ -569,40 +588,20 @@ describe("pinOffFrameLabels (R3.3a)", () => {
     const far: Ring = [[200, 100], [300, 100], [300, 140], [200, 140]];
     const nearAnswer: Ring = [[100, 170], [160, 170], [160, 200], [100, 200]];
     const answer = makeLabel({ numericId: "1", name: "Poland", cx: 130, cy: 160 });
-    const placed = pinOffFrameLabels([answer, giant()], {
-      ...args,
-      near: [130, 160],
-      polygonsOf: () => [[far], [nearAnswer]],
-    });
+    const placed = pinOffFrameLabels([answer, giant()], { ...args, polygonsOf: () => [[far], [nearAnswer]] });
     const p = placed.find((q) => q.label.numericId === "2")!;
     expect(p.pinned).toBe(true);
     expect(p.y).toBeGreaterThan(170);
   });
 
-  it("takes another piece when the nearest one is under a fixed label with no room to nudge", () => {
+  it("takes another piece when the nearest one is entirely under a fixed label", () => {
     const far: Ring = [[200, 100], [300, 100], [300, 150], [200, 150]];
     const nearAnswer: Ring = [[125, 180], [135, 180], [135, 190], [125, 190]];
-    // The answer's label covers the whole near piece.
     const answer = makeLabel({ numericId: "1", name: "Poland", cx: 130, cy: 185 });
-    const placed = pinOffFrameLabels([answer, giant()], {
-      ...args,
-      near: [130, 185],
-      polygonsOf: () => [[far], [nearAnswer]],
-    });
+    const placed = pinOffFrameLabels([answer, giant()], { ...args, polygonsOf: () => [[far], [nearAnswer]] });
     const p = placed.find((q) => q.label.numericId === "2")!;
     expect(p.pinned).toBe(true);
     expect(p.y).toBeLessThan(150);
-  });
-
-  it("nudges a label off a fixed label by the smallest separating step", () => {
-    // The answer's label overlaps where the giant's pole would sit, by a
-    // hair; the giant's label slides aside rather than being dropped.
-    const answer = makeLabel({ numericId: "1", name: "Belarus", cx: 275 - halfW("Russia") - halfW("Belarus") + 0.2, cy: 125 });
-    const placed = pinOffFrameLabels([answer, giant()], args);
-    const p = placed.find((q) => q.label.numericId === "2")!;
-    expect(p.pinned).toBe(true);
-    expect(p.x).toBeGreaterThan(275);
-    expect(p.x - 275).toBeLessThan(1);
   });
 
   it("keeps the label out of a hole", () => {
@@ -622,13 +621,11 @@ describe("pinOffFrameLabels (R3.3a)", () => {
     expect(placed.map((p) => p.label.numericId)).toEqual(["2"]);
   });
 
-  it("resolves two pinned labels on the same land by area", () => {
+  it("places two pinned labels on the same land without overlap, bigger first", () => {
     const small = makeLabel({ numericId: "3", name: "Nepal", cx: 700, cy: -201, area: 10 });
-    const placed = pinOffFrameLabels([small, giant()], {
-      ...args,
-      polygonsOf: () => [[GIANT_RING]],
-    });
-    expect(placed.map((p) => p.label.numericId)).toEqual(["2"]);
+    const placed = pinOffFrameLabels([small, giant()], { ...args, polygonsOf: () => [[GIANT_RING]] });
+    expect(placed.map((p) => p.label.numericId)).toEqual(["2", "3"]);
+    expect(overlap(rectOf(placed[0]), rectOf(placed[1]))).toBe(false);
   });
 
   it("pins the wrong click onto its own visible land, and nowhere when it has none", () => {
