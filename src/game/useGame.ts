@@ -465,6 +465,13 @@ export function initialState(
     practiceMode,
     srsStore.facts[factOf(mode)],
     options.retryQueue ?? [],
+    factOf(mode) === "capital"
+      ? new Set(
+          Object.keys(srsStore.facts.location).filter(
+            (iso3) => masteryTierOf(srsStore.facts.location[iso3]) === 2,
+          ),
+        )
+      : NO_PREREQUISITE,
   );
   return {
     mode,
@@ -536,6 +543,7 @@ function pickInitialCountry(
   practiceMode: PracticeMode,
   records: SrsRecords,
   retryQueue: readonly RetryEntry[],
+  introduceFirst: ReadonlySet<string> = NO_PREREQUISITE,
 ): Country {
   if (practiceMode === "study") {
     const picked = pickNextStudy({
@@ -543,6 +551,7 @@ function pickInitialCountry(
       byIso3: COUNTRY_BY_ISO3,
       excludeIso3: "",
       records,
+      introduceFirst,
       now: new Date(),
       newIntroducedThisStretch: 0,
       resurfaceQueue: [],
@@ -551,6 +560,24 @@ function pickInitialCountry(
     if (picked) return picked;
   }
   return pickRandom(pool, retryQueue[0]?.iso3 ?? null);
+}
+
+const NO_PREREQUISITE: ReadonlySet<string> = new Set();
+
+// Countries whose capital is worth introducing now: the ones the learner can
+// already place. Knowing where Peru is is what makes "what is its capital"
+// the next sensible question, and it is what the capitals door promises
+// ("6 countries you already know") — so the scheduler has to serve the same
+// set, or the offer is a lie. Empty for the location fact, which has no such
+// prerequisite. Matches capitalOffer's `ready` exactly.
+function introduceFirst(state: State): ReadonlySet<string> {
+  if (answerFact(state) !== "capital") return NO_PREREQUISITE;
+  const location = state.srsStore.facts.location;
+  const out = new Set<string>();
+  for (const iso3 in location) {
+    if (masteryTierOf(location[iso3]) === 2) out.add(iso3);
+  }
+  return out;
 }
 
 function nextCurrent(state: State, now: Date = new Date()): Country {
@@ -571,6 +598,7 @@ function nextCurrent(state: State, now: Date = new Date()): Country {
       byIso3: COUNTRY_BY_ISO3,
       excludeIso3: state.current.iso3,
       records: recordsFor(state),
+      introduceFirst: introduceFirst(state),
       now,
       newIntroducedThisStretch: state.newIntroducedThisStretch,
       resurfaceQueue: state.studyResurfaceQueue,

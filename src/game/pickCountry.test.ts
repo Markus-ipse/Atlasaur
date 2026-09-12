@@ -441,3 +441,45 @@ describe("pickSpotlight", () => {
     expect(pickSpotlight(new Map())).toBeNull();
   });
 });
+
+describe("pickNextStudy — introduceFirst", () => {
+  const now = new Date("2026-09-12T12:00:00Z");
+
+  // Three fresh countries, deliberately in an order where notability alone
+  // would not produce the answer we want.
+  const POOL: Country[] = [
+    { ...country("AAA"), notabilityTier: 2, sizeTier: 3 },
+    { ...country("BBB"), notabilityTier: 0, sizeTier: 0 },
+    { ...country("CCC"), notabilityTier: 1, sizeTier: 1 },
+  ];
+  const BY_ISO3 = new Map(POOL.map((c) => [c.iso3, c]));
+
+  function pick(introduceFirst?: ReadonlySet<string>) {
+    return pickNextStudy({
+      pool: POOL,
+      byIso3: BY_ISO3,
+      excludeIso3: "",
+      records: {},
+      introduceFirst,
+      now,
+      newIntroducedThisStretch: 0,
+    });
+  }
+
+  it("introduces a prerequisite country ahead of a more notable one", () => {
+    // Without it AAA wins on notability; BBB is last by every other measure.
+    expect(pick()?.iso3).toBe("AAA");
+    expect(pick(new Set(["BBB"]))?.iso3).toBe("BBB");
+  });
+
+  it("keeps the usual order among the countries that qualify", () => {
+    expect(pick(new Set(["BBB", "CCC"]))?.iso3).toBe("CCC");
+  });
+
+  it("falls through to the ordinary order when none qualify", () => {
+    // A capital mode chosen deliberately by a learner who has placed nothing
+    // must still have something to ask.
+    expect(pick(new Set(["ZZZ"]))?.iso3).toBe("AAA");
+    expect(pick(new Set())?.iso3).toBe("AAA");
+  });
+});
