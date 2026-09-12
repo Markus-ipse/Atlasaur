@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import type { ExpeditionStatus } from "../game/expedition";
+import type { CapitalOffer } from "../game/offer";
 import { ExpeditionDoor } from "./ExpeditionDoor";
+import { CapitalsDoor } from "./CapitalsDoor";
 
 type Props = {
   dueCount: number;
@@ -10,6 +12,9 @@ type Props = {
   // What today's expedition holds, and the door into it.
   expedition: ExpeditionStatus;
   onExpedition: () => void;
+  // Capitals worth offering, or null when there is nothing specific to say.
+  capitalOffer: CapitalOffer | null;
+  onTryCapitals: () => void;
   onBegin: () => void;
 };
 
@@ -22,6 +27,8 @@ export function TodayCard({
   day,
   expedition,
   onExpedition,
+  capitalOffer,
+  onTryCapitals,
   onBegin,
 }: Props) {
   const beginRef = useRef<HTMLButtonElement>(null);
@@ -87,6 +94,14 @@ export function TodayCard({
             className="min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
             subClassName="text-ink-faded"
           />
+          {capitalOffer && (
+            <CapitalsDoor
+              offer={capitalOffer}
+              onClick={onTryCapitals}
+              className="min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
+              subClassName="text-ink-faded"
+            />
+          )}
         </div>
       </div>
     </div>

@@ -19,7 +19,7 @@ import {
   type ExpeditionStore,
 } from "./expedition";
 import countriesData from "../data/countries.json";
-import { ALL_CONTINENTS, type Country } from "../types";
+import { ALL_CONTINENTS, type Country, type SrsRecord } from "../types";
 
 const ALL_COUNTRIES = countriesData as Country[];
 
@@ -2168,5 +2168,83 @@ describe("reducer — a card answered on the way out of a round", () => {
     });
     expect(next.roundCards).toBe(1);
     expect(next.cardsAnswered).toBe(s.cardsAnswered);
+  });
+});
+
+describe("reducer — the capitals offer is what the scheduler serves (R3.2)", () => {
+  const NOW = new Date("2026-09-12T12:00:00Z");
+
+  function knownRecordAt(): SrsRecord {
+    return { ...srsGrade(null, "Good", NOW), state: 2 };
+  }
+
+  function learnerKnowing(iso3s: string[]): State {
+    const s = initialState({
+      mode: "name-to-click",
+      practiceMode: "study",
+      selectedContinents: ["South America"],
+    });
+    const location: Record<string, SrsRecord> = {};
+    for (const iso3 of iso3s) location[iso3] = knownRecordAt();
+    return { ...s, srsStore: storeWith(location) };
+  }
+
+  function serve(state: State, n: number): string[] {
+    let t = state;
+    const out: string[] = [];
+    for (let i = 0; i < n; i++) {
+      out.push(t.current.iso3);
+      t = reducer(t, { type: "answer", iso3: t.current.iso3, now: NOW });
+      t = reducer(t, { type: "dismiss", now: NOW });
+    }
+    return out;
+  }
+
+  it("asks about the countries the door promised, before any other", () => {
+    // The door says "2 countries you already know". Without the prerequisite
+    // the scheduler introduced by notability and served Brazil and Argentina
+    // first, so the offer was a lie.
+    const s = learnerKnowing(["PER", "CHL"]);
+    const entered = reducer(s, {
+      type: "setMode",
+      mode: "country-to-capital",
+      now: NOW,
+    });
+    expect(serve(entered, 2).sort()).toEqual(["CHL", "PER"]);
+  });
+
+  it("carries on past them rather than running dry", () => {
+    // A learner who picks a capital mode from the settings with nothing
+    // placed yet must still have something to answer.
+    const none = reducer(learnerKnowing([]), {
+      type: "setMode",
+      mode: "country-to-capital",
+      now: NOW,
+    });
+    expect(none.current.capital).not.toBeNull();
+
+    const some = reducer(learnerKnowing(["PER"]), {
+      type: "setMode",
+      mode: "country-to-capital",
+      now: NOW,
+    });
+    const served = serve(some, 3);
+    expect(served[0]).toBe("PER");
+    expect(served).toHaveLength(3);
+  });
+
+  it("leaves the location fact's introduction order alone", () => {
+    // Locations have no prerequisite, so the ordinary order still decides:
+    // notability, then size, then iso3. Computed rather than hard-coded, so
+    // this pins the rule and not a particular row of the country table.
+    const inScope = ALL_COUNTRIES.filter(
+      (c) => c.continent === "South America" && !c.territory,
+    );
+    const expected = [...inScope].sort(
+      (a, b) =>
+        introductionOrder(b) - introductionOrder(a) ||
+        a.iso3.localeCompare(b.iso3),
+    )[0].iso3;
+    expect(serve(learnerKnowing([]), 1)[0]).toBe(expected);
   });
 });

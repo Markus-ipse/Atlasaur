@@ -104,6 +104,7 @@ function makeGame(overrides: {
     nameFromIso3: (iso3) => NAMES_BY_ISO3[iso3] ?? iso3,
     isInScope: () => true,
     fact: "location",
+    capitalOffer: null,
     matchTyped: () => "",
     answer: vi.fn(),
     skip: vi.fn(),
@@ -673,5 +674,41 @@ describe("ControlZone — capital modes", () => {
       expect(status.textContent).toMatch(/Correct[\s\S]*Lima/);
       expect(status.textContent).toContain("Capital of Peru");
     });
+  });
+});
+
+describe("CaughtUp — the capitals offer", () => {
+  function showCaughtUp(capitalOffer: { due: number; ready: number } | null) {
+    const game = { ...makeGame({ practiceMode: "study" }), capitalOffer };
+    render(
+      <ControlZone
+        game={game}
+        showCaughtUp
+        onAckCaughtUp={() => {}}
+        themePref="system"
+        onSetThemePref={() => {}}
+      />,
+    );
+  }
+
+  it("stops promising more when there is more, and offers it", () => {
+    // The old line said "Come back later — we'll have more for you" at the one
+    // moment there already was.
+    showCaughtUp({ due: 0, ready: 12 });
+    expect(screen.queryByText(/Come back later/)).toBeNull();
+    expect(screen.getByText("Try capitals")).toBeDefined();
+    expect(screen.getByText("12 countries you already know")).toBeDefined();
+  });
+
+  it("says 'review' once capitals have been met and come round", () => {
+    showCaughtUp({ due: 5, ready: 3 });
+    expect(screen.getByText("Review capitals")).toBeDefined();
+    expect(screen.getByText("5 to review")).toBeDefined();
+  });
+
+  it("keeps the old line when there is genuinely nothing else", () => {
+    showCaughtUp(null);
+    expect(screen.getByText(/Come back later/)).toBeDefined();
+    expect(screen.queryByText("Try capitals")).toBeNull();
   });
 });

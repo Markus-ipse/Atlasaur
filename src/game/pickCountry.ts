@@ -79,6 +79,8 @@ export function pickNext(args: {
   return pickRandom(pool, excludeIso3);
 }
 
+const NO_PREFERENCE: ReadonlySet<string> = new Set();
+
 export function pickNextStudy(args: {
   pool: readonly Country[];
   byIso3: ReadonlyMap<string, Country>;
@@ -86,6 +88,12 @@ export function pickNextStudy(args: {
   // One fact's records — the fact the current question mode grades. The
   // caller chooses it; see `recordsFor` in useGame.ts.
   records: SrsRecords;
+  // Countries to introduce before any others, when a fact has a prerequisite.
+  // Capitals are taught for countries the learner can already place, so the
+  // offer's promise ("6 countries you already know") is what the scheduler
+  // actually serves. Only orders the NEW-introduction branch; due cards are
+  // due whatever else is true. Empty for a fact with no prerequisite.
+  introduceFirst?: ReadonlySet<string>;
   now: Date;
   newIntroducedThisStretch: number;
   resurfaceQueue?: readonly RetryEntry[];
@@ -96,6 +104,7 @@ export function pickNextStudy(args: {
     byIso3,
     excludeIso3,
     records,
+    introduceFirst = NO_PREFERENCE,
     now,
     newIntroducedThisStretch,
     resurfaceQueue = [],
@@ -142,6 +151,13 @@ export function pickNextStudy(args: {
     );
     if (fresh.length > 0) {
       fresh.sort((a, b) => {
+        // Prerequisite first, so a capital is asked about a country the
+        // learner can already find. A sort rather than a filter: when none
+        // qualify the ordinary order still applies, so a mode chosen
+        // deliberately from the settings is never left with nothing to ask.
+        const pa = introduceFirst.has(a.iso3) ? 0 : 1;
+        const pb = introduceFirst.has(b.iso3) ? 0 : 1;
+        if (pa !== pb) return pa - pb;
         const ord = introductionOrder(b) - introductionOrder(a);
         if (ord !== 0) return ord;
         return a.iso3.localeCompare(b.iso3);

@@ -272,6 +272,11 @@ export default function App() {
             game.dismissTodayCard();
             game.startExpedition();
           }}
+          capitalOffer={game.capitalOffer}
+          onTryCapitals={() => {
+            game.dismissTodayCard();
+            game.setMode("country-to-capital");
+          }}
           onBegin={game.dismissTodayCard}
         />
       )}

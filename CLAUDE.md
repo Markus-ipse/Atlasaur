@@ -228,6 +228,40 @@ the country is already highlighted, so there is nothing left to give away.
 `paintsProgress(mode, practiceMode)` in `srs.ts` is the single rule — `App`
 reads it for the continent captions so the two can never disagree.
 
+**Finding the capital questions (R3.2).** Nothing outside the settings menu
+named them, which made `answersByQuestionMode` — the figure the R3 plan wants
+for the R3.5 decision — a measure of whether anyone opened the gear rather
+than of appetite. `capitalOffer(store, countries, scope, now)` in
+`src/game/offer.ts` answers "is there something specific to offer", and
+`CapitalsDoor` is the shared button, the shape `ExpeditionDoor` established.
+Two surfaces carry it: the **Today card**, and the **CaughtUp banner** — whose
+old line ("Come back later — we'll have more for you") fired at exactly the
+moment there was more, so it was a promise the app broke in the same breath.
+
+The gate is the whole idea: a capital is offered only for a country the
+learner can **already place** (location tier 2), plus any capital already met
+and now due. **The scheduler enforces the same gate**, via `introduceFirst` on
+`pickNextStudy` — `useGame` passes the tier-2 set for the capital fact, and the
+new-introduction branch sorts those ahead of everything else. Without it the
+door promised "6 countries you already know" and then served whatever ranked
+highest by `introductionOrder`, which is a different set entirely. It is a
+sort rather than a filter, so once the promised countries are used up — or for
+a learner who picks a capital mode from the settings having placed nothing —
+the ordinary order still applies and the mode is never left with nothing to
+ask. `introduceFirst` is empty for the location fact, which has no
+prerequisite. Knowing where Peru is is what makes "what is its capital" the
+next sensible question, and it keeps the number small and true — three
+countries in, the offer is three capitals, not the whole atlas. The door
+leads to `country-to-capital`, where the country is given: the new question is
+asked about familiar ground. An offer is never made to a learner already
+working on capitals.
+
+Automatic arrival — the scheduler introducing a capital on its own once the
+location is known — is the natural end of this and is deliberately **not**
+done here: it is a scheduling change with a real question attached about
+whether capitals compete for `STUDY_NEW_CAP`'s ten new cards or get their own
+budget. Offers first, arrival when that is designed.
+
 **The small-target affordances follow the same rule.** `WorldMap`'s resting
 frame and its pinch hint (R1.6) fire in `name-to-click` only, not in every
 click mode: framing the answer's continent before the learner answers hands

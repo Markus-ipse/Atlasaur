@@ -74,7 +74,11 @@ export function ControlZone({
 
       <div className="landscape:flex-1 landscape:flex landscape:items-center">
         {showCaughtUp ? (
-          <CaughtUp onKeepGoing={onAckCaughtUp} />
+          <CaughtUp
+            onKeepGoing={onAckCaughtUp}
+            capitalOffer={game.capitalOffer}
+            onTryCapitals={() => game.setMode("country-to-capital")}
+          />
         ) : heroFeedback ? (
           <RevealHero
             current={state.current}
