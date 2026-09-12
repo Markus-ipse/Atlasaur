@@ -94,7 +94,8 @@ export type QuestionMode = (typeof QUESTION_MODES)[number];
 
 // What a card teaches. One SRS record per country AND fact, so knowing where
 // Peru is says nothing about knowing its capital. `borders` and `flag` are
-// planned for R3.3 and R3.5; adding one is additive within store version 2.
+// future facts (see docs/plans/r3-variety-and-a-hook.md); adding one is
+// additive within store version 2.
 export const FACTS = ["location", "capital"] as const;
 
 export type Fact = (typeof FACTS)[number];

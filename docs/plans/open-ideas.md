@@ -23,6 +23,12 @@ here is not a backlog — each item needs its own plan before it is built.
   local only, like the counters. A remediation attempt in a review pass is an
   observation even though it is deliberately not graded into FSRS again.
 
+## Question kinds
+
+- **"Which borders…"**, held from R3 on 2026-09-12. The reasons and the
+  shape worth reviving are in the Decisions of `r3-variety-and-a-hook.md`;
+  this entry is only so the idea is findable from here.
+
 ## Remediation
 
 - **Confusion pairs.** Notice when a learner repeatedly clicks one country

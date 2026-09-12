@@ -82,7 +82,7 @@ Effort uses the roadmap's scale: S under a day, M two to four days, L one to two
 
 | | Item | Impact | Effort |
 | --- | --- | --- | --- |
-| Add | **Capital and border question modes.** Capital → Click, Country → Capital (typed), Which borders…. The point to split the SRS record per fact rather than per country. | medium-high | M |
+| Add | **Capital and border question modes.** Capital → Click, Country → Capital (typed), Which borders… (later held, see `plans/r3-variety-and-a-hook.md`). The point to split the SRS record per fact rather than per country. | medium-high | M |
 | Add | **The Daily Expedition.** Ten countries seeded by the date, one attempt a day, a result you can copy as text (a row of ink-block glyphs and a caption). The Wordle mechanic, no backend. | high for return | M |
 | Improve | **Finish the world.** Bring in the missing island and micro-states, via the 50m topology for small features or clickable point markers with the same iso3 plumbing. | medium | M–L |
 | Add | **Flags, later.** A fourth question mode with its own SRS facet. After the three loops exist, not before. | medium | L |
