@@ -21,8 +21,10 @@ import {
   saveStore,
   toJSON,
   totalReviews,
+  clearStore,
 } from "./srs";
-import type { Country, SrsRecord, SrsStore } from "../types";
+import { storeWith } from "./srsFixtures";
+import type { Country, SrsRecord, SrsRecords } from "../types";
 
 const T0 = new Date("2026-05-16T12:00:00Z");
 
@@ -83,82 +85,147 @@ describe("isDue / dueCount", () => {
   });
 
   it("dueCount filters by scope", () => {
-    const store: SrsStore = {
-      version: 1,
-      records: {
-        FRA: grade(null, "Good", T0),
-        DEU: grade(null, "Good", T0),
-        JPN: grade(null, "Good", T0),
-      },
+    const records: SrsRecords = {
+      FRA: grade(null, "Good", T0),
+      DEU: grade(null, "Good", T0),
+      JPN: grade(null, "Good", T0),
     };
     const fut = days(2);
-    expect(dueCount(store, new Set(["FRA", "DEU", "JPN"]), fut)).toBe(3);
-    expect(dueCount(store, new Set(["FRA"]), fut)).toBe(1);
-    expect(dueCount(store, new Set([]), fut)).toBe(0);
+    expect(dueCount(records, new Set(["FRA", "DEU", "JPN"]), fut)).toBe(3);
+    expect(dueCount(records, new Set(["FRA"]), fut)).toBe(1);
+    expect(dueCount(records, new Set([]), fut)).toBe(0);
   });
 });
 
-describe("loadStore / saveStore", () => {
+describe("loadStore / saveStore — store v2 and the v1 migration", () => {
+  const V1_KEY = "atlasaur:srs:v1";
+  const V2_KEY = "atlasaur:srs:v2";
+
+  function v1(records: Record<string, unknown>): string {
+    return JSON.stringify({ version: 1, records });
+  }
+
   beforeEach(() => {
     window.localStorage.clear();
   });
 
-  it("returns empty store when nothing is persisted", () => {
+  it("returns an empty version-2 store when nothing is persisted", () => {
     const s = loadStore();
-    expect(s.version).toBe(1);
-    expect(Object.keys(s.records)).toHaveLength(0);
+    expect(s.version).toBe(2);
+    expect(Object.keys(s.facts.location)).toHaveLength(0);
+    expect(Object.keys(s.facts.capital)).toHaveLength(0);
   });
 
   it("round-trips a store", () => {
-    const original: SrsStore = {
-      version: 1,
-      records: { FRA: grade(null, "Good", T0) },
-    };
+    const original = storeWith({ FRA: grade(null, "Good", T0) });
     saveStore(original);
-    const loaded = loadStore();
-    expect(loaded).toEqual(original);
+    expect(loadStore()).toEqual(original);
   });
 
-  it("resets on version mismatch", () => {
+  it("never writes the v1 key", () => {
+    saveStore(storeWith({ FRA: grade(null, "Good", T0) }));
+    expect(window.localStorage.getItem(V1_KEY)).toBeNull();
+    expect(window.localStorage.getItem(V2_KEY)).not.toBeNull();
+  });
+
+  it("migrates a v1 blob into the location fact, losing nothing", () => {
+    const fra = grade(null, "Good", T0);
+    window.localStorage.setItem(V1_KEY, v1({ FRA: fra }));
+    const s = loadStore();
+    expect(s.version).toBe(2);
+    expect(s.facts.location.FRA).toEqual(fra);
+    // Knowing where France is says nothing about knowing its capital.
+    expect(s.facts.capital).toEqual({});
+  });
+
+  it("leaves the v1 blob in place, so an older build still reads it", () => {
+    window.localStorage.setItem(V1_KEY, v1({ FRA: grade(null, "Good", T0) }));
+    loadStore();
+    expect(window.localStorage.getItem(V1_KEY)).not.toBeNull();
+  });
+
+  it("prefers a valid v2 blob over the v1 key", () => {
+    window.localStorage.setItem(V1_KEY, v1({ FRA: grade(null, "Good", T0) }));
+    saveStore(storeWith({ DEU: grade(null, "Good", T0) }));
+    const s = loadStore();
+    expect("FRA" in s.facts.location).toBe(false);
+    expect(s.facts.location.DEU).toBeDefined();
+  });
+
+  it("falls back to migrating v1 when v2 is corrupt", () => {
+    // A stale store beats an empty one: an empty one would be written back
+    // over v2 by the save-on-mount effect, wiping everything.
+    window.localStorage.setItem(V1_KEY, v1({ FRA: grade(null, "Good", T0) }));
+    window.localStorage.setItem(V2_KEY, "not-json");
+    expect(loadStore().facts.location.FRA).toBeDefined();
+
+    window.localStorage.setItem(V2_KEY, JSON.stringify({ version: 99 }));
+    expect(loadStore().facts.location.FRA).toBeDefined();
+  });
+
+  it("empties a fact that is not a plain object, keeping the rest", () => {
     window.localStorage.setItem(
-      "atlasaur:srs:v1",
-      JSON.stringify({ version: 99, records: {} }),
+      V2_KEY,
+      JSON.stringify({
+        version: 2,
+        facts: { location: { FRA: grade(null, "Good", T0) }, capital: 7 },
+      }),
     );
     const s = loadStore();
-    expect(s).toEqual(emptyStore());
+    expect(s.facts.location.FRA).toBeDefined();
+    expect(s.facts.capital).toEqual({});
+  });
+
+  it("keeps fact keys this build does not know, out of the lifetime totals", () => {
+    // A rollback must not drop a later release's records, and must not count
+    // them into a figure it cannot otherwise show.
+    const later = { XXX: grade(null, "Good", T0) };
+    window.localStorage.setItem(
+      V2_KEY,
+      JSON.stringify({
+        version: 2,
+        facts: { location: { FRA: grade(null, "Good", T0) }, borders: later },
+      }),
+    );
+    const s = loadStore();
+    expect(s.facts.borders).toEqual(later);
+    expect(totalReviews(s)).toBe(1);
   });
 
   it("backfills hits/misses on records saved before the tally existed", () => {
     const legacy = grade(null, "Good", T0) as Partial<SrsRecord>;
     delete legacy.hits;
     delete legacy.misses;
-    window.localStorage.setItem(
-      "atlasaur:srs:v1",
-      JSON.stringify({ version: 1, records: { FRA: legacy } }),
-    );
+    window.localStorage.setItem(V1_KEY, v1({ FRA: legacy }));
     const s = loadStore();
-    expect(s.records["FRA"].hits).toBe(0);
-    expect(s.records["FRA"].misses).toBe(0);
-    expect(s.records["FRA"].reps).toBe(1);
+    expect(s.facts.location.FRA.hits).toBe(0);
+    expect(s.facts.location.FRA.misses).toBe(0);
+    expect(s.facts.location.FRA.reps).toBe(1);
   });
 
   it("drops a malformed record entry instead of resetting the store", () => {
     window.localStorage.setItem(
-      "atlasaur:srs:v1",
-      JSON.stringify({
-        version: 1,
-        records: { FRA: grade(null, "Good", T0), DEU: null },
-      }),
+      V1_KEY,
+      v1({ FRA: grade(null, "Good", T0), DEU: null }),
     );
     const s = loadStore();
-    expect(s.records["FRA"]).toBeDefined();
-    expect("DEU" in s.records).toBe(false);
+    expect(s.facts.location.FRA).toBeDefined();
+    expect("DEU" in s.facts.location).toBe(false);
   });
 
-  it("resets on malformed JSON", () => {
-    window.localStorage.setItem("atlasaur:srs:v1", "not-json");
-    const s = loadStore();
-    expect(s).toEqual(emptyStore());
+  it("resets on malformed JSON with nothing to migrate", () => {
+    window.localStorage.setItem(V2_KEY, "not-json");
+    expect(loadStore()).toEqual(emptyStore());
+  });
+
+  it("clearStore removes both keys", () => {
+    // Leaving v1 behind would resurrect the old records on the next load.
+    window.localStorage.setItem(V1_KEY, v1({ FRA: grade(null, "Good", T0) }));
+    saveStore(storeWith({ DEU: grade(null, "Good", T0) }));
+    clearStore();
+    expect(window.localStorage.getItem(V1_KEY)).toBeNull();
+    expect(window.localStorage.getItem(V2_KEY)).toBeNull();
+    expect(loadStore()).toEqual(emptyStore());
   });
 });
 
@@ -200,25 +267,19 @@ describe("aggregate helpers", () => {
     // by grading Good a few times.
     r = grade(r, "Good", days(1));
     r = grade(r, "Good", days(10));
-    const store: SrsStore = {
-      version: 1,
-      records: {
-        FRA: r,
-        DEU: grade(null, "Again", T0),
-      },
+    const records: SrsRecords = {
+      FRA: r,
+      DEU: grade(null, "Again", T0),
     };
     const scope = new Set(["FRA", "DEU"]);
     // FRA likely graduated; DEU is fresh.
-    expect(learnedCount(store, scope)).toBeLessThanOrEqual(2);
+    expect(learnedCount(records, scope)).toBeLessThanOrEqual(2);
   });
 
   it("totalReviews sums reps", () => {
     let a: SrsRecord = grade(null, "Good", T0);
     a = grade(a, "Good", days(1));
-    const store: SrsStore = {
-      version: 1,
-      records: { FRA: a, DEU: grade(null, "Again", T0) },
-    };
+    const store = storeWith({ FRA: a, DEU: grade(null, "Again", T0) });
     expect(totalReviews(store)).toBe(3); // 2 + 1
   });
 
@@ -231,7 +292,7 @@ describe("aggregate helpers", () => {
     fra = grade(fra, "Again", days(2));
     let deu: SrsRecord = grade(null, "Good", T0);
     deu = grade(deu, "Good", days(1));
-    const store: SrsStore = { version: 1, records: { FRA: fra, DEU: deu } };
+    const store = storeWith({ FRA: fra, DEU: deu });
     expect(fra.lapses + deu.lapses).toBe(0);
     expect(fra.hits).toBe(1);
     expect(fra.misses).toBe(2);
@@ -240,33 +301,27 @@ describe("aggregate helpers", () => {
   });
 
   it("lifetimeAccuracy is null when nothing has been tallied", () => {
-    expect(lifetimeAccuracy({ version: 1, records: {} })).toBeNull();
+    expect(lifetimeAccuracy(emptyStore())).toBeNull();
     // A record migrated from before the tally existed has reps but no
     // hits/misses — still null rather than a false 0%.
     const migrated: SrsRecord = { ...grade(null, "Good", T0), hits: 0, misses: 0 };
     expect(migrated.reps).toBe(1);
-    expect(lifetimeAccuracy({ version: 1, records: { FRA: migrated } })).toBeNull();
+    expect(lifetimeAccuracy(storeWith({ FRA: migrated }))).toBeNull();
   });
 
   it("seenCount counts every in-scope record regardless of state", () => {
-    const store: SrsStore = {
-      version: 1,
-      records: {
-        FRA: grade(null, "Again", T0),
-        DEU: grade(null, "Good", T0),
-        JPN: grade(null, "Good", T0),
-      },
+    const records: SrsRecords = {
+      FRA: grade(null, "Again", T0),
+      DEU: grade(null, "Good", T0),
+      JPN: grade(null, "Good", T0),
     };
-    expect(seenCount(store, new Set(["FRA", "DEU", "ESP"]))).toBe(2);
-    expect(learnedCount(store, new Set(["FRA", "DEU", "ESP"]))).toBe(0);
+    expect(seenCount(records, new Set(["FRA", "DEU", "ESP"]))).toBe(2);
+    expect(learnedCount(records, new Set(["FRA", "DEU", "ESP"]))).toBe(0);
   });
 
   it("newAvailableCount counts iso3s without a record", () => {
-    const store: SrsStore = {
-      version: 1,
-      records: { FRA: grade(null, "Good", T0) },
-    };
-    expect(newAvailableCount(store, new Set(["FRA", "DEU", "JPN"]))).toBe(2);
+    const records: SrsRecords = { FRA: grade(null, "Good", T0) };
+    expect(newAvailableCount(records, new Set(["FRA", "DEU", "JPN"]))).toBe(2);
   });
 });
 
@@ -314,28 +369,25 @@ describe("masteryBySubregion", () => {
   ];
 
   it("aggregates learned/total per subregion, matching learnedCount's state>=2", () => {
-    const store: SrsStore = {
-      version: 1,
-      records: {
+    const records: SrsRecords = {
         ZAF: learnedRecord(),
         NGA: learnedRecord(),
         GHA: grade(null, "Again", T0), // state < 2, not learned
-      },
     };
     const scope = new Set(["ZAF", "NAM", "BWA", "NGA", "GHA"]);
-    const map = masteryBySubregion(store, COUNTRIES, scope);
+    const map = masteryBySubregion(records, COUNTRIES, scope);
     expect(map.get("Southern Africa")).toEqual({ learned: 1, total: 3 });
     expect(map.get("Western Africa")).toEqual({ learned: 1, total: 2 });
     // The "learned" count uses the same predicate as learnedCount.
     expect(map.get("Southern Africa")!.learned).toBe(
-      learnedCount(store, new Set(["ZAF", "NAM", "BWA"])),
+      learnedCount(records, new Set(["ZAF", "NAM", "BWA"])),
     );
   });
 
   it("ignores out-of-scope countries and emits only subregions with ≥1 in scope", () => {
-    const store: SrsStore = { version: 1, records: {} };
+    const records: SrsRecords = {};
     const scope = new Set(["ZAF", "NAM"]); // Southern Africa only
-    const map = masteryBySubregion(store, COUNTRIES, scope);
+    const map = masteryBySubregion(records, COUNTRIES, scope);
     expect(map.get("Southern Africa")).toEqual({ learned: 0, total: 2 });
     expect(map.has("Western Africa")).toBe(false);
   });
@@ -388,25 +440,19 @@ describe("mastery paint (R2.1)", () => {
     });
 
     it("agrees with learnedCount on which records are known", () => {
-      const store: SrsStore = {
-        version: 1,
-        records: { FRA: knownRecord(), DEU: grade(null, "Good", T0) },
-      };
+      const records: SrsRecords = { FRA: knownRecord(), DEU: grade(null, "Good", T0) };
       const scope = new Set(["FRA", "DEU"]);
-      const known = Object.keys(store.records).filter(
-        (iso3) => masteryTierOf(store.records[iso3]) === 2,
+      const known = Object.keys(records).filter(
+        (iso3) => masteryTierOf(records[iso3]) === 2,
       );
-      expect(known.length).toBe(learnedCount(store, scope));
+      expect(known.length).toBe(learnedCount(records, scope));
     });
   });
 
   describe("masteryTiers", () => {
     it("maps only countries that have a record", () => {
-      const store: SrsStore = {
-        version: 1,
-        records: { FRA: knownRecord(), DEU: grade(null, "Again", T0) },
-      };
-      const tiers = masteryTiers(store);
+      const records: SrsRecords = { FRA: knownRecord(), DEU: grade(null, "Again", T0) };
+      const tiers = masteryTiers(records);
       expect(tiers.get("FRA")).toBe(2);
       expect(tiers.get("DEU")).toBe(1);
       expect(tiers.has("ESP")).toBe(false);
@@ -419,16 +465,13 @@ describe("mastery paint (R2.1)", () => {
       // inScope branch decides whether that ink is shown. Assert the property
       // that encodes: two countries on different continents, one of which any
       // single-continent scope would drop, both come back tiered.
-      const store: SrsStore = {
-        version: 1,
-        records: { FRA: knownRecord(), NGA: knownRecord() },
-      };
-      const tiers = masteryTiers(store);
+      const records: SrsRecords = { FRA: knownRecord(), NGA: knownRecord() };
+      const tiers = masteryTiers(records);
       expect([...tiers.keys()].sort()).toEqual(["FRA", "NGA"]);
       // ...while the scoped aggregate does drop it, so the two helpers are
       // genuinely answering different questions.
       const scoped = masteryByContinent(
-        store,
+        records,
         [country("FRA", "Europe"), country("NGA", "Africa")],
         new Set(["FRA"]),
       );
@@ -439,15 +482,13 @@ describe("mastery paint (R2.1)", () => {
   describe("paintTiers", () => {
     // A store mid-learning: one country known, one still in FSRS learning,
     // which is the pair the scheduler's pick branches partition on.
-    function store(): SrsStore {
-      return {
-        version: 1,
-        records: { FRA: knownRecord(), DEU: grade(null, "Good", T0) },
-      };
+    // paintTiers takes the location records, like every other helper.
+    function records(): SrsRecords {
+      return { FRA: knownRecord(), DEU: grade(null, "Good", T0) };
     }
 
     it("keeps all three tiers in shape-to-name", () => {
-      const tiers = paintTiers(store(), "shape-to-name", "study");
+      const tiers = paintTiers(records(), "shape-to-name", "study");
       expect(tiers.get("FRA")).toBe(2);
       expect(tiers.get("DEU")).toBe(1);
     });
@@ -455,18 +496,18 @@ describe("mastery paint (R2.1)", () => {
     it("collapses the introduced wash into unseen in name-to-click", () => {
       // Otherwise a resurfaced learning card would be the only washed country
       // on the map, narrowing "find Germany" to a set of three or four.
-      const tiers = paintTiers(store(), "name-to-click", "study");
+      const tiers = paintTiers(records(), "name-to-click", "study");
       expect(tiers.get("DEU")).toBe(0);
     });
 
     it("still paints known countries in name-to-click", () => {
       // The known set is large, so it cannot narrow the answer — and it is the
       // whole point of the feature.
-      expect(paintTiers(store(), "name-to-click", "study").get("FRA")).toBe(2);
+      expect(paintTiers(records(), "name-to-click", "study").get("FRA")).toBe(2);
     });
 
     it("leaves no tier 1 anywhere in name-to-click", () => {
-      const tiers = paintTiers(store(), "name-to-click", "study");
+      const tiers = paintTiers(records(), "name-to-click", "study");
       expect([...tiers.values()]).not.toContain(1);
     });
 
@@ -474,14 +515,14 @@ describe("mastery paint (R2.1)", () => {
       // A test is a measurement: a learner near the end of a small scope could
       // otherwise read off the countries they know and answer by elimination
       // instead of locating the one they were asked for.
-      expect(paintTiers(store(), "name-to-click", "quiz").size).toBe(0);
-      expect(paintTiers(store(), "shape-to-name", "quiz").size).toBe(0);
+      expect(paintTiers(records(), "name-to-click", "quiz").size).toBe(0);
+      expect(paintTiers(records(), "shape-to-name", "quiz").size).toBe(0);
     });
 
     it("paints nothing during an expedition either", () => {
       // The one score a learner shows someone else is the most neutral
       // measurement of all.
-      expect(paintTiers(store(), "name-to-click", "expedition").size).toBe(0);
+      expect(paintTiers(records(), "name-to-click", "expedition").size).toBe(0);
     });
   });
 
@@ -494,26 +535,26 @@ describe("mastery paint (R2.1)", () => {
     ];
 
     it("counts known against every in-scope country on the continent", () => {
-      const store: SrsStore = {
-        version: 1,
-        records: { FRA: knownRecord(), DEU: grade(null, "Good", T0) },
+      const records: SrsRecords = {
+        FRA: knownRecord(),
+        DEU: grade(null, "Good", T0),
       };
       const scope = new Set(["FRA", "DEU", "ESP", "NGA"]);
-      const map = masteryByContinent(store, COUNTRIES, scope);
+      const map = masteryByContinent(records, COUNTRIES, scope);
       expect(map.get("Europe")).toEqual({ known: 1, total: 3 });
       expect(map.get("Africa")).toEqual({ known: 0, total: 1 });
     });
 
     it("omits a continent with nothing in scope", () => {
-      const store: SrsStore = { version: 1, records: {} };
-      const map = masteryByContinent(store, COUNTRIES, new Set(["NGA"]));
+      const records: SrsRecords = {};
+      const map = masteryByContinent(records, COUNTRIES, new Set(["NGA"]));
       expect(map.has("Europe")).toBe(false);
       expect(map.get("Africa")).toEqual({ known: 0, total: 1 });
     });
 
     it("does not count an out-of-scope known country toward its continent", () => {
-      const store: SrsStore = { version: 1, records: { FRA: knownRecord() } };
-      const map = masteryByContinent(store, COUNTRIES, new Set(["DEU", "ESP"]));
+      const records: SrsRecords = { FRA: knownRecord() };
+      const map = masteryByContinent(records, COUNTRIES, new Set(["DEU", "ESP"]));
       expect(map.get("Europe")).toEqual({ known: 0, total: 2 });
     });
   });

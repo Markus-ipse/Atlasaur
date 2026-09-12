@@ -2,14 +2,17 @@
 
 Live demo: <https://markus-ipse.github.io/Atlasaur/>
 
-A small browser game for learning to identify countries on a world map. Two
-modes:
+A small browser game for learning the world map by heart. Four questions, in
+two pairs — where a country is, and what its capital is:
 
 - **Name → Click**: a country name is shown; click it on the map.
 - **Shape → Name**: a country is highlighted; type its name.
+- **Capital → Click**: a capital is named; click the country it belongs to.
+- **Country → Capital**: a country is highlighted; type its capital.
 
-Both modes track your progress through the country pool, support Skip, and
-show an end-of-session summary listing the countries you missed. Pan the map
+Each is scheduled separately, so knowing where Peru is and knowing its capital
+are tracked as two different things. Every question supports Skip, teaches on a
+miss (the capital, the neighbours, the map), and ends on a summary. Pan the map
 by dragging, zoom with the scroll wheel or pinch.
 
 ## Run it
@@ -46,10 +49,13 @@ Edit `scripts/build-countries.mjs`. The `COUNTRIES` object is keyed by
 
 - `iso3` — ISO 3166-1 alpha-3, used as the canonical key in game state.
 - `name` — the canonical display name shown to the player.
-- `aliases` — strings the typed-answer mode will accept as correct in addition
-  to `name`. They're matched after normalization (lowercased, diacritics
-  stripped, apostrophes removed, whitespace collapsed), so you don't need to
-  worry about case or accents here.
+- `aliases` — strings a typed country name will be accepted as, in addition to
+  `name`. They're matched after normalization (lowercased, diacritics stripped,
+  everything that isn't a letter or digit removed), so you don't need to worry
+  about case, accents or punctuation here.
+- `capital` / `capitalAlternates` / `capitalAliases` — the capital, any further
+  real capitals (shown in the reveal), and accepted spellings that are never
+  shown ("Kiev", "Ulan Bator", the bare "Mexico" for Mexico City).
 
 After editing, run `npm run build:countries` to regenerate
 `src/data/countries.json`. The script also reports:
@@ -71,13 +77,15 @@ After editing, run `npm run build:countries` to regenerate
 │   ├── main.tsx                  # React entry
 │   ├── App.tsx                   # Top-level layout, owns useGame()
 │   ├── index.css                 # Tailwind v4 entry (@import "tailwindcss")
-│   ├── types.ts                  # Country, Mode, Phase, Feedback, Subregion, tiers
+│   ├── types.ts                  # Country, QuestionMode, Fact, Phase, Feedback, tiers
 │   ├── data/
 │   │   ├── countries.json        # Generated: country metadata
 │   │   ├── world-110m.json       # Generated: derived topology
 │   │   └── normalize.ts          # String normalization for answer matching
 │   ├── game/
 │   │   ├── useGame.ts            # Game state machine (useReducer + hook)
+│   │   ├── questionModes.ts      # factOf / isClickMode / isTypedMode
+│   │   ├── srs.ts                # FSRS store: one record per country and fact
 │   │   └── pickCountry.ts        # Fresh-pool picker with retry-queue priority
 │   └── components/
 │       ├── WorldMap.tsx          # SVG world map with d3-geo + d3-zoom
@@ -89,8 +97,8 @@ After editing, run `npm run build:countries` to regenerate
 │       ├── TodayCard.tsx         # "Welcome back" card on open for returning learners
 │       ├── Welcome.tsx           # First-run screen: three doors into the app
 │       ├── ContinentChip.tsx     # Continent toggle shared by settings and welcome
-│       ├── Prompt.tsx            # Country prompt (name or highlighted shape)
-│       ├── AnswerInput.tsx       # Typed input for shape-to-name mode
+│       ├── Prompt.tsx            # The question, in whichever of the four forms
+│       ├── AnswerInput.tsx       # Typed input for the two typed modes
 │       ├── RevealHero.tsx        # Wrong/skipped reveal panel with capital + neighbors
 │       ├── SessionSummary.tsx    # End-of-session modal
 │       ├── fillFor.ts            # Country color decision (default/highlight/reveal)

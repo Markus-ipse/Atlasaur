@@ -5,21 +5,31 @@ import {
   type Card,
   type Grade,
 } from "ts-fsrs";
+import { FACTS } from "../types";
 import type {
   Continent,
   Country,
   Ease,
+  Fact,
   PracticeMode,
   QuestionMode,
   SrsRecord,
+  SrsRecords,
   SrsStore,
   Subregion,
 } from "../types";
 
-const SRS_STORAGE_KEY = "atlasaur:srs:v1";
+// Version 2 lives under its own key and version 1's is never written again.
+// A new key rather than a version bump inside the old one: an old build — a
+// stale tab beside a hard-reloaded one, or a rollback — reads a v2 blob under
+// the v1 key as empty, and its save-on-mount effect then writes that empty
+// store straight back, wiping every record. The accepted cost is that answers
+// given in such a tab land in v1 and never reach v2.
+const SRS_STORAGE_KEY = "atlasaur:srs:v2";
+const SRS_V1_KEY = "atlasaur:srs:v1";
 const SRS_SEEN_INTRO_KEY = "atlasaur:srs:seenIntro";
 const SEEN_WELCOME_KEY = "atlasaur:seenWelcome";
-const STORE_VERSION = 1;
+const STORE_VERSION = 2;
 
 const scheduler = fsrs();
 
@@ -31,41 +41,80 @@ const EASE_TO_RATING: Record<Ease, Grade> = {
 };
 
 export function emptyStore(): SrsStore {
-  return { version: STORE_VERSION, records: {} };
+  const facts = {} as SrsStore["facts"];
+  for (const fact of FACTS) facts[fact] = {};
+  return { version: STORE_VERSION, facts };
 }
 
-export function loadStore(): SrsStore {
+// Records saved before the hits/misses tally existed are backfilled with
+// zeros so every record has the full shape and lifetimeAccuracy can treat
+// them uniformly. A malformed entry is dropped rather than left to throw:
+// loadStore's catch would otherwise replace the whole store with an empty
+// one and the save effect would persist that, wiping progress.
+function sanitizeRecords(raw: unknown): SrsRecords {
+  if (typeof raw !== "object" || raw === null) return {};
+  const records = raw as SrsRecords;
+  for (const iso3 in records) {
+    const rec = records[iso3] as Partial<SrsRecord> | null;
+    if (typeof rec !== "object" || rec === null) {
+      delete records[iso3];
+      continue;
+    }
+    if (typeof rec.hits !== "number") rec.hits = 0;
+    if (typeof rec.misses !== "number") rec.misses = 0;
+  }
+  return records;
+}
+
+// A v1 blob's single record map becomes `location`; every other fact starts
+// empty. Returns null when there is nothing readable to migrate.
+function migrateV1(): SrsStore | null {
   try {
-    const raw = window.localStorage.getItem(SRS_STORAGE_KEY);
-    if (!raw) return emptyStore();
+    const raw = window.localStorage.getItem(SRS_V1_KEY);
+    if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
     if (
       typeof parsed !== "object" ||
       parsed === null ||
-      (parsed as { version?: number }).version !== STORE_VERSION ||
+      (parsed as { version?: number }).version !== 1 ||
       typeof (parsed as { records?: unknown }).records !== "object"
     ) {
-      return emptyStore();
+      return null;
+    }
+    const store = emptyStore();
+    store.facts.location = sanitizeRecords((parsed as { records: unknown }).records);
+    return store;
+  } catch {
+    return null;
+  }
+}
+
+// Reads, in order: a valid v2 blob, a migration of v1, an empty store. v1 is
+// re-read whenever v2 is missing OR unreadable, because a stale store beats
+// an empty one — an empty one would be written over v2 on mount.
+export function loadStore(): SrsStore {
+  try {
+    const raw = window.localStorage.getItem(SRS_STORAGE_KEY);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      (parsed as { version?: number }).version !== STORE_VERSION ||
+      typeof (parsed as { facts?: unknown }).facts !== "object" ||
+      (parsed as { facts: unknown }).facts === null
+    ) {
+      return migrateV1() ?? emptyStore();
     }
     const store = parsed as SrsStore;
-    // Additive schema change within version 1: records saved before the
-    // hits/misses tally existed are backfilled with zeros so every record
-    // has the full shape and lifetimeAccuracy can treat them uniformly.
-    // A malformed entry is dropped rather than letting it throw here —
-    // the catch below would otherwise replace the whole store with an
-    // empty one and the save effect would persist that, wiping progress.
-    for (const iso3 in store.records) {
-      const rec = store.records[iso3] as Partial<SrsRecord> | null;
-      if (typeof rec !== "object" || rec === null) {
-        delete store.records[iso3];
-        continue;
-      }
-      if (typeof rec.hits !== "number") rec.hits = 0;
-      if (typeof rec.misses !== "number") rec.misses = 0;
+    // Facts this build doesn't know are kept exactly as they are, so a
+    // rollback can't drop a later release's records; only the ones we read
+    // are sanitized, and a missing one starts empty.
+    for (const fact of FACTS) {
+      store.facts[fact] = sanitizeRecords(store.facts[fact]);
     }
     return store;
   } catch {
-    return emptyStore();
+    return migrateV1() ?? emptyStore();
   }
 }
 
@@ -75,6 +124,41 @@ export function saveStore(store: SrsStore): void {
   } catch {
     // localStorage may be unavailable (private mode, SSR); ignore.
   }
+}
+
+// "Erase all progress" drops both keys — leaving v1 behind would resurrect
+// the learner's old records on the next load, through migrateV1.
+export function clearStore(): void {
+  try {
+    window.localStorage.removeItem(SRS_STORAGE_KEY);
+    window.localStorage.removeItem(SRS_V1_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+// The one write into the store. Facts other than `fact` keep the same object
+// identity, so a memo keyed on `facts.location` doesn't re-run after a
+// capital answer.
+export function withGrade(
+  store: SrsStore,
+  fact: Fact,
+  iso3: string,
+  record: SrsRecord,
+): SrsStore {
+  return {
+    ...store,
+    facts: {
+      ...store.facts,
+      [fact]: { ...store.facts[fact], [iso3]: record },
+    },
+  };
+}
+
+// Whether the learner has met anything at all, across every fact this build
+// knows. Drives the Today card and the first-run welcome.
+export function hasAnyRecord(store: SrsStore): boolean {
+  return FACTS.some((fact) => Object.keys(store.facts[fact] ?? {}).length > 0);
 }
 
 export function loadSeenIntro(): boolean {
@@ -156,26 +240,30 @@ export function isDue(record: SrsRecord, now: Date): boolean {
   return new Date(record.due).getTime() <= now.getTime();
 }
 
+// Every helper below takes ONE fact's records rather than the store and a
+// fact, so no helper can quietly read the wrong fact — the choice is made in
+// the reducer, the hook and App. The two lifetime totals are the exception:
+// they add up across facts and so take the whole store.
 export function dueCount(
-  store: SrsStore,
+  records: SrsRecords,
   scope: ReadonlySet<string>,
   now: Date,
 ): number {
   let n = 0;
-  for (const iso3 in store.records) {
+  for (const iso3 in records) {
     if (!scope.has(iso3)) continue;
-    if (isDue(store.records[iso3], now)) n++;
+    if (isDue(records[iso3], now)) n++;
   }
   return n;
 }
 
 export function newAvailableCount(
-  store: SrsStore,
+  records: SrsRecords,
   scope: ReadonlySet<string>,
 ): number {
   let n = 0;
   scope.forEach((iso3) => {
-    if (!store.records[iso3]) n++;
+    if (!records[iso3]) n++;
   });
   return n;
 }
@@ -188,12 +276,15 @@ export function introductionOrder(country: Country): number {
   return country.notabilityTier * 10 + country.sizeTier;
 }
 
-export function learnedCount(store: SrsStore, scope: ReadonlySet<string>): number {
+export function learnedCount(
+  records: SrsRecords,
+  scope: ReadonlySet<string>,
+): number {
   let n = 0;
-  for (const iso3 in store.records) {
+  for (const iso3 in records) {
     if (!scope.has(iso3)) continue;
     // state 2 = Review (graduated past Learning/Relearning).
-    if (store.records[iso3].state >= 2) n++;
+    if (records[iso3].state >= 2) n++;
   }
   return n;
 }
@@ -205,7 +296,7 @@ export function learnedCount(store: SrsStore, scope: ReadonlySet<string>): numbe
 // this topology resolution (Micronesia, Polynesia) never surface. Pure: the
 // metric the spotlight feature consumes (total − learned) is time-independent.
 export function masteryBySubregion(
-  store: SrsStore,
+  records: SrsRecords,
   countries: readonly Country[],
   scope: ReadonlySet<string>,
 ): Map<Subregion, { learned: number; total: number }> {
@@ -214,7 +305,7 @@ export function masteryBySubregion(
     if (!scope.has(c.iso3)) continue;
     const entry = map.get(c.subregion) ?? { learned: 0, total: 0 };
     entry.total += 1;
-    const rec = store.records[c.iso3];
+    const rec = records[c.iso3];
     if (rec && rec.state >= 2) entry.learned += 1;
     map.set(c.subregion, entry);
   }
@@ -242,10 +333,10 @@ export function masteryTierOf(record: SrsRecord | undefined): MasteryTier {
 // this allocating an entry per country in the world on every store change.
 // Scope-independent on purpose: an out-of-scope country keeps the ink it
 // earned, and fillFor's own inert branch decides whether that ink is shown.
-export function masteryTiers(store: SrsStore): Map<string, MasteryTier> {
+export function masteryTiers(records: SrsRecords): Map<string, MasteryTier> {
   const map = new Map<string, MasteryTier>();
-  for (const iso3 in store.records) {
-    map.set(iso3, masteryTierOf(store.records[iso3]));
+  for (const iso3 in records) {
+    map.set(iso3, masteryTierOf(records[iso3]));
   }
   return map;
 }
@@ -260,8 +351,29 @@ export function masteryTiers(store: SrsStore): Map<string, MasteryTier> {
 // three or four countries. Tiers 0 and 2 are both large, so a two-tone map
 // leaks nothing. `shape-to-name` keeps all three: the shape is already
 // highlighted, and knowing you have met a country cannot supply its name.
+//
+// `capital-to-click` gets NO paint at all, and collapsing the wash is not
+// enough there. Capital cards are introduced in the same `introductionOrder`
+// that built the learner's known map, and due ones come from that same set, so
+// the gold of tier 2 points at the answer as surely as the wash would. Its
+// counterpart `country-to-capital` keeps the full three tones: the country is
+// already highlighted, so there is nothing left to give away.
+//
+// `records` is always the LOCATION fact: the paint is a map of where the
+// learner has been, whatever the prompt on screen happens to ask.
+
+// Whether the map carries ambient progress at all under this mode. The one
+// rule, read by paintTiers and by App for the continent captions — a caption
+// claiming "Europe 46%" over a blank map would contradict it.
+export function paintsProgress(
+  mode: QuestionMode,
+  practiceMode: PracticeMode,
+): boolean {
+  return practiceMode === "study" && mode !== "capital-to-click";
+}
+
 export function paintTiers(
-  store: SrsStore,
+  records: SrsRecords,
   mode: QuestionMode,
   practiceMode: PracticeMode,
 ): Map<string, MasteryTier> {
@@ -273,8 +385,8 @@ export function paintTiers(
   // skill the test is scoring. Everything reads as unseen until the test ends.
   // The Daily Expedition is the one score a learner shows someone else, so it
   // is the most neutral measurement of all and gets the same blank map.
-  if (practiceMode !== "study") return new Map();
-  const tiers = masteryTiers(store);
+  if (!paintsProgress(mode, practiceMode)) return new Map();
+  const tiers = masteryTiers(records);
   if (mode !== "name-to-click") return tiers;
   for (const [iso3, tier] of tiers) {
     if (tier === 1) tiers.set(iso3, 0);
@@ -288,7 +400,7 @@ export function paintTiers(
 // country appear, so a continent filtered out (or Antarctica with territories
 // off) never renders a percentage.
 export function masteryByContinent(
-  store: SrsStore,
+  records: SrsRecords,
   countries: readonly Country[],
   scope: ReadonlySet<string>,
 ): Map<Continent, { known: number; total: number }> {
@@ -297,7 +409,7 @@ export function masteryByContinent(
     if (!scope.has(c.iso3)) continue;
     const entry = map.get(c.continent) ?? { known: 0, total: 0 };
     entry.total += 1;
-    if (masteryTierOf(store.records[c.iso3]) === 2) entry.known += 1;
+    if (masteryTierOf(records[c.iso3]) === 2) entry.known += 1;
     map.set(c.continent, entry);
   }
   return map;
@@ -314,10 +426,16 @@ export function masteryPercent(known: number, total: number): number {
   return Math.max(1, Math.floor((known / total) * 100));
 }
 
+// Lifetime totals add up across every fact this build knows — and only those,
+// so a fact kept from a later build is never counted into a figure the app
+// cannot otherwise show.
 export function totalReviews(store: SrsStore): number {
   let n = 0;
-  for (const iso3 in store.records) {
-    n += store.records[iso3].reps;
+  for (const fact of FACTS) {
+    const records = store.facts[fact];
+    for (const iso3 in records) {
+      n += records[iso3].reps;
+    }
   }
   return n;
 }
@@ -331,9 +449,12 @@ export function totalReviews(store: SrsStore): number {
 export function lifetimeAccuracy(store: SrsStore): number | null {
   let hits = 0;
   let misses = 0;
-  for (const iso3 in store.records) {
-    hits += store.records[iso3].hits;
-    misses += store.records[iso3].misses;
+  for (const fact of FACTS) {
+    const records = store.facts[fact];
+    for (const iso3 in records) {
+      hits += records[iso3].hits;
+      misses += records[iso3].misses;
+    }
   }
   const answered = hits + misses;
   if (answered === 0) return null;
@@ -343,9 +464,12 @@ export function lifetimeAccuracy(store: SrsStore): number | null {
 // Countries with any record in scope — introduced, whether or not they have
 // graduated to "known" (learnedCount). First sessions read as progress via
 // this number even though FSRS graduation typically happens on a later day.
-export function seenCount(store: SrsStore, scope: ReadonlySet<string>): number {
+export function seenCount(
+  records: SrsRecords,
+  scope: ReadonlySet<string>,
+): number {
   let n = 0;
-  for (const iso3 in store.records) {
+  for (const iso3 in records) {
     if (scope.has(iso3)) n++;
   }
   return n;

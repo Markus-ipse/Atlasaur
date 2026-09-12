@@ -1,4 +1,4 @@
-import type { Country, Phase, RetryEntry, SrsStore, Subregion } from "../types";
+import type { Country, Phase, RetryEntry, SrsRecords, Subregion } from "../types";
 import { introductionOrder, isDue } from "./srs";
 
 export const STUDY_NEW_CAP = 10;
@@ -83,7 +83,9 @@ export function pickNextStudy(args: {
   pool: readonly Country[];
   byIso3: ReadonlyMap<string, Country>;
   excludeIso3: string;
-  srsStore: SrsStore;
+  // One fact's records — the fact the current question mode grades. The
+  // caller chooses it; see `recordsFor` in useGame.ts.
+  records: SrsRecords;
   now: Date;
   newIntroducedThisStretch: number;
   resurfaceQueue?: readonly RetryEntry[];
@@ -93,7 +95,7 @@ export function pickNextStudy(args: {
     pool,
     byIso3,
     excludeIso3,
-    srsStore,
+    records,
     now,
     newIntroducedThisStretch,
     resurfaceQueue = [],
@@ -121,7 +123,7 @@ export function pickNextStudy(args: {
   const dueList: { iso3: string; due: number }[] = [];
   for (const c of pool) {
     if (c.iso3 === excludeIso3) continue;
-    const rec = srsStore.records[c.iso3];
+    const rec = records[c.iso3];
     if (rec && isDue(rec, now)) {
       dueList.push({ iso3: c.iso3, due: new Date(rec.due).getTime() });
     }
@@ -136,7 +138,7 @@ export function pickNextStudy(args: {
   // iso3 stable. Subject to the per-stretch soft cap.
   if (newIntroducedThisStretch < STUDY_NEW_CAP) {
     const fresh = pool.filter(
-      (c) => c.iso3 !== excludeIso3 && !srsStore.records[c.iso3],
+      (c) => c.iso3 !== excludeIso3 && !records[c.iso3],
     );
     if (fresh.length > 0) {
       fresh.sort((a, b) => {
@@ -154,7 +156,7 @@ export function pickNextStudy(args: {
   const allInScope: { iso3: string; due: number }[] = [];
   for (const c of pool) {
     if (c.iso3 === excludeIso3) continue;
-    const rec = srsStore.records[c.iso3];
+    const rec = records[c.iso3];
     if (rec) {
       allInScope.push({ iso3: c.iso3, due: new Date(rec.due).getTime() });
     }

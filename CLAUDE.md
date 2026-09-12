@@ -29,14 +29,16 @@ State has a `phase: "normal" | "review"` and a `retryQueue: { iso3, dueAt }[]`:
 
 `unlearnedCount` exposed on `GameApi` is just `retryQueue.length` — that's what drives the "Review N" affordance.
 
-### Two practice modes × two question modes (M4)
+### Two practice modes × four question modes (M4, R3.2)
 
 State has two orthogonal axes:
 
 - **`practiceMode: "quiz" | "study" | "expedition"`** — selects the scheduling regime. `"expedition"` is the Daily Expedition (R3.1, below); it is entered only through `startExpedition` and never persisted as the current mode.
-- **`mode: QuestionMode = "name-to-click" | "shape-to-name"`** — selects the prompt type.
+- **`mode: QuestionMode`** — selects the prompt type. Four since R3.2: `"name-to-click"` and `"shape-to-name"` ask where a country is, `"capital-to-click"` and `"country-to-capital"` ask what its capital is.
 
-Only the continent axis is persisted (`atlasaur:selectedContinents`). `practiceMode` is **not** persisted: Study is the home and every load starts there; a Quiz round is entered deliberately and ends back in Study. `Mode` was renamed to `QuestionMode` in M4 to avoid ambiguity with the practice axis.
+`src/game/questionModes.ts` holds the only three predicates any of that hangs off — `factOf` (which record the mode grades), `isClickMode` (answered on the map) and `isTypedMode` (answered by typing; also exactly the modes that highlight the target). **Don't reintroduce string-literal mode checks**; adding a fifth mode should be a change to `QUESTION_MODES` and those three functions and nowhere else.
+
+The continent axis is persisted (`atlasaur:selectedContinents`) and so, since R3.2, is the question mode (`atlasaur:questionMode`, validated against `QUESTION_MODES` on load, falling back to `name-to-click`): it is a standing preference for which of the four things you are here to practise. The save effect writes `modeBeforeExpedition ?? mode`, so an expedition's forced Name → Click never overwrites the learner's choice, and "Erase all progress" leaves it alone, like the continent filter and the theme. `practiceMode` is **not** persisted: Study is the home and every load starts there; a Quiz round is entered deliberately and ends back in Study. `Mode` was renamed to `QuestionMode` in M4 to avoid ambiguity with the practice axis.
 
 **Learner-facing model (R1.2 fold).** The learner never sees "Quiz" or "Study". Study is simply the app; a Quiz-mode pass is presented as a **"Test me on these"** round started from the Study summary, with its own `TestSummary` (Review N missed / Test again / Back to studying). There is no practice-mode toggle in the UI. Both axes stay in the reducer exactly as below — only the presentation changed. Don't reintroduce mode vocabulary in copy.
 
@@ -56,14 +58,36 @@ Only the continent axis is persisted (`atlasaur:selectedContinents`). `practiceM
 - `newIntroducedThisStretch`, `studyResurfaceQueue`, and `studyStep` are volatile in-memory; they reset on `setPracticeMode("study")` and on reload.
 - `state.sessionDone` is never auto-set in Study; the user exits via the status-bar **Done** button or the round break's "Done for now", which land on a Study-flavored `SessionSummary` (lifetime stats). The summary's actions: **Focus on <subregion>** when a spotlight is offered, **Test me on these** (flips `practiceMode` via `setPracticeMode("quiz")`) and **Keep studying** (calls `closeSummary`). Escape and backdrop click both dismiss via `closeSummary`. A contextual hint line above the buttons varies with `dueCount`/`newAvailableCount` to recommend the next step.
 
-**SRS store** is one record per country (`atlasaur:srs:v1`, shape: `{ version: 1, records: { iso3 → SrsRecord } }`). One record is **shared across both practice modes and both question modes** for v1 — a design choice noted in the roadmap follow-ups. `src/game/srs.ts` wraps `ts-fsrs@^5.3.3`: load/save with versioned schema and ISO↔Date hydration, `grade(record, ease, now)` mapping our `Ease` string union to the library's `Rating` enum, plus `dueCount` / `newAvailableCount` / `learnedCount` / `seenCount` / `totalReviews` / `lifetimeAccuracy` aggregate helpers. Each record also carries an Atlasaur-owned `hits` / `misses` tally, incremented in `grade` (Again → miss, anything else → hit); `lifetimeAccuracy` is `hits / (hits + misses)` and returns `null` when nothing has been tallied. Do not derive accuracy from FSRS `lapses` — it only counts an Again on a Review-state card, so misses on New/Learning cards are invisible to it. `loadStore` backfills the tally with zeros on records saved before it existed. `now: Date` is injected at every grade call site (action payloads carry it) so tests are deterministic.
+**SRS store** is one record per country **and fact** (`atlasaur:srs:v2`, shape: `{ version: 2, facts: { location: { iso3 → SrsRecord }, capital: {…} } }`). Knowing where Peru is says nothing about knowing its capital, so each is scheduled on its own. `FACTS` in `src/types.ts` is the list this build knows; `borders` and `flag` are planned for R3.3 and R3.5 and adding one is **additive within version 2** — `loadStore` fills a missing fact with `{}`, and a fact key this build does *not* know is kept exactly as it is rather than dropped, so a rollback cannot save the store without a later release's records. Only `FACTS` is read and totalled, so no figure ever counts a fact the app cannot show. A record is still shared across practice modes and across the two modes of the same fact.
+
+**Version 2 lives under a new key, and `atlasaur:srs:v1` is never written again.** Do not "upgrade" this by bumping the version inside the old key: an old build — a stale tab beside a hard-reloaded one, or a rollback — reads a v2 blob under the v1 key as empty (`loadStore` treats a version mismatch as an empty store) and its save-on-mount effect writes that empty store straight back, wiping every record. `loadStore` tries a valid v2 blob, then a migration of v1 (whenever v2 is missing **or** corrupt — a stale store beats an empty one, which would be saved over v2 on mount), then an empty store. The v1 blob is left in place; the accepted cost is that answers given in a stale old-build tab land in v1 and never reach v2. `clearStore` removes **both** keys, or the old records would be migrated back on the next load.
+
+**Every helper below `grade` takes one fact's records, not the store and a fact**, so no helper can quietly read the wrong fact — the choice is made in the reducer, the hook and `App`. `withGrade(store, fact, iso3, record)` is the one write, and it leaves the other facts' objects untouched by identity, so a memo keyed on `facts.location` doesn't re-run after a capital answer. `totalReviews` and `lifetimeAccuracy` are the exceptions: they add up across `FACTS` and take the whole store. `hasAnyRecord(store)` is "has the learner met anything at all", across every fact.
+
+**The reveal and the correct panel lead with the ANSWER, not the fact.** Only
+`country-to-capital` asks the learner to produce a capital; `capital-to-click`
+names one in the prompt and asks for the country. So `RevealHero` and
+`CorrectHero` key on `mode === "country-to-capital"`, never on
+`factOf(mode) === "capital"` — leading with the capital in Capital → Click
+would shout back the string the learner was just staring at and demote the
+country they actually failed to find.
+
+**Two fact roles**, which differ only during an expedition (it forces Name → Click):
+
+- **Answer fact** (`answerFact(state)` = `factOf(state.mode)`) — grades, picks (`pickNextStudy`, the spotlight), and decides `isNew`.
+- **Learner fact** (`learnerFact(state)` = `factOf(state.modeBeforeExpedition ?? state.mode)`, exposed on `GameApi` as `fact`) — scopes the pool and drives **every displayed figure**: due, new, known, seen, the spotlight offer, the Today card, the Study summary. So the settings keep showing capitals to someone studying capitals while they play today's ten, the same rule the continent filter already follows.
+- **Always `location`**, whatever is being asked: the ambient map paint and its continent captions, and `knownByDay` / "Known this week". The map is a map of where the learner has been.
+
+`src/game/srs.ts` wraps `ts-fsrs@^5.3.3`: load/save with versioned schema and ISO↔Date hydration, `grade(record, ease, now)` mapping our `Ease` string union to the library's `Rating` enum, plus `dueCount` / `newAvailableCount` / `learnedCount` / `seenCount` / `totalReviews` / `lifetimeAccuracy` aggregate helpers. Each record also carries an Atlasaur-owned `hits` / `misses` tally, incremented in `grade` (Again → miss, anything else → hit); `lifetimeAccuracy` is `hits / (hits + misses)` and returns `null` when nothing has been tallied. Do not derive accuracy from FSRS `lapses` — it only counts an Again on a Review-state card, so misses on New/Learning cards are invisible to it. `loadStore` backfills the tally with zeros on records saved before it existed. `now: Date` is injected at every grade call site (action payloads carry it) so tests are deterministic.
 
 **Mode flips** behave differently by intent:
 
-- `setMode` (question mode) — preserves today's behavior of wiping in-session state (`retryQueue`, `completedSet`, `score`), because the queue entries refer to the old question type. `srsStore` and `practiceMode` are passed through `initialState`'s extended signature so they survive.
+- `setMode` (question mode) — goes through `enterQuestionMode`, the counterpart of `enterPracticeMode`, and is deliberately **not** a rebuild through `initialState`. That rebuild silently dropped a pending Study grade, reset `cardsAnswered` (losing that answer from the counters, against the every-answer-counts rule below), cleared the Study miss queue and the new-card cap *even between two modes of the same fact*, and started a fresh round — inflating `roundsStarted` every time a learner looked at another prompt. Instead it: commits a pending Study grade under the **old** mode's fact; keeps `studyResurfaceQueue` / `studyStep` / `newIntroducedThisStretch` when the fact is unchanged and resets them when it changes (they refer to the other fact's cards); keeps the Study round and the spotlight lens, since the learner is in the same sitting over the same places; restarts a test round as before, whose queue refers to the old question type; and always clears feedback, milestone and `autoGradePending`, resets `streak`, and keeps `cardsAnswered` and `roundsCompleted`. It does nothing during an expedition, and **refuses a switch whose pool would be empty** (a capital mode with only Antarctica selected) rather than widening the scope — so the reducer does not lean on the settings' disabled option, which would otherwise let Quiz's `pickRandom` throw and leave Study on a card with a blank prompt. The answer still on screen is counted by the hook's `setMode`, which calls `recordAnswer(old mode)` before dispatching — it cannot be counted through `cardsAnswered`, because the counters effect reads the mode through `modeRef`, which already holds the new one by then.
 - `setPracticeMode` (new) — resets session counters (`score`/`streak`/`total`/`missed`/`autoGradePending`/`newIntroducedThisStretch`), the Study resurface state (`studyResurfaceQueue` → `[]`, `studyStep` → `0`) and the round. Flipping **into** Quiz ("Test me on these") also clears `completedSet` and `retryQueue` so every test starts clean; flipping back to Study keeps them (Study reads neither).
 
 **Continent filter** still prunes both `retryQueue` and `studyResurfaceQueue` to the new scope but never deletes SRS records — out-of-scope due cards resurface when the user widens scope.
+
+The hook's `scopeSet` is memoised on the pool's **content** (a joined iso3 key), not on the fact, so a mode switch that leaves the pool identical — which, with territories off, both facts do — hands back the same `Set` and the map never re-settles because of scope.
 
 ### Two ID spaces: numeric vs iso3
 
@@ -79,7 +103,9 @@ Convert at the boundary using `isoFromNumeric` / `numericFromIso3` from `GameApi
 Per-entry fields in the `COUNTRIES` table:
 
 - **`iso3` / `name` / `aliases` / `continent`** — matching, display, and continent-filter scoping.
-- **`capital`** — `string | null`. `null` means "no meaningful capital" (Antarctica, French Southern Territories); the miss-reveal UI omits the line on null. Multi-capital cases (Netherlands → Amsterdam, South Africa → Pretoria) take the constitutional/de jure capital; M3 will add `capitalAliases` for the de facto names.
+- **`capital`** — `string | null`. `null` means "no meaningful capital" (Antarctica, French Southern Territories); the miss-reveal UI omits the line on null, and `filterPool` drops the row from a capital mode's pool entirely. Multi-capital cases (Netherlands → Amsterdam, South Africa → Pretoria) take the constitutional/de jure capital, with the rest in `capitalAlternates`.
+- **`capitalAlternates`** — additional *real* capitals. Accepted when typed, and **shown** in the reveal ("Capitals: Pretoria, Cape Town, Bloemfontein").
+- **`capitalAliases`** — accepted spellings that are **never displayed**: historic or alternative transliterations (Kiev, Ulan Bator, Nur-Sultan, Prishtina, Laayoune) and the bare form of a "… City" capital (Mexico, Guatemala, Kuwait, Panama). Kept separate from `capitalAlternates` precisely because that field is rendered. The validator rejects an alias that normalizes to a spelling the country already has, so a dead entry cannot accumulate — "Sanaa" for "Sana'a" is already the same string after `normalize`. A separate **fatal** check rejects any normalised capital spelling shared by two countries: a typed capital resolves to the country it belongs to, so a collision would make one of the pair unanswerable.
 - **`capitalLonLat`** — `[lon, lat] | null` tuple in degrees. Drives the capital-marker dot the WorldMap renders on miss-reveal. The source row omits the field when `capital === null`; the build script emits `null` to the JSON so the `Country` type can stay `[number, number] | null` instead of optional. The validator rejects entries where `capital !== null` but `capitalLonLat` is missing/malformed, and where `capital === null` but `capitalLonLat` is set.
 - **`subregion`** — one of the 22 UN M49 subregions plus `"Antarctica"`. Kept in sync between `VALID_SUBREGIONS` in the script and the `Subregion` union in `src/types.ts`.
 - **`landAreaKm2`** — raw input, **not emitted** to the JSON. The script buckets it into `sizeTier`: 0 (<50k), 1 (50k–500k), 2 (500k–2M), 3 (≥2M).
@@ -97,7 +123,7 @@ The build script also validates: `capital` is non-empty string or `null`; `capit
 
 `WorldMap.tsx` and `build-countries.mjs` both consume `src/data/world-110m.json` rather than `world-atlas/countries-110m.json` directly. The derived file is produced by `scripts/build-topology.mjs` (run via `npm run build:topology`, automatically chained from `npm run build:countries`). The script reads world-atlas and splits French Guiana out of France's MultiPolygon (polygon index 0 of 3 — identified by bounding-box check) into its own `Polygon` geometry with id `"254"` and `properties.name "French Guiana"`. The TopoJSON arc-reference layer is rewired (the shared arcs between GUF and Brazil/Suriname stay shared via the underlying `topology.arcs` array), so `topojson-client.neighbors()` produces correct adjacencies (FRA: 6 European countries only; GUF: BRA, SUR) with no `neighborsOverride` needed. If world-atlas updates and France's polygon count drifts from 3, the script fails loudly rather than silently producing wrong output.
 
-Typed-answer matching (shape-to-name mode) compares `normalize(input)` against `normalize(name | ...aliases)` — `normalize` strips diacritics, lowercases, removes apostrophes, collapses whitespace. Don't normalize aliases in the source table; the matcher does it.
+Typed-answer matching compares `normalize(input)` against the candidates for the mode's fact: `name | ...aliases` in `shape-to-name`, `capital | ...capitalAlternates | ...capitalAliases` in `country-to-capital`. `normalize` lowercases, strips diacritics, and removes **everything that is not a letter or digit** (so punctuation and whitespace go too: "Washington, D.C." and "washington dc" are the same string). Don't normalize aliases in the source table; the matcher does it. `GameApi.matchTyped` picks the matcher from the fact, so components never branch on it. The capital matcher checks the **current** country first, then every other, so a correct answer can never resolve elsewhere and a wrong capital resolves to the country it does belong to — which the map then paints and labels red, the same courtesy Shape → Name already does for a wrong country name. Djibouti's and Luxembourg's capitals share their country's name, which makes those Capital → Click prompts trivial; accepted, not special-cased.
 
 ### WorldMap: module-level projection, runtime zoom
 
@@ -186,12 +212,28 @@ the numbers in the settings stats. Like `learnedCount`, tier 2 includes FSRS
 Relearning, so a just-lapsed country keeps its pigment until it is graded down. There is no longer a single "in-scope land" tone; the
 old `--color-parchment-map` token is gone.
 
-**A test round (`practiceMode === "quiz"`) gets no paint at all**, in either
+**A test round (`practiceMode === "quiz"`) gets no paint at all**, in any
 question mode, and no percentages with it. Its picks are random rather than
 scheduler-driven, so there is no tier-to-pick correlation to leak — but a test
 is a measurement, and a learner near the end of a small scope could read off
 the countries they know and answer by elimination instead of locating the one
 they were asked for, which is the skill being scored.
+
+**`capital-to-click` gets no paint either**, and collapsing only the wash would
+not be enough there. Capital cards are introduced in the same
+`introductionOrder` that built the learner's *known* map, and due ones come
+from that same set, so the gold of tier 2 points at the answer as surely as a
+wash would. Its counterpart `country-to-capital` keeps the full three tones:
+the country is already highlighted, so there is nothing left to give away.
+`paintsProgress(mode, practiceMode)` in `srs.ts` is the single rule — `App`
+reads it for the continent captions so the two can never disagree.
+
+**The small-target affordances follow the same rule.** `WorldMap`'s resting
+frame and its pinch hint (R1.6) fire in `name-to-click` only, not in every
+click mode: framing the answer's continent before the learner answers hands
+them the region, which is most of the question when all they were given is a
+capital. Tiny countries keep their hit disc there, so they stay tappable — the
+learner just has to find the region themselves.
 
 **The introduced wash is collapsed into unseen in `name-to-click`** (the memo in
 `App.tsx`). `pickNextStudy` partitions its picks exactly on that boundary — the
@@ -256,7 +298,10 @@ counter is shown anywhere, so a broken run is silent — the streak exists only 
 trigger the copy. Keep it symmetric: every path that can break a run must be
 matched by one that can build it, in the same phase.
 
-The **country and continent milestones are Study only**. A test round is a
+The **country and continent milestones are Study only, and `location` only**.
+"Now on your map" and the engraved hatch are map ceremonies, and the map paints
+where countries are — a capital answer has nothing to draw on. The streak note
+is not restricted, in either direction. A test round is a
 measurement and its map is neutral (see the mastery paint above), so there is
 nothing for a hatch to draw on. The streak note is not restricted: a run of
 correct answers means something in a test too, and a line of copy cannot help
@@ -315,6 +360,11 @@ disagree.
 
 What is stored: `firstSessionAnswers`, `roundsStarted` / `roundsFinished`,
 `answersByQuestionMode`, `roundsByPractice`, and `knownByDay`.
+`answersByQuestionMode` is built from `QUESTION_MODES`, so a mode added later
+loads from an older store at zero with no version bump — the same additive rule
+the SRS store's facts follow. The Data view cuts those answers two ways, each
+adding up to the same total: "Click / type" and "Places / capitals", the latter
+appearing only once there is a capital answer to report.
 
 **The first session ends when the tab closes, not only at a summary.** That is
 the commoner ending for exactly the bouncing learner the figure measures.
@@ -365,8 +415,8 @@ changing the continent filter never looks like progress or a loss. It uses
 `masteryTierOf`, so it cannot disagree with the "Known" stat or the map's
 pigment.
 
-"Erase all progress" clears the counters along with the SRS store, the streak
-and the welcome flag — otherwise `firstSessionAnswers` would stay frozen
+"Erase all progress" clears the counters along with **both** SRS keys, the
+streak and the welcome flag — otherwise `firstSessionAnswers` would stay frozen
 against a session the learner no longer has.
 
 The Data view in `SettingsMenu` omits a row rather than showing zero when there
@@ -483,7 +533,7 @@ result). There is no second go — that is tomorrow.
 
 `state.selectedContinents` is persisted in localStorage (`atlasaur:selectedContinents`) and `state.includeTerritories` in `atlasaur:includeTerritories` (default `false`). Loaders fall back to `ALL_CONTINENTS` / `false` on parse errors or unavailable storage (private mode, SSR — wrapped in try/catch). Reveal labels are always on (the old `showLabelsOnReveal` toggle and its storage key were removed in R1.2 — labels on a reveal are the teaching).
 
-`filterPool(continents, includeTerritories)` in `useGame.ts` is the **single scope predicate**: selected continents, minus `territory` countries unless opted in. `GameApi.scopeSet` / `isInScope` / `totalInScope` derive from it, and components must read scope from `game.scopeSet` rather than recomputing it from continents (StatusBar and App used to have their own copies; they are gone). `setContinents` and `setIncludeTerritories` both go through `applyScope`, which first commits any deferred Study grade (a miss reveal open at the moment of the change still counts), prunes `retryQueue` and `studyResurfaceQueue` to the new scope, replaces a current card that fell out of it (by the next queued retry during a review pass; in Study by the scheduler, so "Pick a region" on the welcome still starts with the region's big ones rather than a random island; otherwise at random), auto-ends an emptied review or a completed Quiz pool, and normalises the selection via `normalizeScope` (also applied in `initialState`, so persisted pre-setting state loads cleanly): the continent selection is kept as-is across the toggle — Antarctica stays selected while its chip is hidden, so switching territories back on restores the old scope — and only a selection whose pool is empty (Antarctica alone, territories off) falls back to `ALL_CONTINENTS`. The settings menu's "keep at least one continent" lock counts visible chips only. `WorldMap.computeBaseTransform` frames only in-scope countries, so an inert Greenland doesn't drag North America's frame to the pole. SRS records are never deleted by a scope change. The settings menu hides the Antarctica chip while territories are off, since that continent holds only territories.
+`filterPool(continents, includeTerritories, fact)` in `useGame.ts` is the **single scope predicate**: selected continents, minus `territory` countries unless opted in, minus anything the fact cannot be asked about — for `capital` that drops the handful of rows with `capital === null` (Antarctica, the French Southern Territories), without which a capital test round with territories on could never finish. Picks pass the **answer** fact; scope and `normalizeScope` pass the **learner** fact, so a scope change made mid-expedition is checked against the fact the learner returns to. A mode switch never rewrites the saved selection: the settings disable the two capital options instead, with a one-line reason, when nothing in scope has a capital. `GameApi.scopeSet` / `isInScope` / `totalInScope` derive from it, and components must read scope from `game.scopeSet` rather than recomputing it from continents (StatusBar and App used to have their own copies; they are gone). `setContinents` and `setIncludeTerritories` both go through `applyScope`, which first commits any deferred Study grade (a miss reveal open at the moment of the change still counts), prunes `retryQueue` and `studyResurfaceQueue` to the new scope, replaces a current card that fell out of it (by the next queued retry during a review pass; in Study by the scheduler, so "Pick a region" on the welcome still starts with the region's big ones rather than a random island; otherwise at random), auto-ends an emptied review or a completed Quiz pool, and normalises the selection via `normalizeScope` (also applied in `initialState`, so persisted pre-setting state loads cleanly): the continent selection is kept as-is across the toggle — Antarctica stays selected while its chip is hidden, so switching territories back on restores the old scope — and only a selection whose pool is empty (Antarctica alone, territories off) falls back to `ALL_CONTINENTS`. One predicate decides which continent chips appear: `continentAskable(c, includeTerritories, fact)` — a continent with nothing askable has no chip, which generalises what used to be a hard-coded Antarctica case and is shared by `SettingsMenu` and `Welcome`. The "keep at least one continent" lock counts visible chips only. `WorldMap.computeBaseTransform` frames only in-scope countries, so an inert Greenland doesn't drag North America's frame to the pole. SRS records are never deleted by a scope change.
 
 ## Stack notes
 

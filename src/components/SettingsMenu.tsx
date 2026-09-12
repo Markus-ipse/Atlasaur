@@ -3,8 +3,10 @@ import { createPortal } from "react-dom";
 import {
   ALL_CONTINENTS,
   type Continent,
+  type Fact,
   type QuestionMode,
 } from "../types";
+import { continentAskable } from "../game/useGame";
 import type { ThemePref } from "../theme";
 import { knownGain, type Counters, type ReturnInfo } from "../game/counters";
 import { ContinentChip } from "./ContinentChip";
@@ -17,6 +19,9 @@ type PopupCoords = {
 
 type Props = {
   mode: QuestionMode;
+  // The fact the figures below are counted over — the learner's own, which
+  // during an expedition is not the mode's.
+  fact: Fact;
   onSetMode: (mode: QuestionMode) => void;
   // An expedition is Name → Click only; the picker is shown but inert.
   modeLocked?: boolean;
@@ -42,6 +47,7 @@ type Props = {
 
 export function SettingsMenu({
   mode,
+  fact,
   onSetMode,
   modeLocked = false,
   selectedContinents,
@@ -60,6 +66,7 @@ export function SettingsMenu({
   themePref,
   onSetThemePref,
 }: Props) {
+  const pickerNoteId = "settings-question-note";
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<PopupCoords | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -129,13 +136,28 @@ export function SettingsMenu({
   };
 
   const selectedSet = new Set(selectedContinents);
-  // Antarctica's chip is hidden while territories are off, but it can still
-  // be selected (the selection survives the toggle). The "keep at least one"
-  // lock counts visible chips only, so the last visible continent can't be
-  // switched off to leave an empty pool.
-  const visibleSelectedCount = selectedContinents.filter(
-    (c) => includeTerritories || c !== "Antarctica",
-  ).length;
+  // One predicate behind every chip: a continent with nothing askable under
+  // the current setting and fact has no chip. That hides Antarctica while
+  // territories are off (it holds only territories) and in a capital mode
+  // whether they are on or not (its two rows have no capital). A hidden
+  // continent can still be SELECTED — the selection survives the toggle — so
+  // the "keep at least one" lock counts visible chips only, and the last
+  // visible one can't be switched off to leave an empty pool.
+  //
+  // The LEARNER's fact, not the mode's: those differ during an expedition,
+  // which forces Name → Click, and `applyScope` normalises against the
+  // learner's. Reading the mode here would offer a capitals learner an
+  // Antarctica chip mid-expedition and then reset their whole selection when
+  // they took it.
+  const askable = (c: Continent) =>
+    continentAskable(c, includeTerritories, fact);
+  const visibleSelectedCount = selectedContinents.filter(askable).length;
+  // Nothing in the learner's scope has a capital, so a capital mode would
+  // have nothing to ask. The selection is never rewritten to make room for
+  // one — the two options simply wait.
+  const capitalsAskable = selectedContinents.some((c) =>
+    continentAskable(c, includeTerritories, "capital"),
+  );
   const handleToggleContinent = (continent: Continent) => {
     const isSelected = selectedSet.has(continent);
     if (isSelected && visibleSelectedCount === 1) return;
@@ -173,43 +195,69 @@ export function SettingsMenu({
           >
             <div>
               <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Question</p>
+              {/* One radiogroup, two labelled rows: four options do not fit
+                  across a 288px popup, and the split says what each pair
+                  teaches. */}
               <div
                 role="radiogroup"
                 aria-label="Question mode"
                 className={
-                  "flex gap-1 p-1 rounded-full border border-ink-faded/40 bg-parchment-shadow" +
-                  (modeLocked ? " opacity-60" : "")
+                  "flex flex-col gap-1" + (modeLocked ? " opacity-60" : "")
                 }
               >
-                <ModeButton
-                  active={mode === "name-to-click"}
-                  disabled={modeLocked}
-                  onClick={() => handleSetMode("name-to-click")}
-                >
-                  Name → Click
-                </ModeButton>
-                <ModeButton
-                  active={mode === "shape-to-name"}
-                  disabled={modeLocked}
-                  onClick={() => handleSetMode("shape-to-name")}
-                >
-                  Shape → Name
-                </ModeButton>
+                <ModeRow label="Countries">
+                  <ModeButton
+                    active={mode === "name-to-click"}
+                    disabled={modeLocked}
+                    onClick={() => handleSetMode("name-to-click")}
+                  >
+                    Name → Click
+                  </ModeButton>
+                  <ModeButton
+                    active={mode === "shape-to-name"}
+                    disabled={modeLocked}
+                    onClick={() => handleSetMode("shape-to-name")}
+                  >
+                    Shape → Name
+                  </ModeButton>
+                </ModeRow>
+                <ModeRow label="Capitals">
+                  <ModeButton
+                    active={mode === "capital-to-click"}
+                    describedBy={pickerNoteId}
+                    disabled={modeLocked || !capitalsAskable}
+                    onClick={() => handleSetMode("capital-to-click")}
+                  >
+                    Capital → Click
+                  </ModeButton>
+                  <ModeButton
+                    active={mode === "country-to-capital"}
+                    describedBy={pickerNoteId}
+                    disabled={modeLocked || !capitalsAskable}
+                    onClick={() => handleSetMode("country-to-capital")}
+                  >
+                    Country → Capital
+                  </ModeButton>
+                </ModeRow>
               </div>
-              {modeLocked && (
-                <p className="text-xs text-ink-mid mt-1">
+              {/* The reason an option is unavailable, tied to the options it
+                  explains so a screen reader reaches it too. */}
+              {modeLocked ? (
+                <p id={pickerNoteId} className="text-xs text-ink-mid mt-1">
                   An expedition is always Name → Click.
                 </p>
+              ) : (
+                !capitalsAskable && (
+                  <p id={pickerNoteId} className="text-xs text-ink-mid mt-1">
+                    Nothing in this scope has a capital.
+                  </p>
+                )
               )}
             </div>
             <div>
               <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Continents</p>
               <div role="group" aria-label="Continents" className="flex flex-wrap gap-1">
-                {ALL_CONTINENTS.filter(
-                  // Antarctica holds only territories; the chip means
-                  // nothing until those are switched on.
-                  (c) => includeTerritories || c !== "Antarctica",
-                ).map((continent) => {
+                {ALL_CONTINENTS.filter(askable).map((continent) => {
                   const active = selectedSet.has(continent);
                   const lockedLast = active && visibleSelectedCount === 1;
                   return (
@@ -271,7 +319,13 @@ export function SettingsMenu({
             </div>
             <div className="pt-2 mt-1 border-t border-ink-faded/30">
               <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Data</p>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-mid tabular-nums mb-3">
+              {/* One record per country AND fact, so these four are counted
+                  over the fact the learner is working on and say which. The
+                  two below are lifetime totals across every fact. */}
+              <p className="text-xs text-ink-mid mb-1 italic">
+                {fact === "capital" ? "Capitals" : "Places"}
+              </p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-mid tabular-nums mb-2">
                 <span>Known</span>
                 <span className="text-ink-deep font-medium text-right">
                   {learnedCount}
@@ -288,6 +342,9 @@ export function SettingsMenu({
                 <span className="text-ink-deep font-medium text-right">
                   {newAvailableCount}
                 </span>
+              </div>
+              <p className="text-xs text-ink-mid mb-1 italic">All questions</p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-mid tabular-nums mb-3">
                 <span>Answers</span>
                 <span className="text-ink-deep font-medium text-right">
                   {totalReviews}
@@ -342,14 +399,36 @@ export function SettingsMenu({
   );
 }
 
+// One row of the question picker: a small label and the pair of options it
+// names. The pill sits inside the row, so the two rows read as one control.
+function ModeRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-16 shrink-0 text-xs text-ink-mid">{label}</span>
+      <div className="flex flex-1 gap-1 p-1 rounded-full border border-ink-faded/40 bg-parchment-shadow">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function ModeButton({
   active,
   disabled = false,
+  describedBy,
   onClick,
   children,
 }: {
   active: boolean;
   disabled?: boolean;
+  // Id of the note saying why this option is unavailable, when there is one.
+  describedBy?: string;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -358,10 +437,11 @@ function ModeButton({
       type="button"
       role="radio"
       aria-checked={active}
+      aria-describedby={disabled ? describedBy : undefined}
       disabled={disabled}
       onClick={onClick}
       className={
-        "flex-1 min-h-9 px-3 rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep " +
+        "flex-1 min-h-9 px-3 rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep disabled:opacity-50 disabled:cursor-not-allowed " +
         (active ? "bg-ink-deep text-parchment-base" : "text-ink-mid hover:bg-parchment-base")
       }
     >
@@ -403,8 +483,13 @@ function MeasuredRows({
   const { daysPlayed, longestGap, capped } = returns;
   const gained = knownGain(counters, 7, new Date());
   const { roundsStarted, roundsFinished } = counters;
-  const clicks = counters.answersByQuestionMode["name-to-click"];
-  const typed = counters.answersByQuestionMode["shape-to-name"];
+  // Two independent cuts of the same answers: how they were given, and what
+  // they were about. Each adds up to the same total.
+  const by = counters.answersByQuestionMode;
+  const clicks = by["name-to-click"] + by["capital-to-click"];
+  const typed = by["shape-to-name"] + by["country-to-capital"];
+  const places = by["name-to-click"] + by["shape-to-name"];
+  const capitals = by["capital-to-click"] + by["country-to-capital"];
   const answered = clicks + typed;
 
   const rows: [string, string][] = [];
@@ -437,6 +522,12 @@ function MeasuredRows({
     // One half is derived from the other so the pair always reads 100%.
     const clickShare = Math.round((clicks / answered) * 100);
     rows.push(["Click / type", `${clickShare}% / ${100 - clickShare}%`]);
+  }
+  // Only once there is a mix to report: before the first capital answer the
+  // row would say "100% / 0%" about a choice the learner has not made.
+  if (capitals > 0) {
+    const placeShare = Math.round((places / answered) * 100);
+    rows.push(["Places / capitals", `${placeShare}% / ${100 - placeShare}%`]);
   }
   const studyRounds = counters.roundsByPractice.study;
   const testRounds = counters.roundsByPractice.quiz;

@@ -4,6 +4,7 @@ import { render, screen, cleanup, act } from "@testing-library/react";
 import { ControlZone } from "./ControlZone";
 import type { GameApi } from "../game/useGame";
 import { emptyCounters } from "../game/counters";
+import { emptyStore } from "../game/srs";
 import {
   ALL_CONTINENTS,
   type Country,
@@ -35,6 +36,9 @@ const NAMES_BY_ISO3: Record<string, string> = {
   ITA: "Italy",
   ESP: "Spain",
   JPN: "Japan",
+  PER: "Peru",
+  ECU: "Ecuador",
+  BRA: "Brazil",
 };
 
 function makeGame(overrides: {
@@ -62,7 +66,7 @@ function makeGame(overrides: {
       retryQueue: [],
       completedSet: new Set<string>(),
       sessionDone: false,
-      srsStore: { version: 1, records: {} },
+      srsStore: emptyStore(),
       newIntroducedThisStretch: 0,
       studyResurfaceQueue: [],
       studyStep: 0,
@@ -99,7 +103,8 @@ function makeGame(overrides: {
     numericFromIso3: () => undefined,
     nameFromIso3: (iso3) => NAMES_BY_ISO3[iso3] ?? iso3,
     isInScope: () => true,
-    matchTypedAnswer: () => "",
+    fact: "location",
+    matchTyped: () => "",
     answer: vi.fn(),
     skip: vi.fn(),
     dismiss: vi.fn(),
@@ -528,5 +533,145 @@ describe("ControlZone", () => {
     expect(screen.queryByRole("group", { name: "Grade" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Got it" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+  });
+});
+
+// ── R3.2: the capital modes ──────────────────────────────────────────────────
+
+describe("ControlZone — capital modes", () => {
+  const PERU: Country = {
+    numeric: "604",
+    iso3: "PER",
+    name: "Peru",
+    aliases: [],
+    continent: "South America",
+    subregion: "South America",
+    capital: "Lima",
+    capitalLonLat: [-77.03, -12.05],
+    neighbors: ["BRA", "ECU"],
+    sizeTier: 2,
+    notabilityTier: 1,
+  };
+
+  function show(mode: QuestionMode, feedback: Feedback | null = null) {
+    const game = makeGame({ mode, current: PERU, feedback });
+    render(
+      <ControlZone
+        game={game}
+        showCaughtUp={false}
+        onAckCaughtUp={() => {}}
+        themePref="system"
+        onSetThemePref={() => {}}
+      />,
+    );
+  }
+
+  describe("the prompt", () => {
+    it("Capital → Click asks for the country, showing the capital", () => {
+      show("capital-to-click");
+      expect(
+        screen.getByText("Find the country whose capital is"),
+      ).toBeDefined();
+      expect(screen.getByText("Lima")).toBeDefined();
+      // It is a click mode: no typing.
+      expect(screen.queryByRole("textbox")).toBeNull();
+    });
+
+    it("Country → Capital asks for the capital, showing the country", () => {
+      show("country-to-capital");
+      expect(screen.getByText("Capital of")).toBeDefined();
+      expect(screen.getByText("Peru")).toBeDefined();
+      const input = screen.getByRole("textbox") as HTMLInputElement;
+      expect(input.placeholder).toBe("Type the capital…");
+    });
+
+    it("a location typed mode still asks for the country name", () => {
+      show("shape-to-name");
+      const input = screen.getByRole("textbox") as HTMLInputElement;
+      expect(input.placeholder).toBe("Type the country name…");
+    });
+  });
+
+  describe("the reveal", () => {
+    it("leads with the COUNTRY in Capital → Click, not the prompt's capital", () => {
+      // The capital was the question. Echoing it back names nothing the
+      // learner did not already have, and demotes the answer they missed.
+      show("capital-to-click", {
+        kind: "skipped",
+        answerIso3: "",
+        correctIso3: "PER",
+      });
+      const status = screen.getByRole("status");
+      expect(status.textContent).toMatch(/Skipped[\s\S]*Peru/);
+      expect(status.textContent).toContain("Capital: Lima");
+      expect(status.textContent).not.toContain("Capital of Peru");
+    });
+
+    it("names the country on a correct Capital → Click too", () => {
+      show("capital-to-click", {
+        kind: "correct",
+        answerIso3: "PER",
+        correctIso3: "PER",
+      });
+      const status = screen.getByRole("status");
+      expect(status.textContent).toMatch(/Correct[\s\S]*Peru/);
+    });
+
+    it("leads with the capital and names the country under it", () => {
+      show("country-to-capital", {
+        kind: "skipped",
+        answerIso3: "",
+        correctIso3: "PER",
+      });
+      const status = screen.getByRole("status");
+      expect(status.textContent).toMatch(/Skipped[\s\S]*Lima/);
+      expect(status.textContent).toContain("Capital of Peru");
+      // The elaborative neighbours line is kept.
+      expect(status.textContent).toContain("Bordered by");
+    });
+
+    it("says where a wrong capital would have been right", () => {
+      show("country-to-capital", {
+        kind: "wrong",
+        answerIso3: "ECU",
+        correctIso3: "PER",
+      });
+      expect(screen.getByRole("status").textContent).toContain(
+        "That's the capital of Ecuador",
+      );
+    });
+
+    it("says nothing extra when the typed capital is nobody's", () => {
+      show("country-to-capital", {
+        kind: "wrong",
+        answerIso3: "",
+        correctIso3: "PER",
+      });
+      expect(screen.getByRole("status").textContent).not.toContain(
+        "That's the capital of",
+      );
+    });
+
+    it("names the country picked in Capital → Click, like any click mode", () => {
+      show("capital-to-click", {
+        kind: "wrong",
+        answerIso3: "ECU",
+        correctIso3: "PER",
+      });
+      expect(screen.getByRole("status").textContent).toContain(
+        "You picked: Ecuador",
+      );
+    });
+
+    it("leads with the capital on a correct answer too", () => {
+      show("country-to-capital", {
+        kind: "correct",
+        answerIso3: "PER",
+        correctIso3: "PER",
+      });
+      const status = screen.getByRole("status");
+      expect(status.textContent).toMatch(/Correct[\s\S]*Lima/);
+      expect(status.textContent).toContain("Capital of Peru");
+    });
   });
 });

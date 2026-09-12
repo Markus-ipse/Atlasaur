@@ -1,4 +1,4 @@
-import type { Country } from "../types";
+import type { Country, QuestionMode } from "../types";
 import type { Milestone } from "../game/milestones";
 import { streakNote } from "../game/milestones";
 
@@ -14,6 +14,7 @@ import { streakNote } from "../game/milestones";
 // mentioned again.
 type Props = {
   current: Country;
+  mode: QuestionMode;
   // Consecutive correct answers including this one. Only exact thresholds
   // say anything; the number itself is never shown.
   streak: number;
@@ -22,9 +23,20 @@ type Props = {
   milestone: Milestone | null;
 };
 
-export function CorrectHero({ current, streak, milestone }: Props) {
+export function CorrectHero({ current, mode, streak, milestone }: Props) {
   const note = streakNote(streak);
   const sealed = milestone?.continentComplete ?? null;
+  // Lead with the ANSWER, as the miss reveal does. Only country-to-capital
+  // asks for a capital; capital-to-click names one in the prompt and asks for
+  // the country, so echoing it here would leave the panel saying nothing the
+  // learner did not already have. Every capital is named, not just the
+  // primary — typing "Cape Town" and being congratulated with "Pretoria"
+  // reads as a correction rather than a tick.
+  const askedForCapital = mode === "country-to-capital";
+  const capitals =
+    current.capital === null
+      ? []
+      : [current.capital, ...(current.capitalAlternates ?? [])];
   return (
     <div role="status" className="correct-pop flex flex-col gap-2">
       <p className="leading-tight">
@@ -37,9 +49,15 @@ export function CorrectHero({ current, streak, milestone }: Props) {
           </span>
         </span>
         <span className="block text-2xl sm:text-3xl landscape:text-4xl font-semibold text-ink-deep break-words">
-          {current.name}
+          {askedForCapital ? capitals.join(", ") : current.name}
         </span>
       </p>
+      {askedForCapital && (
+        <p className="text-sm text-ink-mid">
+          {capitals.length > 1 ? "Capitals of " : "Capital of "}
+          {current.name}
+        </p>
+      )}
       {milestone && !sealed && (
         <p className="milestone-in text-sm italic text-ochre">
           {milestone.name}, now on your map.

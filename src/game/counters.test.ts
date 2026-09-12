@@ -26,6 +26,8 @@ describe("recordAnswer", () => {
     expect(c.answersByQuestionMode).toEqual({
       "name-to-click": 1,
       "shape-to-name": 1,
+      "capital-to-click": 0,
+      "country-to-capital": 0,
     });
   });
 
@@ -313,6 +315,8 @@ describe("loadCounters / saveCounters", () => {
     expect(loaded.answersByQuestionMode).toEqual({
       "name-to-click": 0,
       "shape-to-name": 0,
+      "capital-to-click": 0,
+      "country-to-capital": 0,
     });
     expect(loaded.knownByDay).toEqual([{ day: "2026-05-16", known: 3 }]);
   });
@@ -340,6 +344,8 @@ describe("what the counters do not do", () => {
       "version",
     ]);
     expect(Object.keys(c.answersByQuestionMode).sort()).toEqual([
+      "capital-to-click",
+      "country-to-capital",
       "name-to-click",
       "shape-to-name",
     ]);

@@ -176,7 +176,7 @@ describe("pickNext — review phase", () => {
 
 import { pickNextStudy, STUDY_NEW_CAP } from "./pickCountry";
 import { grade } from "./srs";
-import type { SrsStore } from "../types";
+import type { SrsRecords } from "../types";
 
 function tierCountry(iso3: string, notability: 0 | 1 | 2, size: 0 | 1 | 2 | 3): Country {
   return { ...country(iso3), notabilityTier: notability, sizeTier: size };
@@ -192,15 +192,12 @@ describe("pickNextStudy", () => {
     const byIso3 = new Map(pool.map((c) => [c.iso3, c]));
     // Make FRA due in the past
     const past = new Date(NOW.getTime() - 86_400_000);
-    const srsStore: SrsStore = {
-      version: 1,
-      records: { FRA: grade(null, "Again", past) },
-    };
+    const records: SrsRecords = { FRA: grade(null, "Again", past) };
     const picked = pickNextStudy({
       pool,
       byIso3,
       excludeIso3: "",
-      srsStore,
+      records,
       now: NOW,
       newIntroducedThisStretch: 0,
     });
@@ -214,12 +211,12 @@ describe("pickNextStudy", () => {
     const mid = tierCountry("MID", 1, 1);
     const pool = [big_obscure, mid, small_famous];
     const byIso3 = new Map(pool.map((c) => [c.iso3, c]));
-    const srsStore: SrsStore = { version: 1, records: {} };
+    const records: SrsRecords = {};
     const picked = pickNextStudy({
       pool,
       byIso3,
       excludeIso3: "",
-      srsStore,
+      records,
       now: NOW,
       newIntroducedThisStretch: 0,
     });
@@ -234,15 +231,12 @@ describe("pickNextStudy", () => {
     // SEEN has a future due date (not in the "due now" set)
     const future = new Date(NOW.getTime() + 86_400_000);
     const seenRecord = grade(null, "Good", new Date(NOW.getTime() - 200_000));
-    const srsStore: SrsStore = {
-      version: 1,
-      records: { SEEN: { ...seenRecord, due: future.toISOString() } },
-    };
+    const records: SrsRecords = { SEEN: { ...seenRecord, due: future.toISOString() } };
     const picked = pickNextStudy({
       pool,
       byIso3,
       excludeIso3: "",
-      srsStore,
+      records,
       now: NOW,
       newIntroducedThisStretch: STUDY_NEW_CAP,
     });
@@ -253,12 +247,12 @@ describe("pickNextStudy", () => {
     const fra = tierCountry("FRA", 0, 0);
     const pool = [fra];
     const byIso3 = new Map(pool.map((c) => [c.iso3, c]));
-    const srsStore: SrsStore = { version: 1, records: {} };
+    const records: SrsRecords = {};
     const picked = pickNextStudy({
       pool,
       byIso3,
       excludeIso3: "FRA",
-      srsStore,
+      records,
       now: NOW,
       newIntroducedThisStretch: STUDY_NEW_CAP,
     });
@@ -272,15 +266,12 @@ describe("pickNextStudy", () => {
     const byIso3 = new Map(pool.map((c) => [c.iso3, c]));
     // DEU is FSRS-due in the past; without resurface it would be picked.
     const past = new Date(NOW.getTime() - 86_400_000);
-    const srsStore: SrsStore = {
-      version: 1,
-      records: { DEU: grade(null, "Again", past) },
-    };
+    const records: SrsRecords = { DEU: grade(null, "Again", past) };
     const picked = pickNextStudy({
       pool,
       byIso3,
       excludeIso3: "",
-      srsStore,
+      records,
       now: NOW,
       newIntroducedThisStretch: 0,
       resurfaceQueue: [{ iso3: "FRA", dueAt: 3 }],
@@ -295,15 +286,12 @@ describe("pickNextStudy", () => {
     const pool = [fra, deu];
     const byIso3 = new Map(pool.map((c) => [c.iso3, c]));
     const past = new Date(NOW.getTime() - 86_400_000);
-    const srsStore: SrsStore = {
-      version: 1,
-      records: { DEU: grade(null, "Again", past) },
-    };
+    const records: SrsRecords = { DEU: grade(null, "Again", past) };
     const picked = pickNextStudy({
       pool,
       byIso3,
       excludeIso3: "",
-      srsStore,
+      records,
       now: NOW,
       newIntroducedThisStretch: 0,
       resurfaceQueue: [{ iso3: "FRA", dueAt: 9 }],
@@ -324,12 +312,12 @@ describe("pickNextStudy", () => {
       ["FRA", fra],
       ["JPN", jpn],
     ]);
-    const srsStore: SrsStore = { version: 1, records: {} };
+    const records: SrsRecords = {};
     const picked = pickNextStudy({
       pool: europePool,
       byIso3,
       excludeIso3: "",
-      srsStore,
+      records,
       now: NOW,
       newIntroducedThisStretch: 0,
       resurfaceQueue: [{ iso3: "JPN", dueAt: 0 }],
@@ -345,15 +333,12 @@ describe("pickNextStudy", () => {
     const pool = [fra, deu];
     const byIso3 = new Map(pool.map((c) => [c.iso3, c]));
     const past = new Date(NOW.getTime() - 86_400_000);
-    const srsStore: SrsStore = {
-      version: 1,
-      records: { DEU: grade(null, "Again", past) },
-    };
+    const records: SrsRecords = { DEU: grade(null, "Again", past) };
     const picked = pickNextStudy({
       pool,
       byIso3,
       excludeIso3: "FRA",
-      srsStore,
+      records,
       now: NOW,
       newIntroducedThisStretch: 0,
       resurfaceQueue: [{ iso3: "FRA", dueAt: 0 }],
@@ -368,13 +353,10 @@ describe("pickNextStudy", () => {
     const inEurope = tierCountry("FRA", 1, 1);
     const inAsia = tierCountry("JPN", 2, 1);
     const past = new Date(NOW.getTime() - 86_400_000);
-    const srsStore: SrsStore = {
-      version: 1,
-      records: {
+    const records: SrsRecords = {
         FRA: grade(null, "Again", past),
         JPN: grade(null, "Again", past),
-      },
-    };
+      };
     // Pool is Europe-only — JPN is due but not in scope, so we get FRA.
     const europePool = [inEurope];
     const byIso3 = new Map([
@@ -385,7 +367,7 @@ describe("pickNextStudy", () => {
       pool: europePool,
       byIso3,
       excludeIso3: "",
-      srsStore,
+      records,
       now: NOW,
       newIntroducedThisStretch: 0,
     });

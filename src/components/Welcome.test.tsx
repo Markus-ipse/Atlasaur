@@ -11,6 +11,7 @@ function setup() {
   const onStartTest = vi.fn();
   render(
     <Welcome
+      includeTerritories={false}
       onStartBig={onStartBig}
       onStartRegion={onStartRegion}
       onStartTest={onStartTest}

@@ -1,7 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { reducer, initialState, ROUND_SIZE, type State } from "./useGame";
+import {
+  answerFact,
+  filterPool,
+  initialState,
+  learnerFact,
+  reducer,
+  ROUND_SIZE,
+  type State,
+} from "./useGame";
 import { STUDY_NEW_CAP } from "./pickCountry";
-import { grade as srsGrade, introductionOrder } from "./srs";
+import { emptyStore, grade as srsGrade, introductionOrder } from "./srs";
+import { storeWith } from "./srsFixtures";
 import { crossesIntoKnown } from "./milestones";
 import {
   EXPEDITION_SIZE,
@@ -474,21 +483,21 @@ describe("reducer — SRS write-through (Quiz normal phase)", () => {
   it("answer-correct in Quiz writes a Good grade to srsStore", () => {
     const s0 = withCurrent(initialState(), "FRA");
     const s1 = reducer(s0, { type: "answer", iso3: "FRA", now: NOW });
-    expect(s1.srsStore.records["FRA"]).toBeDefined();
-    expect(s1.srsStore.records["FRA"].reps).toBe(1);
+    expect(s1.srsStore.facts.location["FRA"]).toBeDefined();
+    expect(s1.srsStore.facts.location["FRA"].reps).toBe(1);
   });
 
   it("answer-wrong in Quiz writes an Again grade to srsStore", () => {
     const s0 = withCurrent(initialState(), "FRA");
     const s1 = reducer(s0, { type: "answer", iso3: "DEU", now: NOW });
-    expect(s1.srsStore.records["FRA"]).toBeDefined();
-    expect(s1.srsStore.records["FRA"].reps).toBe(1);
+    expect(s1.srsStore.facts.location["FRA"]).toBeDefined();
+    expect(s1.srsStore.facts.location["FRA"].reps).toBe(1);
   });
 
   it("skip in Quiz writes an Again grade", () => {
     const s0 = withCurrent(initialState(), "FRA");
     const s1 = reducer(s0, { type: "skip", now: NOW });
-    expect(s1.srsStore.records["FRA"]).toBeDefined();
+    expect(s1.srsStore.facts.location["FRA"]).toBeDefined();
   });
 
   it("review-phase grades do NOT write to srsStore (no double-count)", () => {
@@ -500,7 +509,7 @@ describe("reducer — SRS write-through (Quiz normal phase)", () => {
       retryQueue: [{ iso3: "FRA", dueAt: 0 }],
     };
     const s1 = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
-    expect(s1.srsStore.records["FRA"]).toBeUndefined();
+    expect(s1.srsStore.facts.location["FRA"]).toBeUndefined();
   });
 });
 
@@ -565,7 +574,7 @@ describe("reducer — setPracticeMode", () => {
       mode: "study",
       now: NOW,
     });
-    expect(next.srsStore.records["FRA"]).toEqual(s1.srsStore.records["FRA"]);
+    expect(next.srsStore.facts.location["FRA"]).toEqual(s1.srsStore.facts.location["FRA"]);
   });
 });
 
@@ -584,18 +593,18 @@ describe("reducer — Study mode grade flow", () => {
     const s1 = reducer(s0, { type: "answer", iso3: "DEU", now: NOW });
     expect(s1.feedback?.kind).toBe("wrong");
     expect(s1.autoGradePending).toBe("Again");
-    expect(s1.srsStore.records["FRA"]).toBeUndefined();
+    expect(s1.srsStore.facts.location["FRA"]).toBeUndefined();
   });
 
   it("answer-correct in Study defers auto-Good until dismiss", () => {
     const s0 = studyState();
     const s1 = reducer(s0, { type: "answer", iso3: "FRA", now: NOW });
     expect(s1.autoGradePending).toBe("Good");
-    expect(s1.srsStore.records["FRA"]).toBeUndefined();
+    expect(s1.srsStore.facts.location["FRA"]).toBeUndefined();
     expect(s1.feedback?.kind).toBe("correct");
 
     const s2 = reducer(s1, { type: "dismiss", now: NOW });
-    expect(s2.srsStore.records["FRA"]).toBeDefined();
+    expect(s2.srsStore.facts.location["FRA"]).toBeDefined();
     expect(s2.autoGradePending).toBeNull();
   });
 
@@ -603,11 +612,11 @@ describe("reducer — Study mode grade flow", () => {
     const s0 = studyState();
     const s1 = reducer(s0, { type: "skip", now: NOW });
     expect(s1.autoGradePending).toBe("Again");
-    expect(s1.srsStore.records["FRA"]).toBeUndefined();
+    expect(s1.srsStore.facts.location["FRA"]).toBeUndefined();
     expect(s1.feedback?.kind).toBe("skipped");
 
     const s2 = reducer(s1, { type: "dismiss", now: NOW });
-    expect(s2.srsStore.records["FRA"]).toBeDefined();
+    expect(s2.srsStore.facts.location["FRA"]).toBeDefined();
     expect(s2.autoGradePending).toBeNull();
   });
 
@@ -616,8 +625,8 @@ describe("reducer — Study mode grade flow", () => {
     s = reducer(s, { type: "answer", iso3: "DEU", now: NOW });
     expect(s.autoGradePending).toBe("Again");
     s = reducer(s, { type: "dismiss", now: NOW });
-    expect(s.srsStore.records["FRA"]).toBeDefined();
-    expect(s.srsStore.records["FRA"].reps).toBe(1);
+    expect(s.srsStore.facts.location["FRA"]).toBeDefined();
+    expect(s.srsStore.facts.location["FRA"].reps).toBe(1);
     expect(s.feedback).toBeNull();
     expect(s.current.iso3).not.toBe("FRA");
   });
@@ -707,9 +716,9 @@ describe("reducer — resetSrs / closeSummary", () => {
   it("resetSrs empties the store but preserves practiceMode and continents", () => {
     let s = withCurrent(initialState(), "FRA");
     s = reducer(s, { type: "answer", iso3: "FRA", now: NOW });
-    expect(Object.keys(s.srsStore.records)).toHaveLength(1);
+    expect(Object.keys(s.srsStore.facts.location)).toHaveLength(1);
     const next = reducer(s, { type: "resetSrs" });
-    expect(next.srsStore.records).toEqual({});
+    expect(next.srsStore.facts.location).toEqual({});
     expect(next.practiceMode).toBe(s.practiceMode);
     expect(next.selectedContinents).toBe(s.selectedContinents);
   });
@@ -724,11 +733,11 @@ describe("reducer — resetSrs / closeSummary", () => {
     let s = studyState();
     s = reducer(s, { type: "answer", iso3: "FRA", now: NOW });
     expect(s.autoGradePending).toBe("Good");
-    expect(s.srsStore.records["FRA"]).toBeUndefined();
+    expect(s.srsStore.facts.location["FRA"]).toBeUndefined();
     s = reducer(s, { type: "endSession" });
     expect(s.sessionDone).toBe(true);
     expect(s.autoGradePending).toBeNull();
-    expect(s.srsStore.records["FRA"]).toBeDefined();
+    expect(s.srsStore.facts.location["FRA"]).toBeDefined();
   });
 
   it("endSession in Study resurfaces an in-flight miss for the resumed session", () => {
@@ -745,7 +754,7 @@ describe("reducer — resetSrs / closeSummary", () => {
     s = reducer(s, { type: "endSession" });
     // The Again is committed AND the card is queued so it returns if the
     // user resumes via "Keep studying".
-    expect(s.srsStore.records["FRA"]).toBeDefined();
+    expect(s.srsStore.facts.location["FRA"]).toBeDefined();
     const entry = s.studyResurfaceQueue.find((e) => e.iso3 === "FRA");
     expect(entry).toBeDefined();
     expect(entry!.dueAt).toBeGreaterThanOrEqual(s.studyStep + 3);
@@ -847,14 +856,18 @@ describe("reducer — spotlight subregion", () => {
     expect(next.spotlightSubregion).toBeNull();
   });
 
-  it("setMode (question-mode flip) does not carry the spotlight", () => {
+  it("setMode (question-mode flip) keeps the spotlight", () => {
+    // Unlike a practice-mode flip, which starts a different KIND of round,
+    // changing the question keeps the learner in the same sitting over the
+    // same places. The lens they switched on is theirs until they clear it.
     const s = reducer(africaStudy(), {
       type: "setSpotlight",
       subregion: "Western Africa",
       now: NOW,
     });
     const next = reducer(s, { type: "setMode", mode: "shape-to-name" });
-    expect(next.spotlightSubregion).toBeNull();
+    expect(next.spotlightSubregion).toBe("Western Africa");
+    expect(next.current.subregion).toBe("Western Africa");
   });
 
   it("reload (fresh initialState) does not carry the spotlight", () => {
@@ -873,10 +886,7 @@ describe("reducer — spotlight subregion", () => {
       autoGradePending: "Good",
       // A due card outside the spotlight region, so the widened re-pick has
       // somewhere to land.
-      srsStore: {
-        version: 1,
-        records: { EGY: srsGrade(null, "Again", tenDaysAgo) },
-      },
+      srsStore: storeWith({ EGY: srsGrade(null, "Again", tenDaysAgo) }),
     };
     const next = reducer(seeded, { type: "dismiss", now: NOW });
     expect(next.spotlightSubregion).toBeNull();
@@ -890,7 +900,7 @@ describe("reducer — spotlight subregion", () => {
       ...withCurrent(africaStudy(), "EGY"),
       spotlightSubregion: "Southern Africa",
       newIntroducedThisStretch: STUDY_NEW_CAP, // already depleted region
-      srsStore: { version: 1, records: {} },
+      srsStore: emptyStore(),
       sessionDone: true,
     };
     const next = reducer(seeded, { type: "closeSummary", now: NOW });
@@ -974,7 +984,7 @@ describe("reducer — rounds of twelve", () => {
     expect(s.roundRight).toBe(0);
     expect(s.roundNew).toBe(1);
     // Force the same card back and answer it: seen before, so not new.
-    const iso3 = Object.keys(s.srsStore.records)[0];
+    const iso3 = Object.keys(s.srsStore.facts.location)[0];
     const seen = playCorrect(withCurrent(s, iso3));
     expect(seen.roundNew).toBe(1);
     expect(seen.roundRight).toBe(1);
@@ -1148,7 +1158,7 @@ describe("reducer — territories setting", () => {
     const toggled = reducer(missed, { type: "setIncludeTerritories", value: true, now: NOW });
     expect(toggled.autoGradePending).toBeNull();
     expect(toggled.feedback).toBeNull();
-    expect(toggled.srsStore.records["FRA"]?.misses).toBe(1);
+    expect(toggled.srsStore.facts.location["FRA"]?.misses).toBe(1);
     expect(toggled.studyResurfaceQueue.map((e) => e.iso3)).toEqual(["FRA"]);
   });
 
@@ -1220,7 +1230,7 @@ describe("reducer — ceremony (R2.2)", () => {
     expect(crossesIntoKnown(almost, srsGrade(almost, "Good", later))).toBe(true);
 
     const s0 = studyAt("FRA", {
-      srsStore: { version: 1, records: { FRA: almost } },
+      srsStore: storeWith({ FRA: almost }),
     });
     const s1 = reducer(s0, { type: "answer", iso3: "FRA", now: later });
     expect(s1.milestone).not.toBeNull();
@@ -1229,7 +1239,7 @@ describe("reducer — ceremony (R2.2)", () => {
 
   it("marks nothing for a country that is already known", () => {
     const s0 = studyAt("FRA", {
-      srsStore: { version: 1, records: { FRA: knownRecord() } },
+      srsStore: storeWith({ FRA: knownRecord() }),
     });
     const s1 = reducer(s0, { type: "answer", iso3: "FRA", now: T0 });
     expect(s1.milestone).toBeNull();
@@ -1457,8 +1467,8 @@ describe("reducer — the Daily Expedition (R3.1)", () => {
     const s = reducer(start(), { type: "answer", iso3: "FRA", now: NOW });
     expect(s.feedback?.kind).toBe("correct");
     expect(s.expedition?.outcomes).toEqual(["found"]);
-    expect(s.srsStore.records.FRA).toBeDefined();
-    expect(s.srsStore.records.FRA.hits).toBe(1);
+    expect(s.srsStore.facts.location.FRA).toBeDefined();
+    expect(s.srsStore.facts.location.FRA.hits).toBe(1);
     expect(s.streak).toBe(1);
     // A measurement, not a ceremony.
     expect(s.milestone).toBeNull();
@@ -1468,7 +1478,7 @@ describe("reducer — the Daily Expedition (R3.1)", () => {
     const wrong = reducer(start(), { type: "answer", iso3: "DEU", now: NOW });
     expect(wrong.feedback).toEqual({ kind: "wrong", answerIso3: "DEU", correctIso3: "FRA" });
     expect(wrong.expedition?.outcomes).toEqual(["missed"]);
-    expect(wrong.srsStore.records.FRA.misses).toBe(1);
+    expect(wrong.srsStore.facts.location.FRA.misses).toBe(1);
     // No test-round bookkeeping: there is no review pass to feed.
     expect(wrong.retryQueue).toEqual([]);
     expect(wrong.missed).toEqual([]);
@@ -1476,7 +1486,7 @@ describe("reducer — the Daily Expedition (R3.1)", () => {
     const skipped = reducer(start(), { type: "skip", now: NOW });
     expect(skipped.feedback?.kind).toBe("skipped");
     expect(skipped.expedition?.outcomes).toEqual(["missed"]);
-    expect(skipped.srsStore.records.FRA.misses).toBe(1);
+    expect(skipped.srsStore.facts.location.FRA.misses).toBe(1);
   });
 
   it("writes to the store for a country outside the learner's continent filter", () => {
@@ -1484,7 +1494,7 @@ describe("reducer — the Daily Expedition (R3.1)", () => {
     const s = answerAndDismiss(start(), "FRA");
     expect(s.current.iso3).toBe("BRA");
     const t = reducer(s, { type: "answer", iso3: "BRA", now: NOW });
-    expect(t.srsStore.records.BRA).toBeDefined();
+    expect(t.srsStore.facts.location.BRA).toBeDefined();
   });
 
   it("dismiss advances through the ten in order, counting the round", () => {
@@ -1629,7 +1639,7 @@ describe("reducer — the Daily Expedition (R3.1)", () => {
     const t = reducer(s, { type: "resetSrs" });
     expect(t.expedition).toBeNull();
     expect(t.practiceMode).toBe("study");
-    expect(t.srsStore.records).toEqual({});
+    expect(t.srsStore.facts.location).toEqual({});
   });
 
   it("carries the store through a question-mode flip outside an expedition", () => {
@@ -1721,10 +1731,350 @@ describe("reducer — the Daily Expedition (R3.1)", () => {
     const missed = reducer(study, { type: "skip", now: NOW });
     expect(missed.autoGradePending).toBe("Again");
     const s = start(store(), missed);
-    expect(s.srsStore.records.FRA.misses).toBe(1);
+    expect(s.srsStore.facts.location.FRA.misses).toBe(1);
     expect(s.autoGradePending).toBeNull();
     // That grade reached the store, so the answer is counted, as every
     // other in-flight commit counts it.
     expect(s.cardsAnswered).toBe(missed.cardsAnswered + 1);
+  });
+});
+
+// ── R3.2: a record per fact, and the capital modes ───────────────────────────
+
+describe("reducer — capital modes (R3.2)", () => {
+  const NOW = new Date("2026-09-12T12:00:00Z");
+
+  // A real country, so the capital matcher and the pool have something to
+  // work with. PER's capital is Lima and it has five land neighbours.
+  function capitalState(
+    practiceMode: State["practiceMode"] = "study",
+    mode: State["mode"] = "country-to-capital",
+  ): State {
+    const s = initialState({ mode, practiceMode });
+    const peru = ALL_COUNTRIES.find((c) => c.iso3 === "PER")!;
+    return { ...s, current: peru };
+  }
+
+  describe("grading writes to the fact that was asked", () => {
+    it("a Study capital answer grades only facts.capital", () => {
+      const s = capitalState();
+      const answered = reducer(s, { type: "answer", iso3: "PER", now: NOW });
+      const committed = reducer(answered, { type: "dismiss", now: NOW });
+      expect(committed.srsStore.facts.capital.PER).toBeDefined();
+      // Knowing Lima says nothing about being able to find Peru.
+      expect(committed.srsStore.facts.location.PER).toBeUndefined();
+    });
+
+    it("a test round's capital answer writes through to facts.capital", () => {
+      const s = capitalState("quiz");
+      const answered = reducer(s, { type: "answer", iso3: "PER", now: NOW });
+      expect(answered.srsStore.facts.capital.PER.hits).toBe(1);
+      expect(answered.srsStore.facts.location.PER).toBeUndefined();
+    });
+
+    it("leaves the other fact's records untouched by object identity", () => {
+      // A memo keyed on facts.location must not re-run after a capital answer.
+      const seeded: State = {
+        ...capitalState("quiz"),
+        srsStore: storeWith({ FRA: srsGrade(null, "Good", NOW) }),
+      };
+      const answered = reducer(seeded, { type: "answer", iso3: "PER", now: NOW });
+      expect(answered.srsStore.facts.location).toBe(
+        seeded.srsStore.facts.location,
+      );
+    });
+  });
+
+  describe("the pool", () => {
+    it("leaves out countries with no capital, even with territories on", () => {
+      // Without this a capital test round with territories on could never
+      // finish: Antarctica and the French Southern Territories would sit in
+      // the pool forever with nothing to ask about them.
+      const s = initialState({
+        mode: "capital-to-click",
+        practiceMode: "quiz",
+        includeTerritories: true,
+      });
+      const seen = new Set<string>();
+      let cur: State = s;
+      for (let i = 0; i < 2000; i++) {
+        if (cur.sessionDone) break;
+        if (cur.roundDone) {
+          cur = reducer(cur, { type: "continueRound", now: NOW });
+          continue;
+        }
+        seen.add(cur.current.iso3);
+        cur = reducer(cur, { type: "answer", iso3: cur.current.iso3, now: NOW });
+        cur = reducer(cur, { type: "dismiss", now: NOW });
+      }
+      expect(cur.sessionDone).toBe(true);
+      expect(seen.has("ATA")).toBe(false);
+      expect(seen.has("ATF")).toBe(false);
+    });
+  });
+
+  describe("ceremony", () => {
+    // One Good puts a card in learning; the next, once the learning step has
+    // elapsed, graduates it to Review — the crossing the ceremony marks.
+    const SEEDED = new Date("2026-09-12T11:00:00Z");
+    const almostKnown = () => srsGrade(null, "Good", SEEDED);
+
+    it("sets no milestone in a capital mode, but still builds the streak", () => {
+      // "Now on your map" and the hatch are map ceremonies, and the map
+      // paints locations. A run of correct answers still means something.
+      const seeded: State = {
+        ...capitalState(),
+        streak: 4,
+        srsStore: storeWith({ PER: almostKnown() }, "capital"),
+      };
+      const answered = reducer(seeded, { type: "answer", iso3: "PER", now: NOW });
+      expect(answered.milestone).toBeNull();
+      expect(answered.streak).toBe(5);
+    });
+
+    it("still sets one in a location mode", () => {
+      const s = initialState({ mode: "name-to-click", practiceMode: "study" });
+      const peru = ALL_COUNTRIES.find((c) => c.iso3 === "PER")!;
+      const seeded: State = {
+        ...s,
+        current: peru,
+        srsStore: storeWith({ PER: almostKnown() }),
+      };
+      const answered = reducer(seeded, { type: "answer", iso3: "PER", now: NOW });
+      expect(answered.milestone?.iso3).toBe("PER");
+    });
+  });
+});
+
+describe("reducer — enterQuestionMode (R3.2)", () => {
+  const NOW = new Date("2026-09-12T12:00:00Z");
+
+  function studyAt(iso3: string, patch: Partial<State> = {}): State {
+    return {
+      ...withCurrent(initialState({ practiceMode: "study" }), iso3),
+      ...patch,
+    };
+  }
+
+  it("keeps the Study miss queue and the new-card cap between two location modes", () => {
+    // Both modes ask about the same fact, so the cards those refer to are
+    // still the cards in front of the learner.
+    const s = studyAt("FRA", {
+      studyResurfaceQueue: [{ iso3: "DEU", dueAt: 3 }],
+      studyStep: 2,
+      newIntroducedThisStretch: 4,
+    });
+    const next = reducer(s, { type: "setMode", mode: "shape-to-name", now: NOW });
+    expect(next.studyResurfaceQueue).toEqual([{ iso3: "DEU", dueAt: 3 }]);
+    expect(next.studyStep).toBe(2);
+    expect(next.newIntroducedThisStretch).toBe(4);
+  });
+
+  it("resets them when the fact changes", () => {
+    // They refer to the other fact's cards; carrying them over would
+    // resurface a location miss as a capital prompt.
+    const s = studyAt("FRA", {
+      studyResurfaceQueue: [{ iso3: "DEU", dueAt: 3 }],
+      studyStep: 2,
+      newIntroducedThisStretch: 4,
+    });
+    const next = reducer(s, {
+      type: "setMode",
+      mode: "country-to-capital",
+      now: NOW,
+    });
+    expect(next.studyResurfaceQueue).toEqual([]);
+    expect(next.studyStep).toBe(0);
+    expect(next.newIntroducedThisStretch).toBe(0);
+  });
+
+  it("carries a Study round across the switch", () => {
+    // The learner is still in the same sitting; a new round here would
+    // inflate roundsStarted every time they tried another prompt.
+    const s = studyAt("FRA", { roundCards: 5, roundRight: 4, roundNew: 2 });
+    const next = reducer(s, { type: "setMode", mode: "shape-to-name", now: NOW });
+    expect(next.roundCards).toBe(5);
+    expect(next.roundRight).toBe(4);
+    expect(next.roundNew).toBe(2);
+  });
+
+  it("restarts a test round, whose queue refers to the old question type", () => {
+    const s = withCurrent(initialState({ practiceMode: "quiz" }), "FRA");
+    const seeded: State = {
+      ...s,
+      score: 5,
+      total: 8,
+      roundCards: 5,
+      retryQueue: [{ iso3: "DEU", dueAt: 9 }],
+      completedSet: new Set(["ESP"]),
+      missed: [s.current],
+      missedSet: new Set(["FRA"]),
+    };
+    const next = reducer(seeded, {
+      type: "setMode",
+      mode: "shape-to-name",
+      now: NOW,
+    });
+    expect(next.retryQueue).toEqual([]);
+    expect(next.completedSet.size).toBe(0);
+    expect(next.score).toBe(0);
+    expect(next.total).toBe(0);
+    expect(next.missed).toEqual([]);
+    expect(next.roundCards).toBe(0);
+  });
+
+  it("commits a deferred Study grade before the mode moves", () => {
+    // The miss was given in the old mode and belongs to its fact.
+    const s = studyAt("FRA");
+    const missed = reducer(s, { type: "skip", now: NOW });
+    expect(missed.autoGradePending).toBe("Again");
+
+    const next = reducer(missed, {
+      type: "setMode",
+      mode: "country-to-capital",
+      now: NOW,
+    });
+    expect(next.srsStore.facts.location.FRA.misses).toBe(1);
+    expect(next.srsStore.facts.capital.FRA).toBeUndefined();
+    expect(next.autoGradePending).toBeNull();
+    expect(next.feedback).toBeNull();
+  });
+
+  it("keeps cardsAnswered and roundsCompleted, which only ever grow", () => {
+    const s = studyAt("FRA", { cardsAnswered: 17, roundsCompleted: 2 });
+    const next = reducer(s, { type: "setMode", mode: "shape-to-name", now: NOW });
+    expect(next.cardsAnswered).toBe(17);
+    expect(next.roundsCompleted).toBe(2);
+  });
+
+  it("does not rewrite the continent selection", () => {
+    const s = studyAt("FRA", { selectedContinents: ["Africa"] });
+    const next = reducer(s, {
+      type: "setMode",
+      mode: "country-to-capital",
+      now: NOW,
+    });
+    expect(next.selectedContinents).toEqual(["Africa"]);
+  });
+
+  it("breaks a run of correct answers", () => {
+    const s = studyAt("FRA", { streak: 7 });
+    const next = reducer(s, { type: "setMode", mode: "shape-to-name", now: NOW });
+    expect(next.streak).toBe(0);
+  });
+
+  it("is ignored during an expedition", () => {
+    const pool = expeditionPool(ALL_COUNTRIES);
+    const store = newExpedition("2026-09-12", pool);
+    const started = reducer(initialState({ practiceMode: "study" }), {
+      type: "startExpedition",
+      store,
+      now: NOW,
+    });
+    const next = reducer(started, {
+      type: "setMode",
+      mode: "shape-to-name",
+      now: NOW,
+    });
+    expect(next).toBe(started);
+  });
+});
+
+describe("reducer — an expedition started from a capital mode (R3.2)", () => {
+  const NOW = new Date("2026-09-12T12:00:00Z");
+  const DAY = "2026-09-12";
+
+  function started(): State {
+    const s = initialState({
+      mode: "country-to-capital",
+      practiceMode: "study",
+    });
+    const store = newExpedition(DAY, expeditionPool(ALL_COUNTRIES));
+    return reducer(s, { type: "startExpedition", store, now: NOW });
+  }
+
+  it("grades location, because an expedition is always Name → Click", () => {
+    const s = started();
+    expect(s.mode).toBe("name-to-click");
+    const answered = reducer(s, {
+      type: "answer",
+      iso3: s.current.iso3,
+      now: NOW,
+    });
+    expect(answered.srsStore.facts.location[s.current.iso3]).toBeDefined();
+    expect(answered.srsStore.facts.capital[s.current.iso3]).toBeUndefined();
+  });
+
+  it("keeps the learner's own fact for everything the settings display", () => {
+    // The answer fact and the learner fact differ only here. The settings
+    // must keep showing capitals to someone who is studying capitals.
+    const s = started();
+    expect(learnerFact(s)).toBe("capital");
+    expect(answerFact(s)).toBe("location");
+  });
+
+  it("restores the capital mode on the way out", () => {
+    const left = reducer(started(), { type: "endSession" });
+    expect(left.mode).toBe("country-to-capital");
+    expect(left.modeBeforeExpedition).toBeNull();
+    expect(learnerFact(left)).toBe("capital");
+  });
+
+  it("never leaves a capitals learner with an empty pool after a scope change", () => {
+    // Scope is normalised against the fact the learner RETURNS to, so a
+    // change made mid-expedition cannot strand them.
+    const s = started();
+    const narrowed = reducer(s, {
+      type: "setContinents",
+      continents: ["Antarctica"],
+      now: NOW,
+    });
+    // Antarctica holds nothing with a capital, so the selection falls back.
+    expect(narrowed.selectedContinents).toEqual(ALL_CONTINENTS);
+    const left = reducer(narrowed, { type: "endSession" });
+    expect(
+      filterPool(left.selectedContinents, left.includeTerritories, "capital")
+        .length,
+    ).toBeGreaterThan(0);
+  });
+});
+
+describe("reducer — a question mode that cannot be asked (R3.2)", () => {
+  const NOW = new Date("2026-09-12T12:00:00Z");
+
+  it("refuses the switch rather than widening the scope or crashing", () => {
+    // Antarctica's two rows have no capital. The settings disable the option,
+    // but the reducer must not lean on a UI guard: an empty pool makes Quiz's
+    // pickRandom throw and leaves Study on a card with a blank prompt.
+    const s = initialState({
+      mode: "name-to-click",
+      practiceMode: "quiz",
+      selectedContinents: ["Antarctica"],
+      includeTerritories: true,
+    });
+    const next = reducer(s, {
+      type: "setMode",
+      mode: "country-to-capital",
+      now: NOW,
+    });
+    expect(next).toBe(s);
+    // And the learner's selection is left exactly as they set it.
+    expect(next.selectedContinents).toEqual(["Antarctica"]);
+  });
+
+  it("allows it as soon as one selected continent can be asked", () => {
+    const s = initialState({
+      mode: "name-to-click",
+      practiceMode: "study",
+      selectedContinents: ["Antarctica", "Europe"],
+      includeTerritories: true,
+    });
+    const next = reducer(s, {
+      type: "setMode",
+      mode: "country-to-capital",
+      now: NOW,
+    });
+    expect(next.mode).toBe("country-to-capital");
+    expect(next.current.capital).not.toBeNull();
   });
 });

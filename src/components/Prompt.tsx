@@ -6,7 +6,31 @@ type Props = {
   phase: Phase;
 };
 
+// Three of the four prompts are an eyebrow over the thing being asked about;
+// shape-to-name is the one with nothing to name, since the map is the prompt.
+// `capital` is non-null for every card a capital mode can draw — filterPool
+// drops the handful of rows without one.
+function promptOf(
+  mode: QuestionMode,
+  current: Country,
+): { eyebrow: string; subject: string } | null {
+  switch (mode) {
+    case "name-to-click":
+      return { eyebrow: "Find", subject: current.name };
+    case "capital-to-click":
+      return {
+        eyebrow: "Find the country whose capital is",
+        subject: current.capital ?? "",
+      };
+    case "country-to-capital":
+      return { eyebrow: "Capital of", subject: current.name };
+    case "shape-to-name":
+      return null;
+  }
+}
+
 export function Prompt({ mode, current, phase }: Props) {
+  const prompt = promptOf(mode, current);
   return (
     <div className="flex flex-col gap-2">
       {phase === "review" && (
@@ -14,13 +38,13 @@ export function Prompt({ mode, current, phase }: Props) {
           Review
         </span>
       )}
-      {mode === "name-to-click" ? (
+      {prompt ? (
         <p className="leading-tight">
           <span className="block font-display text-xs uppercase tracking-wide text-ink-mid">
-            Find
+            {prompt.eyebrow}
           </span>
           <span className="block text-2xl sm:text-3xl landscape:text-4xl font-semibold text-ink-deep break-words">
-            {current.name}
+            {prompt.subject}
           </span>
         </p>
       ) : (

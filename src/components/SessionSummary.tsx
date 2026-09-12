@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { Country, PracticeMode, SrsStore, Subregion } from "../types";
+import type { Country, Fact, PracticeMode, SrsStore, Subregion } from "../types";
 import {
   lifetimeAccuracy as srsLifetimeAccuracy,
   learnedCount as srsLearnedCount,
@@ -22,6 +22,9 @@ type Props = {
   dueCount: number;
   newAvailableCount: number;
   srsStore: SrsStore;
+  // The fact the learner is working on. The scoped figures and the spotlight
+  // count over it; the two lifetime rows are across every fact.
+  fact: Fact;
   scopeIso3s: ReadonlySet<string>;
   countries: readonly Country[];
   onReview: () => void;
@@ -34,6 +37,14 @@ type Props = {
   expedition: ExpeditionStatus;
   onExpedition: () => void;
 };
+
+// What the figures on these cards are counting. The learner's fact changed
+// what "Known 3" means; the copy has to say so, or a capitals learner with a
+// fully inked map reads "174 countries still to meet" as lost progress.
+function subject(fact: Fact, n: number): string {
+  if (fact === "capital") return n === 1 ? "capital" : "capitals";
+  return n === 1 ? "country" : "countries";
+}
 
 export function SessionSummary(props: Props) {
   return props.practiceMode === "study" ? (
@@ -48,6 +59,7 @@ function TestSummary({
   score,
   total,
   missed,
+  fact,
   unlearnedCount,
   completedCount,
   totalInScope,
@@ -99,8 +111,15 @@ function TestSummary({
               Missed ({missed.length}):
             </p>
             <ul className="max-h-[28dvh] overflow-y-auto text-sm text-ink-mid border border-ink-faded/40 rounded p-3 flex flex-wrap gap-x-4 gap-y-1">
+              {/* The one screen that says what you got wrong has to show the
+                  thing you got wrong: a capital round names the capital
+                  beside its country. */}
               {missed.map((c) => (
-                <li key={c.iso3}>{c.name}</li>
+                <li key={c.iso3}>
+                  {fact === "capital" && c.capital !== null
+                    ? `${c.name} · ${c.capital}`
+                    : c.name}
+                </li>
               ))}
             </ul>
           </div>
@@ -144,6 +163,7 @@ function StudySummary({
   newAvailableCount,
   totalInScope,
   srsStore,
+  fact,
   scopeIso3s,
   countries,
   onStartTest,
@@ -152,13 +172,14 @@ function StudySummary({
   expedition,
   onExpedition,
 }: Props) {
-  const learned = srsLearnedCount(srsStore, scopeIso3s);
-  const seen = srsSeenCount(srsStore, scopeIso3s);
+  const factRecords = srsStore.facts[fact];
+  const learned = srsLearnedCount(factRecords, scopeIso3s);
+  const seen = srsSeenCount(factRecords, scopeIso3s);
   const reviews = srsTotalReviews(srsStore);
   const accuracy = srsLifetimeAccuracy(srsStore);
   // Recommend the most-neglected subregion in scope, if any clears the gate.
   const spotlight = pickSpotlight(
-    masteryBySubregion(srsStore, countries, scopeIso3s),
+    masteryBySubregion(factRecords, countries, scopeIso3s),
   );
   // Auto-focus the recommended action: the Focus CTA when a spotlight is
   // offered, otherwise Start quiz.
@@ -186,12 +207,13 @@ function StudySummary({
     : dueCount > 0
     ? `${dueCount} to review — keep going, or test yourself on what you know.`
     : newAvailableCount > 0
-    ? `${newAvailableCount} ${
-        newAvailableCount === 1 ? "country" : "countries"
-      } still to meet — keep going, or test yourself.`
+    ? `${newAvailableCount} ${subject(
+        fact,
+        newAvailableCount,
+      )} still to meet — keep going, or test yourself.`
     : "All caught up for now — test yourself, or come back tomorrow.";
 
-  const scopeLabel = `${totalInScope} ${totalInScope === 1 ? "country" : "countries"}`;
+  const scopeLabel = `${totalInScope} ${subject(fact, totalInScope)}`;
 
   return (
     <div
@@ -210,6 +232,11 @@ function StudySummary({
         <h2 id="study-summary-title" className="text-2xl font-bold text-ink-deep">
           Nice work
         </h2>
+        {/* The four scoped tiles count the learner's fact; the two lifetime
+            ones are across every fact. Say which, as the settings do. */}
+        <p className="text-xs text-ink-mid text-center italic -mb-2">
+          {fact === "capital" ? "Capitals" : "Places"}
+        </p>
         <div className="grid grid-cols-3 gap-3 text-center">
           <Tile label="Known" value={String(learned)} />
           <Tile label="Seen" value={String(seen)} />

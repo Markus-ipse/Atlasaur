@@ -232,6 +232,8 @@ describe("useGame — the Daily Expedition", () => {
     expect(loadCounters().answersByQuestionMode).toEqual({
       "name-to-click": 1,
       "shape-to-name": 0,
+      "capital-to-click": 0,
+      "country-to-capital": 0,
     });
   });
 });

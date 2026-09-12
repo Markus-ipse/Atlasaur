@@ -16,6 +16,7 @@ import type { Topology } from "topojson-specification";
 import topologyJson from "../data/world-110m.json";
 import countriesData from "../data/countries.json";
 import { ALL_CONTINENTS, type Continent, type Country, type Feedback, type QuestionMode, type Subregion } from "../types";
+import { isClickMode } from "../game/questionModes";
 import {
   W,
   H,
@@ -646,8 +647,15 @@ export function WorldMap({
   // A deliberate, bounded hint: it fires only when the alternative is an
   // un-tappable speck, never for big countries, never on desktop widths.
   const restingTransform = useMemo<ZoomTransform>(() => {
-    // Click mode only: in shape-to-name nothing is tapped, and a phone's
-    // keyboard resizing the map would otherwise re-frame while typing.
+    // name-to-click only. In a typed mode nothing is tapped, and a phone's
+    // keyboard resizing the map would otherwise re-frame while typing. And
+    // capital-to-click is excluded even though it IS a click mode: framing
+    // the answer's continent before the learner answers hands them the
+    // region, which is most of the question there — the learner has been
+    // given a capital, not a country name they can already place. It is the
+    // same leak the blank map in that mode exists to prevent (see paintTiers).
+    // Tiny countries keep their hit disc, so they are still tappable; the
+    // learner just has to find the region themselves.
     if (mode !== "name-to-click" || !targetIso3 || effectiveScale === 0) {
       return baseTransform;
     }
@@ -742,7 +750,7 @@ export function WorldMap({
     select(svgRef.current).call(zoomRef.current.transform, restingTransform);
   };
 
-  const isClickMode = interactive && mode === "name-to-click" && !feedback;
+  const mapClickable = interactive && isClickMode(mode) && !feedback;
   const isPanned = transform !== restingTransform;
 
   // Record where the user clicked (container-pixel space, clamped to keep
@@ -927,7 +935,7 @@ export function WorldMap({
   }, [hatchIso3, numericFromIso3]);
 
   const hitDiscs = useMemo(() => {
-    if (!isClickMode || effectiveScale === 0) return [] as HitDisc[];
+    if (!mapClickable || effectiveScale === 0) return [] as HitDisc[];
     const out: HitDisc[] = [];
     for (const l of LABELS) {
       const iso3 = isoFromNumeric(l.numericId);
@@ -938,7 +946,7 @@ export function WorldMap({
       out.push({ numericId: l.numericId, iso3, cx: l.cx, cy: l.cy, r });
     }
     return out;
-  }, [isClickMode, effectiveScale, transform.k, isoFromNumeric, isInScope]);
+  }, [mapClickable, effectiveScale, transform.k, isoFromNumeric, isInScope]);
 
   // One-time pinch hint: the card's country is a speck on a touch screen.
   const targetSizePx = useMemo(() => {
@@ -957,7 +965,10 @@ export function WorldMap({
       seenPinchHintRef.current = loadSeenPinchHint();
     }
     setPinchHint(false);
-    if (seenPinchHintRef.current || !isClickMode) return;
+    // Same rule as the resting frame: in capital-to-click, "the answer is
+    // tiny" is itself a hint worth withholding.
+    if (seenPinchHintRef.current || !mapClickable) return;
+    if (mode !== "name-to-click") return;
     if (targetSizePx >= HINT_TARGET_PX || !isCoarsePointer()) return;
     const show = window.setTimeout(() => {
       seenPinchHintRef.current = true;
@@ -972,7 +983,7 @@ export function WorldMap({
       window.clearTimeout(show);
       window.clearTimeout(hide);
     };
-  }, [isClickMode, targetSizePx]);
+  }, [mapClickable, mode, targetSizePx]);
 
   return (
     <div
@@ -1051,7 +1062,7 @@ export function WorldMap({
               },
               palette,
             );
-            const clickable = isClickMode && Boolean(iso3) && inScope;
+            const clickable = mapClickable && Boolean(iso3) && inScope;
             // Glow pulse on the country the user just got right — the map
             // half of the correct-answer celebration (the panel shows
             // CorrectHero). Animates `filter` only, so it doesn't fight the
@@ -1248,11 +1259,11 @@ export function WorldMap({
           Reset
         </button>
       )}
-      {/* On-map "✔ Correct!" flourish at the click point (name-to-click only;
-          shape-to-name has no click). Outer owns positioning/centering; inner
+      {/* On-map "✔ Correct!" flourish at the click point (click modes only;
+          a typed mode has no click). Outer owns positioning/centering; inner
           runs the scale keyframe so the two don't fight. The key remounts it
           per click so the animation reliably replays. */}
-      {feedback?.kind === "correct" && mode === "name-to-click" && clickPoint && (
+      {feedback?.kind === "correct" && isClickMode(mode) && clickPoint && (
         <div
           key={`${clickPoint.x},${clickPoint.y}`}
           className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none"
