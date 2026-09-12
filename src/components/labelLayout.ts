@@ -1,3 +1,5 @@
+import polylabel from "polylabel";
+
 // Label visibility for the WorldMap reveal-zoom. Splits the per-render
 // filtering chain (in-scope, fit-check, collision detection) out of the
 // component so it can be unit-tested.
@@ -192,4 +194,289 @@ export function computeVisibleLabels(
     visible.push(c.label);
   }
   return visible;
+}
+
+// R3.3a: a reveal label whose anchor lies outside the frame is moved onto the
+// part of its country that is on screen, instead of being drawn off screen.
+//
+// computeRevealTarget drops a giant neighbour from the frame on purpose —
+// framing Russia beside Estonia would collapse the answer to a speck — but
+// revealIso3s still paints and labels it, and its anchor (the pole of
+// inaccessibility, deep in Siberia for Russia) is then nowhere near the
+// screen. The learner sees an unnamed wash along one edge. The label goes
+// where that wash is: the country's polygons are clipped to the frame and the
+// label sits at the pole of inaccessibility of a visible piece — the piece
+// nearest the answer, since that is the land that touches it (on a Poland
+// reveal, the Russia at Kaliningrad, not Novaya Zemlya), skipping any whose
+// pole would cover a label that carries the reveal. Not "the frame edge
+// nearest the anchor", which the plan proposed: for Azerbaijan that corner is
+// across the Caspian, over Kazakhstan, and a pinned label looks exactly like
+// an anchored one. If no piece of the country is on screen there is nothing
+// to name and the label is dropped.
+//
+// Which labels may move is `mayPin`: the answer's neighbours and the wrong
+// click. The wrong click is not adjacent, but the rule only ever places a
+// label on the country's own visible land, so Sweden clicked for Denmark is
+// named where it shows at the top of the frame, and Spain clicked for New
+// Caledonia — nothing of it on screen — is simply not.
+//
+// Precedence: labels drawn at their own anchor are fixed and pinned labels
+// yield to them when they carry the reveal — the answer and any neighbour
+// that did fit — because those are the teaching and a pinned label must
+// never cover them. A pinned label does win over an ambient in-scope label,
+// which is there for orientation only. Pinned labels that collide with each
+// other are resolved by area, the bigger country first.
+export type Ring = [number, number][];
+// An outer ring followed by its holes.
+export type Polygon = Ring[];
+
+export type PlacedLabel = {
+  label: Label;
+  x: number;
+  y: number;
+  // True when the label was moved from its anchor onto the visible part of
+  // its country.
+  pinned: boolean;
+};
+
+// Sutherland–Hodgman: clip a ring to an axis-aligned rectangle. Exact for a
+// convex window, which a rectangle is. Returns [] when nothing survives. Two
+// visible lobes of one concave ring come back as one ring joined along the
+// window's edge; polylabel still lands inside the larger lobe.
+export function clipRingToRect(ring: Ring, r: Rect): Ring {
+  type Edge = (p: [number, number]) => boolean;
+  const edges: [Edge, (a: [number, number], b: [number, number]) => [number, number]][] = [
+    [(p) => p[0] >= r.x0, (a, b) => intersectX(a, b, r.x0)],
+    [(p) => p[0] <= r.x1, (a, b) => intersectX(a, b, r.x1)],
+    [(p) => p[1] >= r.y0, (a, b) => intersectY(a, b, r.y0)],
+    [(p) => p[1] <= r.y1, (a, b) => intersectY(a, b, r.y1)],
+  ];
+  let out: Ring = ring;
+  for (const [inside, intersect] of edges) {
+    if (out.length === 0) return out;
+    const input = out;
+    out = [];
+    let prev = input[input.length - 1];
+    for (const cur of input) {
+      if (inside(cur)) {
+        if (!inside(prev)) out.push(intersect(prev, cur));
+        out.push(cur);
+      } else if (inside(prev)) {
+        out.push(intersect(prev, cur));
+      }
+      prev = cur;
+    }
+  }
+  return out;
+}
+function intersectX(a: [number, number], b: [number, number], x: number): [number, number] {
+  const t = (x - a[0]) / (b[0] - a[0]);
+  return [x, a[1] + t * (b[1] - a[1])];
+}
+function intersectY(a: [number, number], b: [number, number], y: number): [number, number] {
+  const t = (y - a[1]) / (b[1] - a[1]);
+  return [a[0] + t * (b[0] - a[0]), y];
+}
+
+// Ray casting. Also used by mapGeometry to sort holes from outer rings.
+export function pointInRing([x, y]: readonly [number, number], ring: Ring): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+// Inside the outer ring and outside every hole.
+export function pointInPolygon(p: readonly [number, number], [outer, ...holes]: Polygon): boolean {
+  return pointInRing(p, outer) && !holes.some((h) => pointInRing(p, h));
+}
+
+function ringArea(ring: Ring): number {
+  let a = 0;
+  for (let i = 0, n = ring.length; i < n; i++) {
+    const [x1, y1] = ring[i];
+    const [x2, y2] = ring[(i + 1) % n];
+    a += x1 * y2 - x2 * y1;
+  }
+  return Math.abs(a) / 2;
+}
+
+// Cheap reject before clipping: a ring whose bounds miss the window
+// contributes nothing. Russia has dozens of island rings far from any frame.
+function ringTouches(ring: Ring, r: Rect): boolean {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [x, y] of ring) {
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
+  }
+  return rectsOverlap({ x0, y0, x1, y1 }, r);
+}
+
+export type Pole = { x: number; y: number; area: number; piece: Polygon };
+
+// Where a label for the visible part of `polygons` could go: one candidate
+// per visible piece (a clipped outer ring with its clipped holes), the pole
+// of inaccessibility of each, ordered by distance from `near` — the answer's
+// anchor, so the piece that touches the answer comes first. Pieces with less
+// area than `minArea` (the label's own rect) go last: a sliver at the frame
+// edge should not take the label from a real piece, though it still gets it
+// when it is all there is. Empty when no piece is visible.
+//
+// Polylabel's precision is a quarter of `minArea`'s side, coarse on purpose
+// (this runs on every zoom frame), and a pole it could not place — its
+// `distance` is 0 when the piece is thinner than the precision, and the
+// point is then the bbox corner, off the land — is rejected.
+export function visiblePoles(
+  polygons: readonly Polygon[],
+  window: Rect,
+  near: readonly [number, number],
+  minArea: number,
+): Pole[] {
+  const precision = Math.max(1e-3, Math.sqrt(minArea) / 4);
+  const poles: Pole[] = [];
+  for (const [outer, ...holes] of polygons) {
+    if (!ringTouches(outer, window)) continue;
+    const piece = clipRingToRect(outer, window);
+    if (piece.length < 3) continue;
+    const area = ringArea(piece);
+    if (area <= 0) continue;
+    const clippedHoles = holes
+      .map((h) => clipRingToRect(h, window))
+      .filter((h) => h.length >= 3);
+    const p = polylabel([piece, ...clippedHoles], precision);
+    if (!(p.distance > 0) || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) continue;
+    poles.push({ x: p[0], y: p[1], area, piece: [piece, ...clippedHoles] });
+  }
+  const d2 = (p: Pole) => (p.x - near[0]) ** 2 + (p.y - near[1]) ** 2;
+  return poles.sort((a, b) => {
+    const aBig = a.area >= minArea;
+    const bBig = b.area >= minArea;
+    if (aBig !== bBig) return aBig ? -1 : 1;
+    return d2(a) - d2(b);
+  });
+}
+
+export function pinOffFrameLabels(
+  visible: readonly Label[],
+  args: {
+    // The part of the projection currently on screen, in projection units.
+    frame: Rect;
+    k: number;
+    em?: number;
+    // The reveal set — answer, wrong click and neighbours. Drawn at their
+    // anchor, these are fixed and a pinned label yields to them.
+    isReveal: (numericId: string) => boolean;
+    // The subset that may move: the neighbours and the wrong click. The
+    // answer is always in frame by construction and never moves.
+    mayPin: (numericId: string) => boolean;
+    // The answer's anchor; the piece nearest it is labelled first.
+    near: readonly [number, number];
+    // Every projected polygon of a country, for the clip.
+    polygonsOf: (numericId: string) => readonly Polygon[];
+  },
+): PlacedLabel[] {
+  const { frame, k, em = LABEL_EM, isReveal, mayPin, near, polygonsOf } = args;
+  const fontSize = fontSizeFor(k, em);
+  const pad = fontSize * COLLISION_PADDING;
+  const halfH = fontSize / 2 + pad;
+  const halfWOf = (l: Label) => (l.name.length * fontSize * GLYPH_W_RATIO) / 2 + pad;
+  const rectAt = (l: Label, x: number, y: number): Rect => {
+    const halfW = halfWOf(l);
+    return { x0: x - halfW, y0: y - halfH, x1: x + halfW, y1: y + halfH };
+  };
+  // The frame inset by the label's own extent: a label whose anchor is inside
+  // this window is wholly on screen and stays put; one outside it is moved.
+  // Testing the whole rect rather than the anchor point keeps the handoff
+  // continuous — otherwise a label half off screen would sit at its anchor
+  // and jump tens of pixels on a sub-pixel pan.
+  const windowFor = (l: Label): Rect => {
+    const halfW = halfWOf(l);
+    return {
+      x0: frame.x0 + halfW,
+      y0: frame.y0 + halfH,
+      x1: frame.x1 - halfW,
+      y1: frame.y1 - halfH,
+    };
+  };
+  const within = (l: Label, w: Rect) => l.cx >= w.x0 && l.cx <= w.x1 && l.cy >= w.y0 && l.cy <= w.y1;
+
+  const anchoredReveal: PlacedLabel[] = [];
+  const ambient: PlacedLabel[] = [];
+  const toPin: Label[] = [];
+  for (const l of visible) {
+    if (!isReveal(l.numericId)) ambient.push({ label: l, x: l.cx, y: l.cy, pinned: false });
+    else if (!mayPin(l.numericId) || within(l, windowFor(l)))
+      anchoredReveal.push({ label: l, x: l.cx, y: l.cy, pinned: false });
+    else toPin.push(l);
+  }
+  if (toPin.length === 0) return [...anchoredReveal, ...ambient];
+
+  const fixed: Rect[] = anchoredReveal.map((p) => rectAt(p.label, p.x, p.y));
+  const pinned: PlacedLabel[] = [];
+  const pinnedRects: Rect[] = [];
+  toPin.sort((a, b) => b.area - a.area);
+  for (const l of toPin) {
+    // A window narrower than the label (an extreme pinch) has no room.
+    const window = windowFor(l);
+    if (window.x0 >= window.x1 || window.y0 >= window.y1) continue;
+    const labelArea = 2 * halfWOf(l) * 2 * halfH;
+    for (const pole of visiblePoles(polygonsOf(l.numericId), window, near, labelArea)) {
+      const at = settle(l, pole, fixed, window, rectAt, halfH);
+      if (!at) continue;
+      const [x, y] = at;
+      const rect = rectAt(l, x, y);
+      fixed.push(rect);
+      pinnedRects.push(rect);
+      pinned.push({ label: l, x, y, pinned: true });
+      break;
+    }
+  }
+  const keptAmbient = ambient.filter(
+    (p) => !pinnedRects.some((r) => rectsOverlap(r, rectAt(p.label, p.x, p.y))),
+  );
+  return [...anchoredReveal, ...pinned, ...keptAmbient];
+}
+
+// A pole whose label rect collides with a fixed label is nudged by the
+// smallest vector that separates the two, a few times if need be, as long
+// as it moves no further than one label height in total and the point is
+// still on the piece and inside the window. Poles land a hair under a
+// neighbouring label often enough (Russia's mainland pole against Belarus's
+// label, by a tenth of a unit, on a phone) that giving up at first contact
+// would drop the label in exactly the cases it exists for.
+function settle(
+  l: Label,
+  pole: Pole,
+  fixed: readonly Rect[],
+  window: Rect,
+  rectAt: (l: Label, x: number, y: number) => Rect,
+  limit: number,
+): [number, number] | null {
+  let x = pole.x;
+  let y = pole.y;
+  for (let step = 0; step < 4; step++) {
+    const rect = rectAt(l, x, y);
+    const hit = fixed.find((r) => rectsOverlap(r, rect));
+    if (!hit) {
+      const moved = Math.hypot(x - pole.x, y - pole.y);
+      const inWindow = x >= window.x0 && x <= window.x1 && y >= window.y0 && y <= window.y1;
+      return moved <= 2 * limit && inWindow && pointInPolygon([x, y], pole.piece) ? [x, y] : null;
+    }
+    // Minimal translation out of `hit`, along whichever axis is cheaper.
+    const dxLeft = hit.x0 - rect.x1;
+    const dxRight = hit.x1 - rect.x0;
+    const dyUp = hit.y0 - rect.y1;
+    const dyDown = hit.y1 - rect.y0;
+    const dx = Math.abs(dxLeft) < Math.abs(dxRight) ? dxLeft : dxRight;
+    const dy = Math.abs(dyUp) < Math.abs(dyDown) ? dyUp : dyDown;
+    const eps = 1e-3;
+    if (Math.abs(dx) < Math.abs(dy)) x += dx + Math.sign(dx) * eps;
+    else y += dy + Math.sign(dy) * eps;
+  }
+  return null;
 }

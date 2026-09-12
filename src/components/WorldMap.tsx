@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { geoEqualEarth, geoGraticule10, geoPath, geoStream } from "d3-geo";
+import { geoGraticule10 } from "d3-geo";
 import { select } from "d3-selection";
 import {
   zoom as d3zoom,
@@ -9,14 +9,18 @@ import {
   type ZoomTransform,
 } from "d3-zoom";
 import "d3-transition";
-import { feature } from "topojson-client";
-import type { Feature, FeatureCollection, Geometry } from "geojson";
-import polylabel from "polylabel";
-import type { Topology } from "topojson-specification";
-import topologyJson from "../data/world-110m.json";
 import countriesData from "../data/countries.json";
 import { ALL_CONTINENTS, type Continent, type Country, type Feedback, type QuestionMode, type Subregion } from "../types";
 import { isClickMode } from "../game/questionModes";
+import {
+  LABELS,
+  LABELS_BY_NUMERIC,
+  POLYGONS_BY_NUMERIC,
+  collection,
+  numericIdFor,
+  pathGen,
+  projection,
+} from "./mapGeometry";
 import {
   W,
   H,
@@ -34,6 +38,7 @@ import {
   LABEL_EM,
   TARGET_LABEL_PX,
   computeVisibleLabels,
+  pinOffFrameLabels,
   fontSizeFor,
   type Label,
   type Rect,
@@ -51,25 +56,6 @@ import {
 } from "./smallTargets";
 import { isCoarsePointer, loadSeenPinchHint, saveSeenPinchHint } from "./pinchHint";
 
-const topology = topologyJson as unknown as Topology;
-
-// Identifier wiring only — for partially-recognized territories whose
-// topology features have no ISO numeric id, the build script assigns a
-// synthetic numeric and records the matching topology `properties.name`
-// here. We read it once at module load so PATHS/LABELS can use the
-// synthetic id uniformly. WorldMap deliberately does not consume any
-// game data (names/aliases/continents) from countries.json.
-const SYNTHETIC_NUMERIC_BY_TOPO_NAME = new Map<string, string>(
-  (countriesData as Country[])
-    .filter((c) => c.topoName)
-    .map((c) => [c.topoName as string, c.numeric]),
-);
-
-function numericIdFor(f: Feature<Geometry, { name?: string }>): string | null {
-  if (typeof f.id === "string") return f.id;
-  const name = f.properties?.name;
-  return (name && SYNTHETIC_NUMERIC_BY_TOPO_NAME.get(name)) ?? null;
-}
 
 function prefersReducedMotion(): boolean {
   return (
@@ -105,6 +91,8 @@ const BADGE_LIFT_Y = 18;
 const PINCH_HINT_SETTLE_MS = 800;
 const PINCH_HINT_MS = 5000;
 
+const NO_POLYGONS: readonly [number, number][][][] = [];
+
 type HitDisc = { numericId: string; iso3: string; cx: number; cy: number; r: number };
 
 // Ocean labels: target on-screen size scales linearly with rendered SVG
@@ -138,12 +126,6 @@ const PATH_TRANSITION = {
   transition: "fill 200ms ease, stroke 200ms ease, filter 100ms ease",
 } as const;
 
-const collection = feature(
-  topology,
-  topology.objects.countries,
-) as unknown as FeatureCollection<Geometry, { name?: string }>;
-const projection = geoEqualEarth().fitSize([W, H], collection);
-const pathGen = geoPath(projection);
 
 type PathItem = {
   key: string;
@@ -168,81 +150,6 @@ const PATHS: PathItem[] = collection.features.map((f, i) => {
 // country paths; scales with the zoom-transform group so it stays
 // geographically anchored.
 const GRATICULE_D = pathGen(geoGraticule10()) ?? "";
-
-type ProjRing = [number, number][];
-
-function ringArea(ring: ProjRing): number {
-  let a = 0;
-  const n = ring.length;
-  for (let i = 0; i < n; i++) {
-    const [x1, y1] = ring[i];
-    const [x2, y2] = ring[(i + 1) % n];
-    a += x1 * y2 - x2 * y1;
-  }
-  return Math.abs(a) / 2;
-}
-
-function ringBounds(
-  ring: ProjRing,
-): { x0: number; x1: number; y0: number; y1: number } {
-  let xMin = Infinity;
-  let yMin = Infinity;
-  let xMax = -Infinity;
-  let yMax = -Infinity;
-  for (const [x, y] of ring) {
-    if (x < xMin) xMin = x;
-    if (y < yMin) yMin = y;
-    if (x > xMax) xMax = x;
-    if (y > yMax) yMax = y;
-  }
-  return { x0: xMin, x1: xMax, y0: yMin, y1: yMax };
-}
-
-// Stream the feature through the projection so antimeridian clipping (and
-// any other projection-level clipping) happens before we see points;
-// otherwise rings spanning ±180° (Fiji, Russia, Antarctica) project as a
-// stripe across the whole map and polylabel lands in the ocean.
-//
-// Across all clipped rings, pick the largest by area as the country's
-// "main" landmass — that's where the label belongs (continental US, not
-// Alaska; mainland Russia, not Chukotka). Holes are ignored: at 110m
-// resolution real holes are rare, and antimeridian splits emit disjoint
-// pieces as multiple rings of one polygon, so a strict outer/hole reading
-// wouldn't be reliable anyway.
-function pickLargestRing(
-  feat: Feature<Geometry>,
-): { ring: ProjRing; area: number } | null {
-  let best: ProjRing | null = null;
-  let bestArea = 0;
-  let curRing: ProjRing | null = null;
-  geoStream(
-    feat,
-    projection.stream({
-      polygonStart() {},
-      polygonEnd() {},
-      lineStart() {
-        curRing = [];
-      },
-      lineEnd() {
-        if (curRing && curRing.length >= 3) {
-          const a = ringArea(curRing);
-          if (a > bestArea) {
-            best = curRing;
-            bestArea = a;
-          }
-        }
-        curRing = null;
-      },
-      point(x: number, y: number) {
-        if (curRing && Number.isFinite(x) && Number.isFinite(y)) {
-          curRing.push([x, y]);
-        }
-      },
-      sphere() {},
-    }),
-  );
-  return best ? { ring: best, area: bestArea } : null;
-}
 
 // Two-line labels — qualifier above "Ocean" — keep label width narrow
 // enough that adjacent oceans don't overlap on a 375px-wide phone.
@@ -285,27 +192,6 @@ const OCEAN_LABELS: { qualifier: string; cx: number; cy: number }[] =
     return p ? [{ qualifier: o.qualifier, cx: p[0], cy: p[1] }] : [];
   });
 
-const LABELS: Label[] = [];
-for (const f of collection.features) {
-  const numericId = numericIdFor(f);
-  if (!numericId) continue;
-  const name = f.properties?.name;
-  if (!name) continue;
-  const result = pickLargestRing(f);
-  if (!result) continue;
-  const { ring, area } = result;
-  // Pole of inaccessibility — point inside the polygon furthest from any
-  // edge. Beats centroid for concave shapes (e.g. Croatia's crescent
-  // around Bosnia would land outside the country with a centroid).
-  const [cx, cy] = polylabel([ring], 1.0);
-  if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
-  const { x0, x1, y0, y1 } = ringBounds(ring);
-  LABELS.push({ numericId, name, cx, cy, x0, x1, y0, y1, area });
-}
-
-const LABELS_BY_NUMERIC = new Map<string, Label>(
-  LABELS.map((l) => [l.numericId, l]),
-);
 
 // Full projected bounds (all rings) per country, keyed by numeric. Unlike
 // LABELS (largest ring only), this covers every drawn island — used to gate
@@ -799,7 +685,7 @@ export function WorldMap({
     if (revealWrongIso3) set.add(revealWrongIso3);
     // M2: neighbors of the correct country bypass scope, fit-check, and
     // obstacle rejection so the spatial-name binding completes — without
-    // labels the muted-blue fill alone doesn't tell you which country is
+    // labels the neighbour fill alone doesn't tell you which country is
     // which.
     for (const iso3 of correctNeighborIso3s) set.add(iso3);
     return set;
@@ -890,6 +776,59 @@ export function WorldMap({
       oceanObstacles,
     ],
   );
+  // R3.3a: a neighbour (or wrong-click) label whose anchor is outside the
+  // frame is moved onto the part of that country that is on screen. Re-runs on every zoom frame
+  // — it needs the full transform, not just k, so it sits outside the
+  // collision memo above.
+  const answerAnchor = useMemo<readonly [number, number]>(() => {
+    const numeric = revealCorrectIso3 ? numericFromIso3(revealCorrectIso3) : undefined;
+    const l = numeric ? LABELS_BY_NUMERIC.get(numeric) : undefined;
+    return l ? [l.cx, l.cy] : [W / 2, H / 2];
+  }, [revealCorrectIso3, numericFromIso3]);
+  const placedLabels = useMemo(() => {
+    if (visibleLabels.length === 0) return [];
+    const { x, y, k } = transform;
+    // The visible part of the projection. With preserveAspectRatio "meet" a
+    // container that is not 2:1 shows more than the viewBox — a portrait
+    // phone shows land above and below the band — so the frame is the
+    // measured SVG size in projection units, centred on the viewBox, and the
+    // viewBox itself until the resize observer has reported.
+    const vw = effectiveScale > 0 ? svgSize.width / effectiveScale : W;
+    const vh = effectiveScale > 0 ? svgSize.height / effectiveScale : H;
+    const sx0 = W / 2 - vw / 2;
+    const sy0 = H / 2 - vh / 2;
+    return pinOffFrameLabels(visibleLabels, {
+      frame: {
+        x0: (sx0 - x) / k,
+        y0: (sy0 - y) / k,
+        x1: (sx0 + vw - x) / k,
+        y1: (sy0 + vh - y) / k,
+      },
+      k,
+      em: labelEm,
+      isReveal: (numericId) => {
+        const iso3 = isoFromNumeric(numericId);
+        return iso3 !== undefined && revealIso3s.has(iso3);
+      },
+      mayPin: (numericId) => {
+        const iso3 = isoFromNumeric(numericId);
+        return iso3 !== undefined && (neighborSet.has(iso3) || iso3 === revealWrongIso3);
+      },
+      near: answerAnchor,
+      polygonsOf: (numericId) => POLYGONS_BY_NUMERIC.get(numericId) ?? NO_POLYGONS,
+    });
+  }, [
+    visibleLabels,
+    transform,
+    labelEm,
+    isoFromNumeric,
+    revealIso3s,
+    neighborSet,
+    revealWrongIso3,
+    answerAnchor,
+    effectiveScale,
+    svgSize,
+  ]);
 
   // Project the reveal capital once per change; the projection itself is
   // module-level and never moves, so this only runs when the answer flips.
@@ -1192,11 +1131,12 @@ export function WorldMap({
               </text>
             ))}
           </g>
-          {visibleLabels.map((l) => (
+          {placedLabels.map(({ label: l, x, y, pinned }) => (
             <text
               key={l.numericId}
-              x={l.cx}
-              y={l.cy}
+              x={x}
+              y={y}
+              data-pinned={pinned || undefined}
               fontSize={labelFontSize}
               textAnchor="middle"
               dominantBaseline="middle"

@@ -90,7 +90,7 @@ describe("fillFor — precedence", () => {
     ).toBe(LIGHT_PALETTE.wrong);
   });
 
-  it("neighbor that is not the wrong-clicked country gets neighbor blue", () => {
+  it("neighbor that is not the wrong-clicked country gets the neighbor cue", () => {
     expect(
       fillFor(
         {
@@ -105,7 +105,7 @@ describe("fillFor — precedence", () => {
     ).toBe(LIGHT_PALETTE.neighbor);
   });
 
-  it("neighbor blue overrides highlight during feedback", () => {
+  it("neighbor cue overrides highlight during feedback", () => {
     expect(
       fillFor(
         {
@@ -385,7 +385,7 @@ const LIGHT: Palette = {
   correct: "#5d7e3e", // --color-sap-green
   wrong: "#b66556", // --color-vermillion-faded
   skipped: "#9a7a2a",
-  neighbor: "#c5b791",
+  neighbor: "#5a7d77",
   spotlight: "#dcb45a",
   border: "#2b1f12",
   borderInverse: "#f0e2c4",
@@ -401,7 +401,7 @@ const DARK: Palette = {
   correct: "#7d9a4c",
   wrong: "#a64634",
   skipped: "#c69a36",
-  neighbor: "#8a7a4a",
+  neighbor: "#6ea8a0",
   spotlight: "#8a6a2a",
   border: "#7a6440",
   borderInverse: "#14100a",
@@ -504,4 +504,28 @@ describe("strokeFor — the engraved line", () => {
   it("reads a three-digit hex", () => {
     expect(contrastRatio("#fff", "#ffffff")).toBe(1);
   });
+});
+
+describe("the neighbour cue against the ambient paint (R3.3a)", () => {
+  // Every fill a neighbour can sit beside at rest: the whole mastery ramp
+  // (the introduced wash is only collapsed in name-to-click), the inert
+  // fill, the spotlight.
+  // The reveal's own fills (correct, wrong, skipped) are left out on purpose:
+  // no tone clears both them and the ramp by luminance, and against them the
+  // cue is carried by the frame and the label, not the fill alone.
+  // The old warm tone scored 1.02 here in light, the same paint as a known
+  // country. Not a WCAG figure — fills, not text — but a floor that keeps a
+  // retune from sliding back into the ramp.
+  const NEIGHBOR_MIN_CONTRAST = 1.5;
+  const AMBIENT = ["masteryUnseen", "masterySeen", "masteryKnown", "inert", "spotlight"] as const;
+  for (const [name, palette] of [["light", LIGHT], ["dark", DARK]] as const) {
+    it(`stays clear of every ambient fill in ${name}`, () => {
+      for (const key of AMBIENT) {
+        expect(
+          contrastRatio(palette.neighbor, palette[key]),
+          `neighbor vs ${key}`,
+        ).toBeGreaterThanOrEqual(NEIGHBOR_MIN_CONTRAST);
+      }
+    });
+  }
 });

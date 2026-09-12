@@ -56,12 +56,18 @@
   --color-vermillion-faded: #b66556; /* wrong-clicked country fill */
   --color-wax-red: #7e1d1d;
   --color-ochre: #b08327;
+  /* Also the miss-reveal neighbour fill, aliased in fillFor's PALETTE_TOKENS
+     (R3.3a): a warm tone there sat at 1.0–1.4 contrast against the mastery
+     ramp, so a neighbour read as a known country. Teal separates from every
+     ambient fill by luminance as well as hue, and its hue sits on the
+     blue–yellow axis that red–green-deficient viewers keep. Against the
+     answer's green it relies on hue alone; that country is framed and
+     labelled, so the fill is not carrying the cue by itself. */
   --color-teal-engraving: #5a7d77;
 
   /* Map states */
   --color-sap-green: #5d7e3e; /* correct country fill — muted period green */
   --color-skipped: #9a7a2a; /* skipped country fill */
-  --color-neighbor: #c5b791; /* miss-reveal neighbor cue */
 
   /* Ambient mastery paint (R2.1) — what the learner has taken of the world,
      always on beneath every other map state, and the only fill an in-scope
@@ -134,7 +140,6 @@
   /* Map states */
   --color-sap-green: #7d9a4c; /* same period foliage, brightened for legibility */
   --color-skipped: #c69a36; /* amber, ochre family */
-  --color-neighbor: #8a7a4a; /* warm muted ink — NOT cool blue */
 
   /* Ambient mastery paint — same progression against the dark ocean. Dark
      needs a wider ramp than light: unseen has to clear --color-parchment-shadow

@@ -37,7 +37,7 @@ const PALETTE_TOKENS: Record<keyof Palette, string> = {
   correct: "--color-sap-green",
   wrong: "--color-vermillion-faded",
   skipped: "--color-skipped",
-  neighbor: "--color-neighbor",
+  neighbor: "--color-teal-engraving", // see the token's comment in index.css
   spotlight: "--color-spotlight",
   border: "--color-map-border",
   borderInverse: "--color-map-border-inverse",
