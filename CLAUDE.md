@@ -379,8 +379,24 @@ key existed is frozen at zero instead, and the Data view omits the row, because
 a backfilled figure would be a later session wearing the first one's label.
 
 `cardsAnswered` counts every answer whose grade reaches the store, not only a
-dismissed card: `endSession` and `applyScope` can close a card's feedback
-without going through `withRoundAdvance`, and those answers still happened.
+dismissed card: `endSession`, `applyScope` and `startExpedition` can close a
+card's feedback without going through `withRoundAdvance`, and those answers
+still happened. The one exception is a **question-mode switch**, where the hook
+calls `recordAnswer` itself against the mode the answer was given in — the
+counters effect reads `modeRef`, which already holds the new mode by then, so
+bumping `cardsAnswered` in the reducer as well would count the answer twice.
+
+**A card closed on the way out still belongs to its round.** `closeCardIntoRound`
+is the shared path for the two cases that close a card's feedback and then
+*carry on in the same round* — a scope change and a question-mode switch. It
+commits any deferred Study grade and runs `withRoundAdvance`, so the card lands
+in `roundCards` / `roundRight` / `roundNew`. Without it a twelve-card round
+quietly needed thirteen answers and the round break's "N right" was short by
+one. It leaves `cardsAnswered` alone (see above) and no-ops for an expedition,
+which takes every credit at answer time. `endSession` and `startExpedition`
+also commit a grade, but the round ends with them, so they only count the
+answer and leave the round where it stopped.
+
 `resetSrs` restarts the round (`FRESH_ROUND`, `cardsAnswered: 0`) — a round left
 standing would carry on to a finish the emptied counters never saw begin, and
 the Data view would read "2 of 1".
