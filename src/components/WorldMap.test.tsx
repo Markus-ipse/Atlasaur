@@ -5,6 +5,8 @@ import { WorldMap } from "./WorldMap";
 import type { Palette } from "./fillFor";
 import { ALL_CONTINENTS, type Continent, type Feedback } from "../types";
 import type { MasteryTier } from "../game/srs";
+import { LABELS_BY_NUMERIC, polygonsFor } from "./mapGeometry";
+import { pointInPolygon } from "./polygon";
 
 const PALETTE: Palette = {
   masteryUnseen: "#unseen",
@@ -500,5 +502,56 @@ describe("WorldMap — ambient mastery paint", () => {
       />,
     );
     expect(franceFill(container)).toBe(PALETTE.masteryKnown);
+  });
+});
+
+describe("WorldMap — off-frame neighbour labels (R3.3a)", () => {
+  afterEach(cleanup);
+
+  // Estonia and Russia: the canonical case. Russia is Estonia's neighbour, so
+  // it is painted and labelled on an Estonia reveal, but computeRevealTarget
+  // drops it from the frame and its label anchor sits in Siberia.
+  const IDS: Record<string, string> = { EST: "233", RUS: "643" };
+  const isoOf = new Map(Object.entries(IDS).map(([iso3, n]) => [n, iso3]));
+  const props = {
+    ...BASE_PROPS,
+    isoFromNumeric: (n: string) => isoOf.get(n),
+    numericFromIso3: (iso3: string) => IDS[iso3],
+    // Europe without Russia, so the resting frame already excludes the
+    // Siberian anchor — the reveal zoom itself does not run under jsdom.
+    selectedContinents: ["Europe"] as Continent[],
+    isInScope: (iso3: string) => iso3 !== "RUS",
+    correctNeighborIso3s: ["RUS"],
+    revealCapitalLonLat: null,
+  };
+  const MISS: Feedback = { kind: "skipped", answerIso3: "", correctIso3: "EST" };
+
+  function labelText(container: HTMLElement, name: string) {
+    return Array.from(container.querySelectorAll<SVGTextElement>("text")).find(
+      (t) => t.textContent === name,
+    );
+  }
+
+  it("moves the neighbour's label onto its visible land and leaves the answer at its anchor", () => {
+    const { container } = render(<WorldMap {...props} feedback={MISS} />);
+    const russia = labelText(container, "Russia")!;
+    const estonia = labelText(container, "Estonia")!;
+    expect(russia.getAttribute("data-pinned")).toBe("true");
+    expect(estonia.getAttribute("data-pinned")).toBeNull();
+    const at = (t: SVGTextElement): [number, number] => [
+      Number(t.getAttribute("x")),
+      Number(t.getAttribute("y")),
+    ];
+    const rusAnchor = LABELS_BY_NUMERIC.get(IDS.RUS)!;
+    const [rx, ry] = at(russia);
+    expect([rx, ry]).not.toEqual([rusAnchor.cx, rusAnchor.cy]);
+    expect(polygonsFor(IDS.RUS).some((poly) => pointInPolygon([rx, ry], poly))).toBe(true);
+    const estAnchor = LABELS_BY_NUMERIC.get(IDS.EST)!;
+    expect(at(estonia)).toEqual([estAnchor.cx, estAnchor.cy]);
+  });
+
+  it("draws no labels at all when nothing is being revealed", () => {
+    const { container } = render(<WorldMap {...props} feedback={null} />);
+    expect(labelText(container, "Russia")).toBeUndefined();
   });
 });

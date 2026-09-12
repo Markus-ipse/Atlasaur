@@ -32,13 +32,12 @@ Resolved in **[`m2-capital-decisions.md`](./m2-capital-decisions.md)**:
 
 ### Color contrast of `COLOR_NEIGHBOR`
 
-`#bfdbfe` (blue-200) vs `#cbd5e1` (slate-300, default) differentiate by
-hue rather than lightness — visible to most users, potentially hard for
-some red-green deficient viewers. Inherits the existing pale-on-pale
-problem with `COLOR_INERT`/`COLOR_DEFAULT`, doesn't introduce a new one.
-Worth investigating only as part of a broader palette accessibility pass;
-swapping to blue-300 (`#93c5fd`) would conflict perceptually with the
-shape-to-name `COLOR_HIGHLIGHT` (blue-500 `#3b82f6`) so isn't a drop-in.
+**Closed by R3.3a (2026-09-12).** The Tailwind blues this note was written
+against were replaced by a warm ochre in the period palette, and R2.1's
+mastery paint then put that ochre at 1.0–1.4 contrast against every ambient
+fill in light theme — a neighbour was the same paint as a known country.
+The neighbour fill is now the teal-engraving pigment in both themes (min
+1.87 against the ambient fills), and `fillFor.test.ts` pins a floor.
 
 ### Smarter cascade for high-neighbor countries
 

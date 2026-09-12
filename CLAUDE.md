@@ -115,7 +115,7 @@ Per-entry fields in the `COUNTRIES` table:
 - **`neighborsOverride`** — escape hatch when the topology's adjacency doesn't match what learners expect. No entries currently use it. The old France/Brazil/Suriname overrides existed to suppress France↔Brazil/Suriname adjacencies inferred via French Guiana — fixed at the topology layer now (see `build-topology.mjs`). If an override is needed in the future, both sides must be overridden for symmetric pairs.
 - **`topoName`** — only for partially-recognized territories without an ISO numeric (see below).
 
-Partially-recognized territories (Kosovo, N. Cyprus, Somaliland) have no official ISO 3166-1 numeric and ship in the topology without a `feature.id`. They're keyed in the table by a synthetic numeric in the ISO-reserved 900–999 user-assigned range and an alpha-3 in the user-assigned `XAA–XZZ` range, with a `topoName` field that names the topology feature to match (`properties.name`). The build script enforces: synthetic numerics must be in 900–999, `topoName` must resolve to a real topology feature, no entry can have both a real numeric AND a `topoName`, and iso3s must be unique. `WorldMap.tsx` reads `countries.json` only at module load to wire the synthetic numeric onto these features (via `numericIdFor`); no game data flows from `countries.json` into the map otherwise.
+Partially-recognized territories (Kosovo, N. Cyprus, Somaliland) have no official ISO 3166-1 numeric and ship in the topology without a `feature.id`. They're keyed in the table by a synthetic numeric in the ISO-reserved 900–999 user-assigned range and an alpha-3 in the user-assigned `XAA–XZZ` range, with a `topoName` field that names the topology feature to match (`properties.name`). The build script enforces: synthetic numerics must be in 900–999, `topoName` must resolve to a real topology feature, no entry can have both a real numeric AND a `topoName`, and iso3s must be unique. `mapGeometry.ts` reads `countries.json` only at module load to wire the synthetic numeric onto these features (via `numericIdFor`); no game data flows from `countries.json` into the map otherwise.
 
 The build script also validates: `capital` is non-empty string or `null`; `capitalLonLat` is a `[lon, lat]` tuple with `lon ∈ [-180, 180]` and `lat ∈ [-90, 90]` when `capital !== null`, and unset when `capital === null`; `subregion` ∈ `VALID_SUBREGIONS`; `landAreaKm2` > 0; `notabilityTier` ∈ {0, 1, 2}; every iso3 in `neighbors`/`neighborsOverride` resolves to a matched entry. Neighbor symmetry is checked as a warning (not fatal) — asymmetric pairs typically indicate an intentional override or a topology arc quirk worth a comment.
 
@@ -189,14 +189,43 @@ settles (a lower `k`); a stage-1 frame of two adjacent small countries can now
 be tighter than the widened final frame, which would zoom in and then straight
 back out, so stage 1 is skipped in that case.
 
-This is the survey's last open bug, a neighbour label landing off screen on a
-tight reveal. It is **reduced, not closed**: countries with at least one
-neighbour label anchor outside the final frame go from 36 to 26. The remainder
-are answers next to a giant neighbour (Denmark and Germany, the Baltics and
-Russia), where `computeRevealTarget` drops that neighbour from the frame on
-purpose while `revealIso3s` still labels it. Framing it would collapse the
-answer to a speck, so closing the gap means changing what gets labelled, not
-what gets framed.
+The survey's last reveal bug, a neighbour label landing off screen on a
+tight reveal, was reduced by this to 26 countries and closed by R3.3a.
+Those 26 are all answers next to a giant neighbour (Denmark and Germany,
+the Baltics and Russia), where `computeRevealTarget` drops that neighbour
+from the frame on purpose while `revealIso3s` still labels it. Framing it
+would collapse the answer to a speck, so the fix changes what gets labelled,
+not what gets framed: `pinOffFrameLabels` in `labelLayout.ts` moves a
+neighbour label whose rect would not be wholly on screen onto **the part of
+that neighbour that is** — its polygons clipped to the frame (inset by the
+label's own extent), the label at the pole of inaccessibility of the visible
+piece nearest the answer, the one that touches it (Kaliningrad on a Poland
+reveal, not Novaya Zemlya) — and drops it when no piece is visible. **Not
+the frame edge nearest the anchor**, which the plan proposed and the PR
+disproved: for Azerbaijan that corner is across the Caspian, over
+Kazakhstan, and a pinned label looks exactly like an anchored one. Holes are
+honoured (Lesotho is the one in this topology); the labels that carry the
+reveal are subtracted from the visible land before the pole is searched, so
+a pinned label is clear of them by construction; a piece with no room for
+the label yields to one with room; a pole polylabel could not place is
+rejected.
+The wrong click may move too, under the same own-land rule — Sweden clicked
+for Denmark is named where it shows, Spain clicked for New Caledonia is not
+on screen and gets no label. A pinned label yields to every label drawn at
+its anchor that carries the reveal and is dropped rather than cover one; it
+wins over an ambient in-scope label. It runs per zoom frame, outside the
+collision memo, because it needs the whole transform and the measured
+viewport (a portrait phone shows land above and below the 2:1 viewBox);
+polygons whose bounds miss the frame are rejected before the clip. The
+label can hop between pieces while the reveal animates, which is accepted.
+`revealSurvey.test.ts` pins the 26 by name against the real table, at
+desktop and phone label sizes, and that every one is placed inside the
+frame and on its own land with none dropped — for the world resting frame;
+a continent filter floors the pull-back higher and is not surveyed. The
+geometry it needs lives in `mapGeometry.ts` (the projection, `LABELS`, and
+`polygonsFor`, every projected polygon of a country, streamed on first use
+and cached rather than built for all at load) with the planar primitives in
+`polygon.ts`, so the test can import it without the component.
 
 The reveal-zoom effect auto-frames the correct country when feedback appears (kind ≠ "correct") and zooms back out when feedback clears. `computeRevealTarget` in `src/components/revealZoom.ts` takes the answer country, optionally a wrong-clicked secondary, and optionally the answer country's neighbor bounds; it cascades the union (full → drop secondary → drop neighbors → bare primary), keeping `naturalK ≥ MIN_ZOOM` at each tier. Before the cascade, a giant neighbor is filtered out (when pairing it with the answer alone would drop the fit below `REVEAL_NEIGHBOR_K_FLOOR ×` the answer-alone fit — e.g. Russia next to Estonia) so the answer country stays visible; the dropped neighbor is still highlighted and labeled, just not framed. Both transitions honor `prefers-reduced-motion`.
 
@@ -374,7 +403,7 @@ Three affordances, all in `WorldMap.tsx` with the pure thresholds in `src/compon
 
 ### Miss-reveal elaborative encoding (M2)
 
-On wrong/skipped feedback, the map paints the correct country's land neighbors in a muted blue (`COLOR_NEIGHBOR`) and the `ControlZone` appends `Capital: X` and `Bordered by: Y, Z` lines below the correct-answer line. Both lines are conditional: the capital line is omitted when `state.current.capital === null` (Antarctica), the neighbors line is omitted when `state.current.neighbors.length === 0` (islands). The "Bordered by" list is sorted by display name at render time for natural reading order — `state.current.neighbors` itself stays iso3-sorted for stable JSON diffs.
+On wrong/skipped feedback, the map paints the correct country's land neighbors in the teal-engraving pigment (`palette.neighbor`, aliased to `--color-teal-engraving`; since R3.3a, because a warm tone was indistinguishable from the mastery paint — `fillFor.test.ts` pins a contrast floor against every ambient fill) and the `ControlZone` appends `Capital: X` and `Bordered by: Y, Z` lines below the correct-answer line. Both lines are conditional: the capital line is omitted when `state.current.capital === null` (Antarctica), the neighbors line is omitted when `state.current.neighbors.length === 0` (islands). The "Bordered by" list is sorted by display name at render time for natural reading order — `state.current.neighbors` itself stays iso3-sorted for stable JSON diffs.
 
 The data flows through `state.current` — no new `Feedback` field, no parallel lookup helper. `App.tsx` derives `correctNeighborIso3s` from `state.current.neighbors` (using a module-level `NO_NEIGHBORS` constant when feedback is null, so the WorldMap's `neighborSet` memo doesn't churn).
 
