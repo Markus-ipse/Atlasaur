@@ -1,10 +1,16 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   base: "./",
+  test: {
+    // See the file: from Node 22 on, an experimental `localStorage` global
+    // shadows jsdom's working one, and every test touching a persisted store
+    // dies in its beforeEach. This restores one when there isn't a usable one.
+    setupFiles: ["./src/test/localStorage.ts"],
+  },
   plugins: [
     react(),
     tailwindcss(),
