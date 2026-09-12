@@ -23,6 +23,13 @@ here is not a backlog — each item needs its own plan before it is built.
   local only, like the counters. A remediation attempt in a review pass is an
   observation even though it is deliberately not graded into FSRS again.
 
+## Question kinds
+
+- **"Which borders…"**, held from R3 on 2026-09-12 — see the Decisions in
+  `r3-variety-and-a-hook.md` for why. The version worth reviving is one that
+  tests a skill `location` does not: a specific neighbour asked for by clue
+  ("the one to Mongolia's north"), not any neighbour.
+
 ## Remediation
 
 - **Confusion pairs.** Notice when a learner repeatedly clicks one country

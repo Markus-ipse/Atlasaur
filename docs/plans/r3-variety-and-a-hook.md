@@ -20,14 +20,14 @@ loop.
 
 - [x] **R3.1 The Daily Expedition.** Ten countries seeded by the local date, the same ten for everyone, one attempt a day, Name → Click. Each miss gets the ordinary reveal, because the reveal is the teaching; there is no retry pass and no second go. The round ends on a result card: a row of ten ink-block glyphs, one per country in order, a caption with the date and the count, and a Share button that hands the row and the caption to `navigator.share` where it exists and to the clipboard otherwise, always as plain text. Reopening the app that day shows the result, not a replay. Reached from the Today card and the Study summary. Persisted under `atlasaur:expedition:v1`. This document committed.
 - [x] **R3.2 A record per fact, and the capital modes.** The SRS store goes to version 2 with one record per country *and fact* — `location`, `capital`, later `borders` and `flag` — and every existing version-1 record migrates to the `location` facet, so nobody loses a day of progress. Two new question modes grade the `capital` facet: *Capital → Click* ("Find the country whose capital is Lima") and *Country → Capital* (typed, accepting `capitalAlternates` through the same `normalize` matcher). The mode picker grows from two to four; the mastery paint keeps reading `location` only.
-- [ ] **R3.3 Which borders….** A fifth mode: "Tap a country that borders Mongolia." Any land neighbour is a correct answer; a wrong tap gets the existing neighbour reveal, which is exactly the elaboration this question needs. Grades the `borders` facet. Islands have no neighbours and are out of this mode's pool. Also carries release two's open follow-up (below): the neighbour label that lands off frame beside a giant neighbour.
-- [ ] **R3.4 Finish the world.** The island and micro-states the 110m topology does not carry — from Cabo Verde and Mauritius down to Singapore, and Bahrain, which is already in the COUNTRIES table and dropped by the topology intersection — via the 50m topology for the small features, or clickable point markers with the same iso3 plumbing; the PR decides after measuring the payload. Every entry new to the table gets the full row (capital, coordinates, subregion, tiers), so the modes from R3.2 and R3.3 cover it on arrival.
-- [ ] **R3.5 Flags.** A sixth question mode (the survey's "fourth", counting the two capital modes as one) with its own `flag` facet, after the location, capital and border questions above all exist and not before. Needs a licensing audit for the image assets and a decision on how a flag is drawn in an ink-and-wax app; both are questions for its own plan section, written when R3.1–R3.3 have shipped and the mode-mix counters say how much a fourth kind of question is wanted.
+- **R3.3 Which borders…** — *held, 2026-09-12.* A fifth mode: "Tap a country that borders Mongolia." Any land neighbour is a correct answer; a wrong tap gets the existing neighbour reveal. Grades the `borders` facet. Not dropped, but not built yet either, for the reasons under Decisions below: it mostly retests `location`, the miss reveal already teaches borders on every card, many-correct-answers is a new concept for every path that assumes one right answer, and the picker would grow to five kinds before the mode-mix counters can show whether the second kind is even found. Revisit after R3.4, with the capital counters in hand and a sharper design than "any neighbour is right". The two follow-ups it was carrying move to R3.3a.
+- [ ] **R3.3a The neighbour reveal, finished.** The two release-two follow-ups that were folded into R3.3, shipped on their own because they are bugs whatever happens to the mode. **(a)** The off-frame neighbour label: R2.3 left 26 countries whose neighbour label anchors outside the final reveal frame, all of them answers beside a giant neighbour that `computeRevealTarget` drops on purpose. Change what gets labelled, not what gets framed: a neighbour dropped from the frame is still painted but its label is pinned to the edge of the frame nearest its anchor, or dropped when even that would overlap the answer. **(b)** The neighbour blue's contrast, noted in `m2-followups.md`, checked against both themes and the mastery ramp.
+- [ ] **R3.4 Finish the world.** The island and micro-states the 110m topology does not carry — from Cabo Verde and Mauritius down to Singapore, and Bahrain, which is already in the COUNTRIES table and dropped by the topology intersection — via the 50m topology for the small features, or clickable point markers with the same iso3 plumbing; the PR decides after measuring the payload. Every entry new to the table gets the full row (capital, coordinates, subregion, tiers), so the modes from R3.2 cover it on arrival, and a later borders mode would too.
+- [ ] **R3.5 Flags.** A sixth question mode (the survey's "fourth", counting the two capital modes as one) with its own `flag` facet, after the location and capital questions above exist — and the borders question, if it is ever taken off hold — and not before. Needs a licensing audit for the image assets and a decision on how a flag is drawn in an ink-and-wax app; both are questions for its own plan section, written when R3.1, R3.2 and R3.4 have shipped and the mode-mix counters say how much a fourth kind of question is wanted.
 
 ## Also in this release (fold into the item that touches the code)
 
-- The last of the survey's reveal bugs. R2.3 left 26 countries whose neighbour label anchors outside the final frame, all of them answers beside a giant neighbour that `computeRevealTarget` excludes from the frame on purpose. The fix is to change what gets labelled, not what gets framed: a neighbour dropped from the frame is still painted but its label is pinned to the edge of the frame nearest its anchor, or dropped when even that would overlap the answer. Goes with R3.3, whose whole question is neighbours.
-- The neighbour blue's contrast, noted in `m2-followups.md`. R3.3 makes that colour carry a correct answer for the first time, so it is the moment to check it against both themes and the mastery ramp rather than leaving it as a later palette pass.
+- The last of the survey's reveal bugs and the neighbour blue's contrast — both now R3.3a above, since the mode they were folded into is on hold.
 - `roundsByPractice` and `answersByQuestionMode` in the counters grow with each round type and question mode as it lands, so the survey's "mode mix" figure is real from the day there is a choice.
 
 ## Order and dependencies
@@ -42,15 +42,18 @@ adding a parallel axis. Starting with the schema migration instead would delay t
 one item that brings a learner back tomorrow behind the one that is hardest to
 get right.
 
-R3.2 comes second and is the structural core of the rest. R3.3 and R3.5 grade
-facets that only exist once the store is per fact, and R3.4's new countries
+R3.2 comes second and is the structural core of the rest. R3.5, and R3.3 if
+it is revived, grade facets that only exist once the store is per fact, and R3.4's new countries
 should arrive into a store that already has a place for their capitals. R3.2
 lands as one PR — migration and the two capital modes together — because a
 migration with nothing reading the new facet is a change nobody can verify in
 the app.
 
-R3.3 follows R3.2 directly. It is small, it reuses the M2 neighbour data and
-reveal without new metadata, and it closes the last open bug from the survey.
+R3.3 was to follow R3.2 directly, on the argument that it is small and reuses
+the M2 neighbour data. That is a cost argument, not a value one, and on
+2026-09-12 it was put on hold (see Decisions). R3.3a — the two reveal
+follow-ups it was carrying — goes next instead, as a small PR with no new
+mode in it.
 
 R3.4 is independent of the modes in code, but goes after them so the new
 entries land with every fact filled in once rather than being backfilled twice.
@@ -74,6 +77,7 @@ Written before the code, to be amended by the PR that proves them wrong.
 - **`location` is one fact, whichever way it is asked.** Name → Click and Shape → Name both test whether the learner can connect a country's name to its place on the map, so both keep grading the `location` facet after the split. Splitting them would halve the history every existing learner has built, for no fact they do not already share.
 - **The map paints `location` only.** Knowing a capital is not having a country on your map. If a second layer of paint is ever wanted for capitals it is a separate decision, and probably a separate view; the ambient paint stays a single fact so that it stays legible.
 - **No multiple choice, including in "Which borders…".** The temptation is to offer four names. The map is the answer sheet: the learner taps a neighbour, and every neighbour is right. Recall, not recognition.
+- **"Which borders…" is held, not built (2026-09-12).** The survey gave it one line, bundled with the capital modes, and the tracker's case for it was that it is cheap. Against it: once the learner can find Mongolia, tapping Russia or China is the easy half, so the `borders` facet would largely track `location`; the M2 reveal already paints and labels every neighbour on every miss, so the fact is taught without a mode; "any of several answers is right" is a new concept for the reducer, the correct flash, the reveal, the milestone check and the expedition, all of which assume one; islands and thin continents (Oceania) leave the pool near empty; and PR #43 exists because the capital modes were not being found from inside the gear — a fifth kind before the second is discovered is more choice, not more play. The R3.5 rule, wait for the mode-mix counters before adding a question kind, applies here too. If revived, prefer a design that is a distinct skill from location — a specific neighbour asked for by clue, say — over "any neighbour".
 
 Taken by R3.2, in the code:
 
