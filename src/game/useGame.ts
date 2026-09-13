@@ -350,6 +350,15 @@ export type State = {
   roundDone: boolean;
   // Rounds finished this session. The unit R1.3's cross-day streak counts.
   roundsCompleted: number;
+  // The sitting: every card since the last summary closed (or the load), as
+  // the Study summary reports it. Advanced wherever a round is, plus a card
+  // "Done" closes mid-reveal; carried across round breaks, question-mode
+  // switches and scope changes; reset wherever a fresh stretch begins
+  // (closeSummary, setSpotlight, startReview, setPracticeMode, resetSrs).
+  sittingCards: number;
+  sittingRight: number;
+  // Study only, like roundNew.
+  sittingNew: number;
   // Every card whose feedback has been dismissed, across the profile's life.
   // Monotonic and never reset by a round, a session or a mode flip — the
   // counters (R2.4) read its growth as "one more card answered". `total` is
@@ -497,7 +506,7 @@ export function initialState(
     autoGradePending: null,
     spotlightSubregion: null,
     transientMessage: null,
-    ...FRESH_ROUND,
+    ...FRESH_STRETCH,
     roundsCompleted: 0,
     // Not carried across a rebuild: the persisted counters hold the lifetime
     // total, and the hook records growth, so restarting from 0 is a no-op
@@ -515,6 +524,42 @@ const FRESH_ROUND = {
   roundDone: false,
 } as const;
 
+const FRESH_SITTING = {
+  sittingCards: 0,
+  sittingRight: 0,
+  sittingNew: 0,
+} as const;
+
+// A fresh stretch (load, leaving a summary, a practice-mode flip, erasing
+// progress) starts both a round and a sitting. continueRound and a test
+// round's question-mode switch start a round only.
+const FRESH_STRETCH = { ...FRESH_ROUND, ...FRESH_SITTING } as const;
+
+// Whether the card whose feedback is open is met for the first time: a Study
+// grade is still staged against it and it has no record yet. The one
+// definition of "newly seen" for the round and the sitting.
+function cardIsNew(state: State): boolean {
+  return (
+    state.practiceMode === "study" &&
+    state.autoGradePending !== null &&
+    !recordsFor(state)[state.current.iso3]
+  );
+}
+
+// Count one answered card into the sitting.
+function withSittingCard(
+  state: State,
+  kind: FeedbackKind,
+  isNew: boolean,
+): State {
+  return {
+    ...state,
+    sittingCards: state.sittingCards + 1,
+    sittingRight: state.sittingRight + (kind === "correct" ? 1 : 0),
+    sittingNew: state.sittingNew + (isNew ? 1 : 0),
+  };
+}
+
 // Count the card whose feedback just dismissed against the current round,
 // and open the interstitial when the round fills. A state that has already
 // ended the session (Quiz pool complete, review queue drained) keeps its
@@ -528,7 +573,7 @@ function withRoundAdvance(
   const roundCards = state.roundCards + 1;
   const filled = roundCards >= ROUND_SIZE;
   return {
-    ...state,
+    ...withSittingCard(state, kind, isNew),
     roundCards,
     cardsAnswered: state.cardsAnswered + 1,
     roundRight: state.roundRight + (kind === "correct" ? 1 : 0),
@@ -691,8 +736,8 @@ function closeCardIntoRound(state: State, now: Date): State {
   // round here; dismissFeedback skips withRoundAdvance for it too.
   if (!state.feedback || state.practiceMode === "expedition") return state;
   const kind = state.feedback.kind;
+  const isNew = cardIsNew(state);
   const pending = state.practiceMode === "study" && state.autoGradePending;
-  const isNew = Boolean(pending) && !recordsFor(state)[state.current.iso3];
   const committed: State = pending
     ? {
         ...state,
@@ -1040,11 +1085,7 @@ function dismissFeedback(state: State, now: Date): State {
     return atExpeditionCard(state, state.expedition);
   }
   const kind = state.feedback?.kind ?? "correct";
-  const isNew =
-    state.practiceMode === "study" &&
-    state.autoGradePending !== null &&
-    !recordsFor(state)[state.current.iso3];
-  return withRoundAdvance(advanceCard(state, now), kind, isNew);
+  return withRoundAdvance(advanceCard(state, now), kind, cardIsNew(state));
 }
 
 // Record an expedition answer: the glyph, the answer count (now, while the
@@ -1177,8 +1218,8 @@ function enterPracticeMode(
     autoGradePending: null,
     // Flipping into Quiz must never inherit a silently narrowed pool.
     spotlightSubregion: null,
-    // A new round type starts a fresh round.
-    ...FRESH_ROUND,
+    // A new round type starts a fresh round, and a fresh sitting.
+    ...FRESH_STRETCH,
   };
   return { ...next, current: nextCurrent(next, now) };
 }
@@ -1371,41 +1412,44 @@ export function reducer(state: State, action: Action): State {
         }
         return enterPracticeMode(state, "study", now);
       }
+      // The card whose feedback is open was answered: the learner saw it and
+      // then left. It never reaches withRoundAdvance, so count it here, into
+      // cardsAnswered (or the mode mix and the first-session depth quietly
+      // lose it) and into the sitting the summary reports. The round ends
+      // where it stopped.
+      const closed: State = state.feedback
+        ? {
+            ...withSittingCard(state, state.feedback.kind, cardIsNew(state)),
+            cardsAnswered: state.cardsAnswered + 1,
+          }
+        : state;
       // If Study has an auto-grade in flight (correct-flash or miss
       // waiting on dismiss), commit it before bowing out — otherwise the
       // user's last interaction silently produces no SRS record. No card
       // is advanced here, so a re-queued miss schedules against the
       // current studyStep — it resurfaces ~gap cards after "Keep studying".
       if (state.practiceMode === "study" && state.autoGradePending) {
-        const committed = commitStudyGrade(
-          state,
-          state.autoGradePending,
-          state.studyStep,
-          now,
-        );
         return {
-          ...state,
-          ...committed,
+          ...closed,
+          ...commitStudyGrade(
+            state,
+            state.autoGradePending,
+            state.studyStep,
+            now,
+          ),
           autoGradePending: null,
           milestone: null,
           sessionDone: true,
           feedback: null,
-          // The card was answered — the learner saw the feedback and then left.
-          // It never reaches withRoundAdvance, so count it here or the mode mix
-          // and the first-session depth quietly lose it.
-          cardsAnswered: state.cardsAnswered + 1,
           roundDone: false,
         };
       }
+      // In Quiz the grade was written through at answer time.
       return {
-        ...state,
+        ...closed,
         sessionDone: true,
         feedback: null,
         milestone: null,
-        // Same in Quiz, where the grade was written through at answer time.
-        cardsAnswered: state.feedback
-          ? state.cardsAnswered + 1
-          : state.cardsAnswered,
         roundDone: false,
       };
     }
@@ -1424,7 +1468,7 @@ export function reducer(state: State, action: Action): State {
         feedback: null,
         milestone: null,
         current: country,
-        ...FRESH_ROUND,
+        ...FRESH_STRETCH,
       };
     }
     case "resetSrs": {
@@ -1447,7 +1491,7 @@ export function reducer(state: State, action: Action): State {
         // The round in progress goes with the progress. Left standing, its
         // remaining cards would carry it to a finish that the emptied counters
         // never saw begin, and the Data view would read "2 of 1".
-        ...FRESH_ROUND,
+        ...FRESH_STRETCH,
         cardsAnswered: 0,
       };
     }
@@ -1465,7 +1509,7 @@ export function reducer(state: State, action: Action): State {
         sessionDone: false,
         feedback: null,
         milestone: null,
-        ...FRESH_ROUND,
+        ...FRESH_STRETCH,
       };
       if (state.practiceMode === "study") {
         const { current, spotlightSubregion, transientMessage } =
@@ -1497,7 +1541,7 @@ export function reducer(state: State, action: Action): State {
         milestone: null,
         // Leaving the summary into a focus region starts a fresh round,
         // like closeSummary does.
-        ...FRESH_ROUND,
+        ...FRESH_STRETCH,
       };
       const { current, spotlightSubregion, transientMessage } =
         pickStudyWithSpotlightFallback(next, now);

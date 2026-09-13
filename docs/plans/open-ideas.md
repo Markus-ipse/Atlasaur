@@ -39,14 +39,6 @@ here is not a backlog — each item needs its own plan before it is built.
 
 ## Findings still true in the code (checked 2026-09-11)
 
-- **The Study summary has no figures for the sitting that just ended.**
-  Every tile is a standing total over the scope (Known, Seen, To review, Not
-  yet seen) or a lifetime one (Answers, Right), which is why the lifetime pair
-  was misread as this session's. Fixed on 2026-09-13 by labelling the two
-  groups ("Places"/"Capitals" and "All time", as the settings do) rather than
-  narrowing the lifetime pair to the scope, which would make "Right" jump with
-  every change of filter. The session's own figures (`roundRight`,
-  `cardsAnswered`) already exist in state if a "this sitting" line is wanted.
 - **"Known" includes FSRS Relearning.** Deliberate (CLAUDE.md: the map and the
   stat share `learnedCount`'s `state >= 2` predicate), but it means a country
   just missed can still read as known until it is graded down. Worth revisiting

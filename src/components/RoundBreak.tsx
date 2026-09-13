@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { PracticeMode } from "../types";
+import { tallyParts } from "./tallyParts";
 
 type Props = {
   practiceMode: PracticeMode;
@@ -54,10 +55,11 @@ export function RoundBreak({
     ? "A steady hand."
     : "Round done.";
 
-  const parts = [`${roundRight} of ${roundCards} right`];
-  if (practiceMode === "study" && roundNew > 0) {
-    parts.push(`${roundNew} newly seen`);
-  }
+  const parts = tallyParts(
+    roundRight,
+    roundCards,
+    practiceMode === "study" ? roundNew : 0,
+  );
   if (caughtUp) parts.push("nothing more is due");
 
   const primaryClass =

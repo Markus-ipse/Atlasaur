@@ -10,6 +10,7 @@ import {
 import { markerOnlySubregions, pickSpotlight } from "../game/pickCountry";
 import type { ExpeditionStatus } from "../game/expedition";
 import { ExpeditionDoor } from "./ExpeditionDoor";
+import { tallyParts } from "./tallyParts";
 
 type Props = {
   practiceMode: PracticeMode;
@@ -22,6 +23,11 @@ type Props = {
   dueCount: number;
   newAvailableCount: number;
   srsStore: SrsStore;
+  // The sitting that just ended (Study summary only): every card since the
+  // summary last closed.
+  sittingCards: number;
+  sittingRight: number;
+  sittingNew: number;
   // The fact the learner is working on. The scoped figures and the spotlight
   // count over it; the two lifetime rows are across every fact.
   fact: Fact;
@@ -163,6 +169,9 @@ function StudySummary({
   newAvailableCount,
   totalInScope,
   srsStore,
+  sittingCards,
+  sittingRight,
+  sittingNew,
   fact,
   scopeIso3s,
   countries,
@@ -228,12 +237,24 @@ function StudySummary({
         role="dialog"
         aria-modal="true"
         aria-labelledby="study-summary-title"
-        aria-describedby="study-summary-hint"
+        aria-describedby="study-summary-sitting study-summary-hint"
         className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-parchment-base rounded-lg shadow-lg p-6 flex flex-col gap-4"
       >
         <h2 id="study-summary-title" className="text-2xl font-bold text-ink-deep">
           Nice work
         </h2>
+        {/* The only figures here about the sitting itself; everything below
+            is a standing or lifetime total. Omitted when "Done" was pressed
+            before any answer, rather than reading "0 of 0". */}
+        {sittingCards > 0 && (
+          <p
+            id="study-summary-sitting"
+            className="text-sm text-ink-mid tabular-nums -mt-2"
+          >
+            This sitting:{" "}
+            {tallyParts(sittingRight, sittingCards, sittingNew).join(" · ")}
+          </p>
+        )}
         {/* Two groups, labelled as the settings label them. The first four
             count the learner's fact over the active scope; the last two are
             lifetime totals across every fact and every country, so they
