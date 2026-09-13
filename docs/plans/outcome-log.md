@@ -26,7 +26,7 @@ One entry per answer or skip, written the moment feedback appears:
 
 | Field | Source | Notes |
 |---|---|---|
-| time | `now` of the answer | epoch seconds; local day is derived when read |
+| time | `feedback.at` (new; the answer action's `now`) | epoch seconds; local day is derived when read |
 | asked | `feedback.correctIso3` | the card |
 | mode | `state.mode` | fact is `factOf(mode)`, so not stored |
 | practice | `state.practiceMode` | `study` / `quiz` / `expedition` |
@@ -93,6 +93,16 @@ Deliberately not stored:
   mode and in the review pass, which `cardsAnswered` does not cover as cleanly.
   The mode, practice mode and phase read from the same render are the ones
   the answer was given in, so this effect needs no refs.
+- **The time comes from the reducer, not the effect.** `Feedback` gains
+  `at: number` (epoch ms), set from the `now` that `applyCorrect` and
+  `applyMiss` already receive. The effect runs a render later, and calling
+  `new Date()` there could put an answer given just before midnight or
+  month-end in the next day or month key. That would break both the
+  first-attempt-per-day analysis and the month-key rule. It also keeps
+  reducer tests deterministic, since `now` is injected as it is for every
+  grade. The cost is adding `at` to the `Feedback` literals in tests: about 45
+  in `useGame.test.ts`, `ControlZone.test.tsx`, `WorldMap.test.tsx` and
+  `fillFor.test.ts`.
 - A ref holds the last feedback object logged, so a re-render or StrictMode's
   double effect in development cannot log one answer twice.
 - **Read, append, write at the moment of the answer.** The log is not held in
@@ -140,6 +150,9 @@ there is no rollback risk.
   - one entry for each answer in study, quiz normal, quiz review and
     expedition, and one for a skip;
   - a typed miss that matches nothing logs `wrong` with empty `given`;
+  - an answer dispatched at 23:59:59 on a month's last day is logged with
+    that time and in that month's key, even when the effect runs after
+    midnight;
   - dismiss, a mode switch, a scope change and `syncExpedition` add nothing;
   - `resetSrs` removes every month key.
 
