@@ -234,22 +234,39 @@ function StudySummary({
         <h2 id="study-summary-title" className="text-2xl font-bold text-ink-deep">
           Nice work
         </h2>
-        {/* The four scoped tiles count the learner's fact; the two lifetime
-            ones are across every fact. Say which, as the settings do. */}
-        <p className="text-xs text-ink-mid text-center italic -mb-2">
-          {fact === "capital" ? "Capitals" : "Places"}
-        </p>
-        <div className="grid grid-cols-3 gap-3 text-center">
-          <Tile label="Known" value={String(learned)} />
-          <Tile label="Seen" value={String(seen)} />
-          <Tile label="To review" value={String(dueCount)} />
-          <Tile label="Not yet seen" value={String(newAvailableCount)} />
-          <Tile label="Answers" value={String(reviews)} />
-          <Tile
-            label="Right"
-            value={accuracy === null ? "—" : `${Math.round(accuracy * 100)}%`}
-          />
-        </div>
+        {/* Two groups, labelled as the settings label them. The first four
+            count the learner's fact over the active scope; the last two are
+            lifetime totals across every fact and every country, so they
+            cannot sit under the same heading. */}
+        <section aria-labelledby="study-summary-scoped" className="flex flex-col gap-1">
+          <h3
+            id="study-summary-scoped"
+            className="text-xs text-ink-mid text-center italic"
+          >
+            {fact === "capital" ? "Capitals" : "Places"}
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+            <Tile label="Known" value={String(learned)} />
+            <Tile label="Seen" value={String(seen)} />
+            <Tile label="To review" value={String(dueCount)} />
+            <Tile label="Not yet seen" value={String(newAvailableCount)} />
+          </div>
+        </section>
+        <section aria-labelledby="study-summary-lifetime" className="flex flex-col gap-1">
+          <h3
+            id="study-summary-lifetime"
+            className="text-xs text-ink-mid text-center italic"
+          >
+            All time
+          </h3>
+          <div className="grid grid-cols-2 gap-3 text-center">
+            <Tile label="Answers" value={String(reviews)} />
+            <Tile
+              label="Right"
+              value={accuracy === null ? "—" : `${Math.round(accuracy * 100)}%`}
+            />
+          </div>
+        </section>
         <p
           id="study-summary-hint"
           className="text-sm text-ink-mid text-center"
@@ -310,7 +327,9 @@ function StudySummary({
 
 function Tile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col">
+    // justify-between keeps the figures on one line when a label wraps
+    // ("Not yet seen" does, four across).
+    <div className="flex flex-col justify-between">
       <span className="font-display text-xs uppercase tracking-wide text-ink-mid">
         {label}
       </span>

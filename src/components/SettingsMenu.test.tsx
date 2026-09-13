@@ -124,7 +124,7 @@ describe("SettingsMenu — the stats say which fact they count", () => {
   it("names places or capitals above the scoped figures", () => {
     open({});
     expect(screen.getByText("Places")).toBeDefined();
-    expect(screen.getByText("All questions")).toBeDefined();
+    expect(screen.getByText("All time")).toBeDefined();
     expect(screen.queryByText("Capitals", { selector: "p.italic" })).toBeNull();
 
     cleanup();

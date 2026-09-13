@@ -321,7 +321,8 @@ export function SettingsMenu({
               <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Data</p>
               {/* One record per country AND fact, so these four are counted
                   over the fact the learner is working on and say which. The
-                  two below are lifetime totals across every fact. */}
+                  two below are lifetime totals across every fact and every
+                  country, headed "All time" as the Study summary heads them. */}
               <p className="text-xs text-ink-mid mb-1 italic">
                 {fact === "capital" ? "Capitals" : "Places"}
               </p>
@@ -343,7 +344,7 @@ export function SettingsMenu({
                   {newAvailableCount}
                 </span>
               </div>
-              <p className="text-xs text-ink-mid mb-1 italic">All questions</p>
+              <p className="text-xs text-ink-mid mb-1 italic">All time</p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-mid tabular-nums mb-3">
                 <span>Answers</span>
                 <span className="text-ink-deep font-medium text-right">
