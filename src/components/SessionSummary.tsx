@@ -10,6 +10,7 @@ import {
 import { markerOnlySubregions, pickSpotlight } from "../game/pickCountry";
 import type { ExpeditionStatus } from "../game/expedition";
 import { ExpeditionDoor } from "./ExpeditionDoor";
+import { tallyParts } from "./tallyParts";
 
 type Props = {
   practiceMode: PracticeMode;
@@ -225,10 +226,6 @@ function StudySummary({
 
   const scopeLabel = `${totalInScope} ${subject(fact, totalInScope)}`;
 
-  // Worded as the round break words a round, so the two read as one voice.
-  const sittingParts = [`${sittingRight} of ${sittingCards} right`];
-  if (sittingNew > 0) sittingParts.push(`${sittingNew} newly seen`);
-
   return (
     <div
       className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4"
@@ -240,11 +237,7 @@ function StudySummary({
         role="dialog"
         aria-modal="true"
         aria-labelledby="study-summary-title"
-        aria-describedby={
-          sittingCards > 0
-            ? "study-summary-sitting study-summary-hint"
-            : "study-summary-hint"
-        }
+        aria-describedby="study-summary-sitting study-summary-hint"
         className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-parchment-base rounded-lg shadow-lg p-6 flex flex-col gap-4"
       >
         <h2 id="study-summary-title" className="text-2xl font-bold text-ink-deep">
@@ -258,7 +251,8 @@ function StudySummary({
             id="study-summary-sitting"
             className="text-sm text-ink-mid tabular-nums -mt-2"
           >
-            This sitting: {sittingParts.join(" · ")}
+            This sitting:{" "}
+            {tallyParts(sittingRight, sittingCards, sittingNew).join(" · ")}
           </p>
         )}
         {/* Two groups, labelled as the settings label them. The first four
