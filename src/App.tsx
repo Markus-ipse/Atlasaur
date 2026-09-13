@@ -217,6 +217,9 @@ export default function App() {
           dueCount={game.dueCount}
           newAvailableCount={game.newAvailableCount}
           srsStore={state.srsStore}
+          sittingCards={state.sittingCards}
+          sittingRight={state.sittingRight}
+          sittingNew={state.sittingNew}
           fact={game.fact}
           scopeIso3s={game.scopeSet}
           countries={ALL_COUNTRIES}

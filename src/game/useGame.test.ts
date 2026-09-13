@@ -1052,6 +1052,42 @@ describe("reducer — rounds of twelve", () => {
     expect(a.roundDone).toBe(false);
   });
 
+  it("counts the sitting across round breaks and resets it when the summary closes", () => {
+    let s = initialState({ practiceMode: "study" });
+    for (let i = 0; i < ROUND_SIZE; i++) s = playCorrect(s);
+    // STUDY_NEW_CAP holds some of the twelve back from being new.
+    const firstRoundNew = s.roundNew;
+    s = reducer(s, { type: "continueRound", now: NOW });
+    s = playMiss(s);
+    expect(s.roundCards).toBe(1);
+    expect(s.sittingCards).toBe(ROUND_SIZE + 1);
+    expect(s.sittingRight).toBe(ROUND_SIZE);
+    expect(s.sittingNew).toBe(firstRoundNew + s.roundNew);
+    const ended = reducer(s, { type: "endSession" });
+    expect(ended.sittingCards).toBe(ROUND_SIZE + 1);
+    const back = reducer(ended, { type: "closeSummary", now: NOW });
+    expect(back.sittingCards).toBe(0);
+    expect(back.sittingRight).toBe(0);
+    expect(back.sittingNew).toBe(0);
+  });
+
+  it("counts a card Done closes mid-reveal into the sitting", () => {
+    const s0 = initialState({ practiceMode: "study" });
+    const answered = reducer(s0, { type: "answer", iso3: s0.current.iso3, now: NOW });
+    const ended = reducer(answered, { type: "endSession" });
+    expect(ended.roundCards).toBe(0);
+    expect(ended.sittingCards).toBe(1);
+    expect(ended.sittingRight).toBe(1);
+    expect(ended.sittingNew).toBe(1);
+  });
+
+  it("keeps the sitting across a question-mode switch", () => {
+    let s = initialState({ practiceMode: "study" });
+    s = playCorrect(s);
+    s = reducer(s, { type: "setMode", mode: "shape-to-name", now: NOW });
+    expect(s.sittingCards).toBe(1);
+  });
+
   it("Focus on a subregion from the summary starts a fresh round", () => {
     let s = initialState({ practiceMode: "study" });
     for (let i = 0; i < ROUND_SIZE; i++) s = playCorrect(s);
@@ -1412,12 +1448,14 @@ describe("reducer — counters (R2.4)", () => {
       ...withCurrent(initialState({ practiceMode: "study" }), "FRA"),
       roundCards: 7,
       roundRight: 5,
+      sittingCards: 19,
       cardsAnswered: 30,
     };
     const erased = reducer(s0, { type: "resetSrs" });
     expect(erased.roundCards).toBe(0);
     expect(erased.roundRight).toBe(0);
     expect(erased.cardsAnswered).toBe(0);
+    expect(erased.sittingCards).toBe(0);
   });
 });
 

@@ -26,7 +26,10 @@ function record(state: SrsRecord["state"], hits: number, misses: number): SrsRec
 
 afterEach(cleanup);
 
-function renderStudy(fact: Fact) {
+function renderStudy(
+  fact: Fact,
+  sitting = { cards: 0, right: 0, fresh: 0 },
+) {
   const store = emptyStore();
   // In scope, known, answered right three times.
   store.facts.location.FRA = record(2, 3, 0);
@@ -44,6 +47,9 @@ function renderStudy(fact: Fact) {
       dueCount={0}
       newAvailableCount={1}
       srsStore={store}
+      sittingCards={sitting.cards}
+      sittingRight={sitting.right}
+      sittingNew={sitting.fresh}
       fact={fact}
       scopeIso3s={new Set(["FRA", "DEU"])}
       countries={COUNTRIES}
@@ -85,5 +91,24 @@ describe("StudySummary figures", () => {
     expect(tile(capitals, "Known")).toBe("0");
     expect(tile(capitals, "Seen")).toBe("0");
     expect(tile(screen.getByRole("region", { name: "All time" }), "Answers")).toBe("4");
+  });
+});
+
+describe("StudySummary sitting line", () => {
+  it("reports the sitting that just ended", () => {
+    renderStudy("location", { cards: 14, right: 11, fresh: 3 });
+    expect(
+      screen.getByText("This sitting: 11 of 14 right · 3 newly seen"),
+    ).toBeTruthy();
+  });
+
+  it("leaves out newly seen when nothing was new", () => {
+    renderStudy("location", { cards: 5, right: 5, fresh: 0 });
+    expect(screen.getByText("This sitting: 5 of 5 right")).toBeTruthy();
+  });
+
+  it("omits the line when nothing was answered", () => {
+    renderStudy("location");
+    expect(screen.queryByText(/This sitting/)).toBeNull();
   });
 });

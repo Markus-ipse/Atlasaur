@@ -350,6 +350,15 @@ export type State = {
   roundDone: boolean;
   // Rounds finished this session. The unit R1.3's cross-day streak counts.
   roundsCompleted: number;
+  // The sitting: every card since the last summary closed (or the load), as
+  // the Study summary reports it. Advanced wherever a round is, plus a card
+  // "Done" closes mid-reveal; carried across round breaks, question-mode
+  // switches and scope changes; reset wherever a fresh stretch begins
+  // (closeSummary, setSpotlight, startReview, setPracticeMode, resetSrs).
+  sittingCards: number;
+  sittingRight: number;
+  // Study only, like roundNew.
+  sittingNew: number;
   // Every card whose feedback has been dismissed, across the profile's life.
   // Monotonic and never reset by a round, a session or a mode flip — the
   // counters (R2.4) read its growth as "one more card answered". `total` is
@@ -498,6 +507,7 @@ export function initialState(
     spotlightSubregion: null,
     transientMessage: null,
     ...FRESH_ROUND,
+    ...FRESH_SITTING,
     roundsCompleted: 0,
     // Not carried across a rebuild: the persisted counters hold the lifetime
     // total, and the hook records growth, so restarting from 0 is a no-op
@@ -515,6 +525,26 @@ const FRESH_ROUND = {
   roundDone: false,
 } as const;
 
+const FRESH_SITTING = {
+  sittingCards: 0,
+  sittingRight: 0,
+  sittingNew: 0,
+} as const;
+
+// Count one answered card into the sitting.
+function withSittingCard(
+  state: State,
+  kind: FeedbackKind,
+  isNew: boolean,
+): State {
+  return {
+    ...state,
+    sittingCards: state.sittingCards + 1,
+    sittingRight: state.sittingRight + (kind === "correct" ? 1 : 0),
+    sittingNew: state.sittingNew + (isNew ? 1 : 0),
+  };
+}
+
 // Count the card whose feedback just dismissed against the current round,
 // and open the interstitial when the round fills. A state that has already
 // ended the session (Quiz pool complete, review queue drained) keeps its
@@ -528,7 +558,7 @@ function withRoundAdvance(
   const roundCards = state.roundCards + 1;
   const filled = roundCards >= ROUND_SIZE;
   return {
-    ...state,
+    ...withSittingCard(state, kind, isNew),
     roundCards,
     cardsAnswered: state.cardsAnswered + 1,
     roundRight: state.roundRight + (kind === "correct" ? 1 : 0),
@@ -1177,8 +1207,9 @@ function enterPracticeMode(
     autoGradePending: null,
     // Flipping into Quiz must never inherit a silently narrowed pool.
     spotlightSubregion: null,
-    // A new round type starts a fresh round.
+    // A new round type starts a fresh round, and a fresh sitting.
     ...FRESH_ROUND,
+    ...FRESH_SITTING,
   };
   return { ...next, current: nextCurrent(next, now) };
 }
@@ -1377,6 +1408,7 @@ export function reducer(state: State, action: Action): State {
       // is advanced here, so a re-queued miss schedules against the
       // current studyStep — it resurfaces ~gap cards after "Keep studying".
       if (state.practiceMode === "study" && state.autoGradePending) {
+        const isNew = !recordsFor(state)[state.current.iso3];
         const committed = commitStudyGrade(
           state,
           state.autoGradePending,
@@ -1384,7 +1416,9 @@ export function reducer(state: State, action: Action): State {
           now,
         );
         return {
-          ...state,
+          // The round ends here, but the sitting the summary reports does
+          // include the card the learner left on.
+          ...withSittingCard(state, state.feedback?.kind ?? "correct", isNew),
           ...committed,
           autoGradePending: null,
           milestone: null,
@@ -1398,7 +1432,9 @@ export function reducer(state: State, action: Action): State {
         };
       }
       return {
-        ...state,
+        ...(state.feedback
+          ? withSittingCard(state, state.feedback.kind, false)
+          : state),
         sessionDone: true,
         feedback: null,
         milestone: null,
@@ -1425,6 +1461,7 @@ export function reducer(state: State, action: Action): State {
         milestone: null,
         current: country,
         ...FRESH_ROUND,
+        ...FRESH_SITTING,
       };
     }
     case "resetSrs": {
@@ -1448,6 +1485,7 @@ export function reducer(state: State, action: Action): State {
         // remaining cards would carry it to a finish that the emptied counters
         // never saw begin, and the Data view would read "2 of 1".
         ...FRESH_ROUND,
+        ...FRESH_SITTING,
         cardsAnswered: 0,
       };
     }
@@ -1466,6 +1504,7 @@ export function reducer(state: State, action: Action): State {
         feedback: null,
         milestone: null,
         ...FRESH_ROUND,
+        ...FRESH_SITTING,
       };
       if (state.practiceMode === "study") {
         const { current, spotlightSubregion, transientMessage } =
@@ -1498,6 +1537,7 @@ export function reducer(state: State, action: Action): State {
         // Leaving the summary into a focus region starts a fresh round,
         // like closeSummary does.
         ...FRESH_ROUND,
+        ...FRESH_SITTING,
       };
       const { current, spotlightSubregion, transientMessage } =
         pickStudyWithSpotlightFallback(next, now);
