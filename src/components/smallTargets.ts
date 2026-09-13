@@ -57,3 +57,23 @@ export function hitDiscRadiusSvg(
 export function worthFraming(frameK: number, baseK: number): boolean {
   return frameK >= FRAME_MIN_GAIN * baseK;
 }
+
+// The point nearest (x, y), or null when there are none. R3.4: a tap on a
+// marker dot resolves by distance rather than by paint order, because at a
+// phone's world view neighbouring dots (the Lesser Antilles) overlap.
+export function nearestPoint<T extends { cx: number; cy: number }>(
+  x: number,
+  y: number,
+  points: readonly T[],
+): T | null {
+  let best: T | null = null;
+  let bestDistance = Infinity;
+  for (const p of points) {
+    const d = Math.hypot(p.cx - x, p.cy - y);
+    if (d < bestDistance) {
+      bestDistance = d;
+      best = p;
+    }
+  }
+  return best;
+}

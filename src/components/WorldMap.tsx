@@ -51,6 +51,7 @@ import { fillFor, strokeFor, type Palette } from "./fillFor";
 import { masteryPercent, type MasteryTier } from "../game/srs";
 import { Wordmark } from "./Wordmark";
 import {
+  nearestPoint,
   HIT_DISC_PX,
   HINT_TARGET_PX,
   TAP_TARGET_PX,
@@ -864,6 +865,45 @@ export function WorldMap({
   // the land (see the marker layer). Read once: a device's primary pointer
   // does not change under a learner mid-card.
   const [coarsePointer] = useState(isCoarsePointer);
+  // One tap circle per in-scope marker, each capped at half the gap to the
+  // nearest other one so neighbours never overlap: in the Lesser Antilles a
+  // full-size circle would cover the next island's dot and answer for it.
+  const liveMarkers = useMemo(
+    () =>
+      MARKER_LABELS.flatMap((m) => {
+        const iso3 = isoFromNumeric(m.numericId);
+        return iso3 && isInScope(iso3)
+          ? [{ numericId: m.numericId, iso3, cx: m.cx, cy: m.cy }]
+          : [];
+      }),
+    [isoFromNumeric, isInScope],
+  );
+  const markerHits = useMemo(() => {
+    if (!coarsePointer || !mapClickable) return [] as HitDisc[];
+    const pxPerUnit = (effectiveScale > 0 ? effectiveScale : 1) * transform.k;
+    return liveMarkers.map((m): HitDisc => {
+      let r = HIT_DISC_PX / 2 / pxPerUnit;
+      for (const o of liveMarkers) {
+        if (o !== m) r = Math.min(r, Math.hypot(o.cx - m.cx, o.cy - m.cy) / 2);
+      }
+      return { ...m, r };
+    });
+  }, [coarsePointer, mapClickable, effectiveScale, transform.k, liveMarkers]);
+
+  // A tap on a dot, its tap circle or its hit disc answers the in-scope
+  // marker nearest the pointer, not whichever element was drawn last: at a
+  // phone's world view the Antilles dots overlap, and paint order let Saint
+  // Vincent's dot answer for Grenada, Saint Lucia and Barbados. Keeps the
+  // element's own country where the pointer cannot be mapped (jsdom).
+  const handleMarkerClick = (iso3: string, e: React.MouseEvent<SVGGraphicsElement>) => {
+    const ctm = e.currentTarget.getScreenCTM?.();
+    if (ctm && typeof DOMPoint !== "undefined") {
+      const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
+      const nearest = nearestPoint(p.x, p.y, liveMarkers);
+      if (nearest) iso3 = nearest.iso3;
+    }
+    handleCountryClick(iso3, e);
+  };
 
   const hitDiscs = useMemo(() => {
     if (!mapClickable || effectiveScale === 0) return [] as HitDisc[];
@@ -975,7 +1015,11 @@ export function WorldMap({
               pointerEvents="all"
               className="cursor-pointer"
               data-hit={d.numericId}
-              onClick={(e) => handleCountryClick(d.iso3, e)}
+              onClick={(e) =>
+                LABELS_BY_NUMERIC.get(d.numericId)?.marker
+                  ? handleMarkerClick(d.iso3, e)
+                  : handleCountryClick(d.iso3, e)
+              }
             />
           ))}
           {PATHS.map((p) => {
@@ -1150,6 +1194,25 @@ export function WorldMap({
               label is anchored below its dot (labelAnchor). Every in-scope
               marker is drawn, not just the card's, so the dots give nothing
               away. Constant on-screen size, like the capital dot. */}
+          {/* Touch tap circles for the dots (markerHits). The hit discs sit
+              beneath the land, so an enclave's would answer Italy or France
+              and leave a 7 px dot to tap; these sit above the land but
+              beneath every dot, so a tap on a dot always answers that dot. A
+              mouse gets none and keeps pixel precision, so a click on Rome
+              still answers Italy. */}
+          {markerHits.map((d) => (
+            <circle
+              key={`hit-${d.numericId}`}
+              cx={d.cx}
+              cy={d.cy}
+              r={d.r}
+              fill="none"
+              pointerEvents="all"
+              className="cursor-pointer"
+              data-marker-hit={d.numericId}
+              onClick={(e) => handleMarkerClick(d.iso3, e)}
+            />
+          ))}
           {MARKER_LABELS.map((m) => {
             const iso3 = isoFromNumeric(m.numericId);
             const inScope = iso3 ? isInScope(iso3) : false;
@@ -1192,23 +1255,6 @@ export function WorldMap({
                     data-marker-ring={m.numericId}
                   />
                 )}
-                {/* The hit discs sit beneath the land, so an enclave's would
-                    answer Italy or France and leave a 7 px dot to tap. On a
-                    touch screen the dot gets its own, above the land; a mouse
-                    keeps pixel precision, so a click on Rome still answers
-                    Italy there. */}
-                {clickable && iso3 && coarsePointer && (
-                  <circle
-                    cx={m.cx}
-                    cy={m.cy}
-                    r={HIT_DISC_PX / 2 / pxPerUnit}
-                    fill="none"
-                    pointerEvents="all"
-                    className="cursor-pointer"
-                    data-marker-hit={m.numericId}
-                    onClick={(e) => handleCountryClick(iso3, e)}
-                  />
-                )}
                 <circle
                   cx={m.cx}
                   cy={m.cy}
@@ -1220,7 +1266,7 @@ export function WorldMap({
                   className={className}
                   data-marker={m.numericId}
                   onClick={
-                    clickable && iso3 ? (e) => handleCountryClick(iso3, e) : undefined
+                    clickable && iso3 ? (e) => handleMarkerClick(iso3, e) : undefined
                   }
                   style={PATH_TRANSITION}
                 />

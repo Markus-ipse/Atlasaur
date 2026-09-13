@@ -594,18 +594,7 @@ describe("WorldMap — markers (R3.4)", () => {
     expect(clicked).toEqual(["MLT"]);
   });
 
-  it("gives a dot an enlarged tap circle on a touch screen only", () => {
-    const clicked: string[] = [];
-    const props = {
-      ...BASE_PROPS,
-      isoFromNumeric,
-      feedback: null,
-      revealCapitalLonLat: null,
-      onCountryClick: (iso3: string) => clicked.push(iso3),
-    };
-    const mouse = render(<WorldMap {...props} />);
-    expect(mouse.container.querySelector("circle[data-marker-hit]")).toBeNull();
-    mouse.unmount();
+  function withCoarsePointer(run: () => void) {
     const original = window.matchMedia;
     window.matchMedia = ((query: string) => ({
       matches: query === "(pointer: coarse)",
@@ -618,19 +607,57 @@ describe("WorldMap — markers (R3.4)", () => {
       dispatchEvent: () => false,
     })) as unknown as typeof window.matchMedia;
     try {
+      run();
+    } finally {
+      window.matchMedia = original;
+    }
+  }
+  const follows = (a: Element, b: Element) =>
+    Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+  it("gives a dot an enlarged tap circle on a touch screen only", () => {
+    const clicked: string[] = [];
+    const props = {
+      ...BASE_PROPS,
+      isoFromNumeric,
+      feedback: null,
+      revealCapitalLonLat: null,
+      onCountryClick: (iso3: string) => clicked.push(iso3),
+    };
+    const mouse = render(<WorldMap {...props} />);
+    expect(mouse.container.querySelector("circle[data-marker-hit]")).toBeNull();
+    mouse.unmount();
+    withCoarsePointer(() => {
       const { container } = render(<WorldMap {...props} />);
       const hit = container.querySelector<SVGCircleElement>(`circle[data-marker-hit="${MLT}"]`);
       expect(hit).not.toBeNull();
-      // In the marker layer, above the land, just beneath its own dot.
-      expect(hit!.nextElementSibling).toBe(dot(container));
+      // Above the land, beneath the dot.
+      expect(follows(hit!, dot(container)!)).toBe(true);
       expect(Number(hit!.getAttribute("r"))).toBeGreaterThan(
         Number(dot(container)!.getAttribute("r")),
       );
       fireEvent.click(hit!);
       expect(clicked).toEqual(["MLT"]);
-    } finally {
-      window.matchMedia = original;
-    }
+    });
+  });
+
+  it("keeps neighbouring dots' tap circles apart and beneath every dot", () => {
+    // Grenada and Saint Vincent: a few screen pixels apart in the Antilles.
+    const GRD = "308";
+    const VCT = "670";
+    const iso = (n: string) => (n === GRD ? "GRD" : n === VCT ? "VCT" : undefined);
+    withCoarsePointer(() => {
+      const { container } = render(
+        <WorldMap {...BASE_PROPS} isoFromNumeric={iso} feedback={null} revealCapitalLonLat={null} />,
+      );
+      const hits = Array.from(container.querySelectorAll("circle[data-marker-hit]"));
+      const dots = [GRD, VCT].map((n) => container.querySelector(`circle[data-marker="${n}"]`)!);
+      expect(hits).toHaveLength(2);
+      const at = (el: Element, a: string) => Number(el.getAttribute(a));
+      const gap = Math.hypot(at(dots[0], "cx") - at(dots[1], "cx"), at(dots[0], "cy") - at(dots[1], "cy"));
+      expect(at(hits[0], "r") + at(hits[1], "r")).toBeLessThanOrEqual(gap + 1e-9);
+      for (const h of hits) for (const d of dots) expect(follows(h, d)).toBe(true);
+    });
   });
 
   it("paints an out-of-scope dot inert and takes no click on it", () => {

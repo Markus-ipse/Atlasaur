@@ -636,10 +636,15 @@ for a marker, so an off-screen marker label is dropped rather than pinned.
 `WorldMap` draws `MARKER_LABELS` as circles of constant on-screen radius
 (`MARKER_RADIUS_PX`), painted by the same `fillFor` / `strokeFor` chain as a
 path and clickable under the same rule. On a touch screen each dot also
-gets an invisible `HIT_DISC_PX` tap circle drawn with it, above the land
-(`data-marker-hit`): the ordinary hit disc lies beneath the land, so an
-enclave's would answer Italy or France and leave a 7 px dot to tap. A mouse
-gets no such circle, so a click on Rome still answers Italy. They are drawn **above the land and the
+gets an invisible `HIT_DISC_PX` tap circle (`data-marker-hit`), capped at half
+the gap to the nearest in-scope dot and drawn above the land but beneath every
+dot: the ordinary hit disc lies beneath the land, so an enclave's would answer
+Italy or France and leave a 7 px dot to tap. A mouse gets no such circle, so a
+click on Rome still answers Italy. And a tap on any dot, tap circle or dot's
+hit disc answers the in-scope dot **nearest the pointer** (`nearestPoint`), not
+the element drawn last: at a phone's world view the Antilles dots overlap, and
+paint order let Saint Vincent's dot answer for Grenada, Saint Lucia and
+Barbados. They are drawn **above the land and the
 labels**: on an enclave the dot sits on its neighbour and is the only thing to
 tap. Every in-scope marker is drawn, never only the card's, so the dots give
 nothing away. A dot a typed question is asking about gets an ochre ring
