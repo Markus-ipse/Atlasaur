@@ -18,7 +18,6 @@ import {
   MARKER_LABELS,
   MARKER_RADIUS_PX,
   frameFor,
-  restingFrameFor,
   polygonsFor,
   collection,
   numericIdFor,
@@ -129,6 +128,13 @@ const HATCH_SCREEN_PX = 6;
 const PATH_TRANSITION = {
   transition: "fill 200ms ease, stroke 200ms ease, filter 100ms ease",
 } as const;
+// A marker dot's outline width is per theme (--map-marker-stroke-width in
+// index.css): dark's ochre line needs more weight against the ocean than
+// light's ink does.
+const MARKER_STYLE = {
+  ...PATH_TRANSITION,
+  strokeWidth: "var(--map-marker-stroke-width)",
+} as const;
 
 
 type PathItem = {
@@ -203,11 +209,12 @@ const OCEAN_LABELS: { qualifier: string; cx: number; cy: number }[] =
 // small to render (e.g. Vanuatu's Efate / Port Vila), which would strand the
 // dot in open ocean far from the drawn land once the reveal zoom magnifies
 // the gap. We omit the dot in that case rather than point at empty water.
-// Caveat: antimeridian crossers (Fiji, Russia) get full-map-width bounds from
-// pathGen.bounds (same pitfall the reveal-zoom avoids via LABELS — see the
-// comment at the computeRevealTarget effect below), so the gate is a no-op for
-// them. Acceptable: it fails open (dot shows), matching pre-gate behavior, and
-// their capitals are on rendered land today.
+// Caveat: a country drawn on both sides of the map's edge (Antarctica, and the
+// United States, whose St Lawrence Island lies west of the 168.4°W cut) gets
+// full-map-width bounds from pathGen.bounds (same pitfall the reveal-zoom
+// avoids via LABELS — see the comment at the computeRevealTarget effect
+// below), so the gate is a no-op for it. Acceptable: it fails open (dot
+// shows), matching pre-gate behavior, and Washington is on rendered land.
 const BOUNDS_BY_NUMERIC = new Map<string, [[number, number], [number, number]]>();
 for (const f of collection.features) {
   const numericId = numericIdFor(f);
@@ -275,16 +282,11 @@ function fitContinents(
       if (iso3 && isInScope(iso3)) numerics.push(n);
     }
   }
-  // restingFrameFor, not frameFor: a filter never rests where one of its own
-  // markers is off screen (Samoa and Tonga under Oceania).
-  return fitNumerics(numerics, restingFrameFor);
+  return fitNumerics(numerics);
 }
 
-function fitNumerics(
-  numerics: readonly string[],
-  fitter: (numerics: readonly string[]) => Target | null = frameFor,
-): ZoomTransform {
-  const fit = fitter(numerics);
+function fitNumerics(numerics: readonly string[]): ZoomTransform {
+  const fit = frameFor(numerics);
   if (!fit) return zoomIdentity;
   const k = Math.min(MAX_ZOOM, fit.k);
   return zoomIdentity.translate(W / 2 - fit.cx * k, H / 2 - fit.cy * k).scale(k);
@@ -451,7 +453,7 @@ export function WorldMap({
     const numeric = numericFromIso3(revealCorrectIso3);
     if (!numeric) return;
     // Frame the largest clipped ring rather than pathGen.bounds(feat) —
-    // for antimeridian-crossing features (Fiji, Russia, Antarctica) the
+    // for features drawn on both sides of the map's edge (Antarctica, the US) the
     // raw feature bounds span the whole map width, which collapses the
     // zoom factor to ~1 and the user never lands on the country.
     const label = LABELS_BY_NUMERIC.get(numeric);
@@ -1261,14 +1263,13 @@ export function WorldMap({
                   r={r}
                   fill={fill}
                   stroke={strokeFor(fill, palette)}
-                  strokeWidth={0.75}
                   vectorEffect="non-scaling-stroke"
                   className={className}
                   data-marker={m.numericId}
                   onClick={
                     clickable && iso3 ? (e) => handleMarkerClick(iso3, e) : undefined
                   }
-                  style={PATH_TRANSITION}
+                  style={MARKER_STYLE}
                 />
               </g>
             );

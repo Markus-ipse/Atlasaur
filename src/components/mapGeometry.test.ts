@@ -5,11 +5,11 @@ import {
   LABELS_BY_NUMERIC,
   MARKER_EXTENT_SVG,
   MARKER_LABELS,
+  MARKER_RADIUS_PX,
   frameFor,
   projection,
-  restingFrameFor,
 } from "./mapGeometry";
-import { H, W, tryFitUnion, visibleFrame } from "./revealZoom";
+import { H, W, visibleFrame } from "./revealZoom";
 
 const COUNTRIES = countriesData as Country[];
 const MARKERS = COUNTRIES.filter((c) => c.marker);
@@ -27,6 +27,15 @@ describe("markers (R3.4)", () => {
       "SGP", "SMR", "STP", "SYC", "TON", "TUV", "VAT", "VCT", "WSM",
     ]);
     expect(MARKER_LABELS).toHaveLength(MARKERS.length);
+  });
+
+  it("draws every dot whole at a phone's world view", () => {
+    // A 320 px map, the narrowest phone; the dot's on-screen radius plus
+    // its outline must clear every edge.
+    const unitsPerPx = W / 320;
+    const r = (MARKER_RADIUS_PX + 1) * unitsPerPx;
+    const clipped = MARKER_LABELS.filter((l) => l.cx - r < 0 || l.cx + r > W || l.cy - r < 0 || l.cy + r > H);
+    expect(clipped.map((l) => l.name)).toEqual([]);
   });
 
   it("puts each marker at its projected capital, under its map name", () => {
@@ -59,32 +68,21 @@ describe("frameFor", () => {
       .map((c) => c.iso3);
   }
 
-  it("shows every continent's markers at its filter frame, except the two across the antimeridian", () => {
+  it("shows every continent's markers at its filter frame", () => {
     const off: string[] = [];
     for (const continent of ALL_CONTINENTS) {
       const pool = COUNTRIES.filter((c) => c.continent === continent && !c.territory);
       off.push(...(markersOffFrame(pool) ?? []));
     }
-    // Samoa and Tonga are drawn at the map's left edge, the rest of Oceania
-    // at its right. Fitting them would make Oceania's frame the whole world.
-    expect(off.sort()).toEqual(["TON", "WSM"]);
+    // Samoa and Tonga included: the map's edge is at 168.4°W, east of both.
+    expect(off).toEqual([]);
   });
 
-  it("rests a continent filter on the whole map only where a marker would be off frame", () => {
-    const wholeMap: string[] = [];
-    for (const continent of ALL_CONTINENTS) {
-      const numerics = COUNTRIES.filter((c) => c.continent === continent && !c.territory).map((c) => c.numeric);
-      if (frameFor(numerics) && !restingFrameFor(numerics)) wholeMap.push(continent);
-    }
-    expect(wholeMap).toEqual(["Oceania"]);
-  });
-
-  it("keeps Oceania's filter frame zoomed in, where fitting the markers would lose it", () => {
+  it("keeps Oceania's filter frame zoomed in", () => {
     const oceania = COUNTRIES.filter((c) => c.continent === "Oceania" && !c.territory);
-    // The shapes alone frame at k ≈ 1.75, the frame Oceania had before R3.4.
+    // The frame Oceania had before R3.4, when Samoa and Tonga were drawn
+    // at the far left and a frame that showed them was the whole world.
     expect(frameFor(oceania.map((c) => c.numeric))!.k).toBeGreaterThan(1.5);
-    // With Samoa and Tonga fitted too the union spans the map: no frame.
-    expect(tryFitUnion(oceania.map((c) => LABELS_BY_NUMERIC.get(c.numeric)!))).toBeNull();
   });
 
   it("shows every marker in its subregion's frame, where the subregion has shapes to fit", () => {
