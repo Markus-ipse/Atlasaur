@@ -17,4 +17,5 @@ want to know *why* a change was made, not just *what*.
 - `r1-reason-to-return.md` — release one of the September 2026 product survey (`../product-survey-2026-09.md`); doubles as the progress tracker for that release.
 - `r2-your-map.md` — release two of the same survey: mastery painted onto the map, milestones in the house style, the reveal-zoom floor, local counters. Progress tracker for that release.
 - `r3-variety-and-a-hook.md` — release three of the same survey: the Daily Expedition, a record per fact with the capital question modes, the borders mode on hold, finishing the world, flags last. Progress tracker for that release.
-- `open-ideas.md` — ideas and still-true findings no release plan has taken on yet: measuring delayed recall, a per-answer outcome log, the held borders question, confusion-pair remediation, summary scope labels.
+- `open-ideas.md` — ideas and still-true findings no release plan has taken on yet: measuring delayed recall, a per-answer outcome log, the held borders question, confusion-pair remediation, whether "Known" should include Relearning.
+- `outcome-log.md` — a local, bounded log of every answer (country, mode, outcome, wrong country given), so delayed recall and confusion pairs can be measured.
