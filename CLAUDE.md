@@ -129,7 +129,7 @@ Typed-answer matching compares `normalize(input)` against the candidates for the
 
 ### WorldMap: module-level projection, runtime zoom
 
-The Equal-Earth projection, all path `d` strings, the label list, and `FEATURE_BY_NUMERIC` are computed once at module load — they only depend on the projection. Re-renders during pan/zoom apply a CSS `transform` to a single `<g>` element; the path data does not change. If you need to recompute paths, you're probably doing something wrong; consider whether the change can be expressed via fill/highlight state in `fillFor` instead.
+The Equal-Earth projection is centred on 11.6°E (`PROJECTION_CENTRE_LON`), so its edge is 168.4°W — the one meridian in the Bering Strait that cuts no country at 110m. Russia and Fiji are drawn whole and the Pacific markers sit beside Oceania; the United States' St Lawrence Island and Antarctica are the two features drawn on both sides of the edge, which `pathGen.bounds` reads as the full map width (hence LABELS' largest ring for framing). It is fitted with `MAP_SIDE_MARGIN` at each side so a dot near the edge is drawn whole on a phone. The projection, all path `d` strings, the label list, and `FEATURE_BY_NUMERIC` are computed once at module load — they only depend on the projection. Re-renders during pan/zoom apply a CSS `transform` to a single `<g>` element; the path data does not change. If you need to recompute paths, you're probably doing something wrong; consider whether the change can be expressed via fill/highlight state in `fillFor` instead.
 
 `fillFor` is the single decision point for country color (inert / **mastery paint** / highlighted / correct / wrong / skipped / neighbor / spotlight). Add new visual states there, not in the JSX. Precedence inside a feedback reveal: correct → wrong-clicked → neighbor → highlight → spotlight → inert → mastery paint. A neighbor that's also the wrong-clicked country stays red; the neighbor tone is the lowest-priority *reveal* overlay so it never competes with primary signals. Below every reveal state sit the spotlight wash and, at the very bottom, the ambient mastery paint.
 
@@ -635,7 +635,10 @@ for a marker, so an off-screen marker label is dropped rather than pinned.
 
 `WorldMap` draws `MARKER_LABELS` as circles of constant on-screen radius
 (`MARKER_RADIUS_PX`), painted by the same `fillFor` / `strokeFor` chain as a
-path and clickable under the same rule. On a touch screen each dot also
+path and clickable under the same rule. Its outline width is a theme token,
+`--map-marker-stroke-width` in `index.css` (0.75 light, 1.25 dark): it is the
+dot's only edge, and dark's ochre line against the near-black ocean all but
+vanished at a coastline's weight, while light's ink does not need more. On a touch screen each dot also
 gets an invisible `HIT_DISC_PX` tap circle (`data-marker-hit`), capped at half
 the gap to the nearest in-scope dot and drawn above the land but beneath every
 dot: the ordinary hit disc lies beneath the land, so an enclave's would answer
@@ -656,17 +659,13 @@ anchored **below** its dot by `labelAnchor` in `labelLayout.ts`, which both the
 collision pass and the pin pass measure from, so the rects are where the text
 is drawn.
 
-**Region frames fit shapes only** (`frameFor` in `mapGeometry.ts`). Samoa and
-Tonga lie just east of the antimeridian, which Equal Earth draws at the map's
-left edge, while the rest of Oceania is at its right; fitting them would make
-Oceania's filter frame the whole world. Every other marker falls inside its
-continent's and its subregion's frame through the frame's padding —
-`mapGeometry.test.ts` pins that, and pins Samoa and Tonga as the two that do
-not. Micronesia and Polynesia have no shapes and so no frame; a small card there keeps the filter's frame and its hit disc. A continent
-filter's **resting** frame goes one step further (`restingFrameFor`): when a
-marker in scope would be off that frame it rests on the whole map instead,
-because a frame that hides a question's answer is worse than no zoom. Oceania
-is the one continent that does; `mapGeometry.test.ts` pins it.
+**Region frames fit shapes only** (`frameFor` in `mapGeometry.ts`). Every
+marker falls inside its continent's and its subregion's frame through the
+frame's padding, Samoa and Tonga included — `mapGeometry.test.ts` pins both.
+They did not before the projection was recentred (see the WorldMap projection section above): at Greenwich
+they sat at the map's far left, and a filter frame had to fall back to the
+whole world to show them. Micronesia and Polynesia have no shapes and so no
+frame; a small card there keeps the filter's frame and its hit disc.
 
 **Out of the Daily Expedition.** It is one attempt a day with no retry, and
 most markers are a few pixels of ocean on a phone; admitting them would put

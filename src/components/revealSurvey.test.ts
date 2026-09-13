@@ -40,7 +40,7 @@ describe("reveal survey over the real table", () => {
     // only neighbours are countries a thousand times their size. If this
     // list moves, the topology or the framing changed; look before re-pinning.
     expect(offFrame).toEqual([
-      "AND: Spain, France",
+      "AND: France",
       "AZE: Russia",
       "BLR: Russia",
       "BLZ: Mexico",
@@ -52,7 +52,6 @@ describe("reveal survey over the real table", () => {
       "FIN: Russia",
       "GUF: Brazil",
       "GEO: Russia",
-      "GTM: Mexico",
       "GNB: Senegal",
       "KWT: Iraq, Saudi Arabia",
       "KGZ: China",
@@ -64,6 +63,7 @@ describe("reveal survey over the real table", () => {
       "PRK: Russia",
       "NOR: Russia",
       "POL: Russia",
+      "QAT: Saudi Arabia",
       "SUR: Brazil",
       "TLS: Indonesia",
       "UKR: Russia",

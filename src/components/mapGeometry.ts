@@ -13,7 +13,7 @@ import type { Topology } from "topojson-specification";
 import topologyJson from "../data/world-110m.json";
 import countriesData from "../data/countries.json";
 import type { Country } from "../types";
-import { H, W, tryFitUnion, visibleFrame, type Bounds, type Target } from "./revealZoom";
+import { H, W, tryFitUnion, type Bounds, type Target } from "./revealZoom";
 import type { Label } from "./labelLayout";
 import {
   largestRing,
@@ -48,12 +48,32 @@ export const collection = feature(
   topology,
   topology.objects.countries,
 ) as unknown as FeatureCollection<Geometry, { name?: string }>;
-export const projection = geoEqualEarth().fitSize([W, H], collection);
+// Centred on 11.6°E, which puts the map's edge at 168.4°W: the one meridian
+// in the Bering Strait that cuts no country at 110m, between St Lawrence
+// Island (to 168.7°W) and mainland Alaska (from 168.1°W). Russia and Fiji
+// are drawn whole, and Samoa and Tonga sit beside the rest of Oceania rather
+// than at the map's far left, which the Greenwich-centred default did to
+// them. Fitted to the sphere rather than the land: at the edge the land's
+// widest feature is Antarctica, narrower than the outline is at the equator,
+// so a dot near the edge there (Samoa is under 4° inside it) fell off the
+// viewBox. The sphere plus a small margin at each side draws it whole on a
+// phone's world view.
+export const PROJECTION_CENTRE_LON = 11.6;
+export const MAP_SIDE_MARGIN = 4;
+export const projection = geoEqualEarth()
+  .rotate([-PROJECTION_CENTRE_LON, 0])
+  .fitExtent(
+    [
+      [MAP_SIDE_MARGIN, 0],
+      [W - MAP_SIDE_MARGIN, H],
+    ],
+    { type: "Sphere" },
+  );
 export const pathGen = geoPath(projection);
 
 // Stream the feature through the projection so antimeridian clipping (and
 // any other projection-level clipping) happens before we see points;
-// otherwise rings spanning ±180° (Fiji, Russia, Antarctica) project as a
+// otherwise a ring crossing the map's edge (Antarctica's) projects as a
 // stripe across the whole map and polylabel lands in the ocean. The rings
 // come back flat — the stream's polygon boundaries are not kept, since an
 // antimeridian split emits disjoint pieces as rings of one polygon — and
@@ -127,8 +147,7 @@ for (const f of collection.features) {
   if (!name) continue;
   FEATURE_BY_NUMERIC.set(numericId, f);
   // Across all clipped rings, the largest by area is the country's "main"
-  // landmass — that's where the label belongs (continental US, not Alaska;
-  // mainland Russia, not Chukotka).
+  // landmass — that's where the label belongs (continental US, not Alaska).
   const result = largestRing(projectedRings(f));
   if (!result) continue;
   const { ring, area } = result;
@@ -180,14 +199,12 @@ export const LABELS_BY_NUMERIC = new Map<string, Label>(
 );
 
 // The frame that fits a set of countries — a continent filter's resting
-// frame, or a small card's region (R1.6). Fitted to shapes only: markers ride
-// the frame's padding, which covers every one of them except the two that sit
-// across the map's edge from the rest of their region. Samoa and Tonga are
-// just east of the antimeridian, so Equal Earth draws them at the far left;
-// fitting them would stretch Oceania's frame to the whole world and take the
-// zoom away from the fourteen Oceania countries that are together. Null when
-// nothing in the set has a shape (the Polynesia and Micronesia subregions are
-// all markers), which callers read as "no frame worth adopting".
+// frame, or a small card's region (R1.6). Fitted to shapes only: a marker's
+// nominal extent would add nothing but its dot, and every marker falls inside
+// its continent's and its subregion's frame through the frame's padding
+// (mapGeometry.test.ts pins both). Null when nothing in the set has a shape
+// (the Polynesia and Micronesia subregions are all markers), which callers
+// read as "no frame worth adopting".
 export function frameFor(numerics: readonly string[]): Target | null {
   const bounds: Bounds[] = [];
   for (const n of numerics) {
@@ -195,24 +212,4 @@ export function frameFor(numerics: readonly string[]): Target | null {
     if (lab && !lab.marker) bounds.push(lab);
   }
   return tryFitUnion(bounds);
-}
-
-// The frame a continent filter rests at: `frameFor`, unless a marker in the
-// set would fall outside it. Under an Oceania filter Samoa and Tonga do, at
-// the map's far left, and a resting frame that hides the answer to a question
-// the learner is being asked is worse than no zoom, so that filter rests on
-// the whole map instead (null). Measured against the 2:1 viewBox; a taller
-// screen only shows more. A small card's region frame (R1.6) keeps
-// `frameFor`: it is adopted for a card that is on screen in it.
-export function restingFrameFor(numerics: readonly string[]): Target | null {
-  const fit = frameFor(numerics);
-  if (!fit) return null;
-  const f = visibleFrame({ x: W / 2 - fit.cx * fit.k, y: H / 2 - fit.cy * fit.k, k: fit.k });
-  for (const n of numerics) {
-    const l = LABELS_BY_NUMERIC.get(n);
-    if (l?.marker && (l.cx < f.x0 || l.cx > f.x1 || l.cy < f.y0 || l.cy > f.y1)) {
-      return null;
-    }
-  }
-  return fit;
 }

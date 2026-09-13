@@ -98,6 +98,12 @@
                                           close enough to the ink to need it,
                                           so this value is the dark theme's
                                           counterpart standing ready. */
+  /* Outline of a marker dot (R3.4), in on-screen px. A dot's outline is its
+     only edge, where a coastline is read over many pixels of it. Light's
+     near-black ink holds at a coastline's weight; dark's ochre line against
+     the near-black ocean needs more, or an unseen dot all but vanishes. Not a
+     colour, but kept with the map tokens so the theme owns it. */
+  --map-marker-stroke-width: 0.75;
 
   /* Always-darker-than-base roles. Separate from --color-ink-deep because
      scrims and edge vignettes must stay darkening across theme flips — they
@@ -161,6 +167,7 @@
                                           known land, the spotlight wash, a
                                           reveal — so those get this instead
                                           (see strokeFor in fillFor.ts). */
+  --map-marker-stroke-width: 1.25;
 
   /* Always-darker-than-base roles. Both stay in the warm family to match
      the rest of the dark palette; vignette is pure black to deepen map
