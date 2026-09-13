@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { pickNext, pickSpotlight } from "./pickCountry";
+import { markerOnlySubregions, pickNext, pickSpotlight } from "./pickCountry";
+import countriesData from "../data/countries.json";
 import type { Country, RetryEntry, Subregion } from "../types";
 
 function country(iso3: string): Country {
@@ -439,6 +440,24 @@ describe("pickSpotlight", () => {
 
   it("returns null for an empty map", () => {
     expect(pickSpotlight(new Map())).toBeNull();
+  });
+
+  it("offers a subregion it cannot frame only when nothing else clears the gate", () => {
+    const lastResort = new Set<Subregion>(["Micronesia"]);
+    expect(
+      pickSpotlight(mastery([["Micronesia", 0, 5], ["Melanesia", 2, 5]]), lastResort)?.subregion,
+    ).toBe("Melanesia");
+    // Melanesia's 2 remaining are under the gate: Micronesia is all there is.
+    expect(
+      pickSpotlight(mastery([["Micronesia", 0, 5], ["Melanesia", 3, 5]]), lastResort)?.subregion,
+    ).toBe("Micronesia");
+  });
+
+  it("finds the subregions drawn only as markers in the real table", () => {
+    expect([...markerOnlySubregions(countriesData as Country[])].sort()).toEqual([
+      "Micronesia",
+      "Polynesia",
+    ]);
   });
 });
 

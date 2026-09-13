@@ -35,9 +35,12 @@ describe("reveal survey over the real table", () => {
       if (out.length) offFrame.push(`${c.iso3}: ${out.map((n) => n.name).join(", ")}`);
     }
     // R2.3 left these 26, every one an answer beside a giant neighbour that
-    // computeRevealTarget drops from the frame on purpose. If this list
-    // moves, the topology or the framing changed; look before re-pinning.
+    // computeRevealTarget drops from the frame on purpose. R3.4 added three
+    // of the same kind: Andorra, Monaco and Vatican City are points whose
+    // only neighbours are countries a thousand times their size. If this
+    // list moves, the topology or the framing changed; look before re-pinning.
     expect(offFrame).toEqual([
+      "AND: Spain, France",
       "AZE: Russia",
       "BLR: Russia",
       "BLZ: Mexico",
@@ -56,6 +59,7 @@ describe("reveal survey over the real table", () => {
       "LVA: Russia",
       "LTU: Russia",
       "LUX: France",
+      "MCO: France",
       "NPL: China",
       "PRK: Russia",
       "NOR: Russia",
@@ -64,6 +68,7 @@ describe("reveal survey over the real table", () => {
       "TLS: Indonesia",
       "UKR: Russia",
       "URY: Brazil",
+      "VAT: Italy",
     ]);
   });
 

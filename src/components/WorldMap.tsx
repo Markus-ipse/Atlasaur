@@ -15,6 +15,10 @@ import { isClickMode } from "../game/questionModes";
 import {
   LABELS,
   LABELS_BY_NUMERIC,
+  MARKER_LABELS,
+  MARKER_RADIUS_PX,
+  frameFor,
+  restingFrameFor,
   polygonsFor,
   collection,
   numericIdFor,
@@ -30,7 +34,6 @@ import {
   widenForContext,
   tryFitUnion,
   visibleFrame,
-  type Bounds,
   type Target,
 } from "./revealZoom";
 import {
@@ -48,6 +51,7 @@ import { fillFor, strokeFor, type Palette } from "./fillFor";
 import { masteryPercent, type MasteryTier } from "../game/srs";
 import { Wordmark } from "./Wordmark";
 import {
+  HIT_DISC_PX,
   HINT_TARGET_PX,
   TAP_TARGET_PX,
   hitDiscRadiusSvg,
@@ -270,16 +274,16 @@ function fitContinents(
       if (iso3 && isInScope(iso3)) numerics.push(n);
     }
   }
-  return fitNumerics(numerics);
+  // restingFrameFor, not frameFor: a filter never rests where one of its own
+  // markers is off screen (Samoa and Tonga under Oceania).
+  return fitNumerics(numerics, restingFrameFor);
 }
 
-function fitNumerics(numerics: readonly string[]): ZoomTransform {
-  const bounds: Bounds[] = [];
-  for (const n of numerics) {
-    const lab = LABELS_BY_NUMERIC.get(n);
-    if (lab) bounds.push(lab);
-  }
-  const fit = tryFitUnion(bounds);
+function fitNumerics(
+  numerics: readonly string[],
+  fitter: (numerics: readonly string[]) => Target | null = frameFor,
+): ZoomTransform {
+  const fit = fitter(numerics);
   if (!fit) return zoomIdentity;
   const k = Math.min(MAX_ZOOM, fit.k);
   return zoomIdentity.translate(W / 2 - fit.cx * k, H / 2 - fit.cy * k).scale(k);
@@ -856,6 +860,11 @@ export function WorldMap({
     return PATHS.filter((p) => p.numericId === numeric);
   }, [hatchIso3, numericFromIso3]);
 
+  // R3.4: on a touch screen each marker also gets a tap circle drawn above
+  // the land (see the marker layer). Read once: a device's primary pointer
+  // does not change under a learner mid-card.
+  const [coarsePointer] = useState(isCoarsePointer);
+
   const hitDiscs = useMemo(() => {
     if (!mapClickable || effectiveScale === 0) return [] as HitDisc[];
     const out: HitDisc[] = [];
@@ -1132,6 +1141,92 @@ export function WorldMap({
               {l.name}
             </text>
           ))}
+          {/* R3.4: the countries the topology cannot draw, as dots at their
+              capitals. Painted by the same fillFor chain as a shape, so the
+              mastery tiers, spotlight, reveal tones and the scope all apply
+              unchanged. Drawn above the land and the labels, because on an
+              enclave (Vatican City, San Marino) the dot sits on its
+              neighbour and is the only thing there is to tap or see; each
+              label is anchored below its dot (labelAnchor). Every in-scope
+              marker is drawn, not just the card's, so the dots give nothing
+              away. Constant on-screen size, like the capital dot. */}
+          {MARKER_LABELS.map((m) => {
+            const iso3 = isoFromNumeric(m.numericId);
+            const inScope = iso3 ? isInScope(iso3) : false;
+            const fill = fillFor(
+              {
+                iso3,
+                highlightedIso3,
+                feedback,
+                inScope,
+                neighborSet,
+                spotlightSet: spotlightIso3Set,
+                masteryTier: iso3 ? masteryByIso3.get(iso3) : undefined,
+              },
+              palette,
+            );
+            const clickable = mapClickable && Boolean(iso3) && inScope;
+            const correctPulse =
+              feedback?.kind === "correct" && iso3 === feedback.correctIso3;
+            let className = clickable ? "country-clickable cursor-pointer" : "";
+            if (correctPulse)
+              className += className ? " correct-pulse" : "correct-pulse";
+            const pxPerUnit = (effectiveScale > 0 ? effectiveScale : 1) * transform.k;
+            const r = MARKER_RADIUS_PX / pxPerUnit;
+            // A shape highlighted in a typed mode is found by its colour; a
+            // few pixels of ochre are not, so the dot being asked about gets
+            // a ring. It is the question, not the answer, so it leaks nothing.
+            const asked = !feedback && iso3 !== undefined && highlightedIso3 === iso3;
+            return (
+              <g key={m.numericId}>
+                {asked && (
+                  <circle
+                    cx={m.cx}
+                    cy={m.cy}
+                    r={r * 3}
+                    fill="none"
+                    stroke={palette.highlight}
+                    strokeWidth={2}
+                    vectorEffect="non-scaling-stroke"
+                    pointerEvents="none"
+                    data-marker-ring={m.numericId}
+                  />
+                )}
+                {/* The hit discs sit beneath the land, so an enclave's would
+                    answer Italy or France and leave a 7 px dot to tap. On a
+                    touch screen the dot gets its own, above the land; a mouse
+                    keeps pixel precision, so a click on Rome still answers
+                    Italy there. */}
+                {clickable && iso3 && coarsePointer && (
+                  <circle
+                    cx={m.cx}
+                    cy={m.cy}
+                    r={HIT_DISC_PX / 2 / pxPerUnit}
+                    fill="none"
+                    pointerEvents="all"
+                    className="cursor-pointer"
+                    data-marker-hit={m.numericId}
+                    onClick={(e) => handleCountryClick(iso3, e)}
+                  />
+                )}
+                <circle
+                  cx={m.cx}
+                  cy={m.cy}
+                  r={r}
+                  fill={fill}
+                  stroke={strokeFor(fill, palette)}
+                  strokeWidth={0.75}
+                  vectorEffect="non-scaling-stroke"
+                  className={className}
+                  data-marker={m.numericId}
+                  onClick={
+                    clickable && iso3 ? (e) => handleCountryClick(iso3, e) : undefined
+                  }
+                  style={PATH_TRANSITION}
+                />
+              </g>
+            );
+          })}
           {/* Capital marker — drawn after labels so the location signal wins
               over the (mostly redundant) country label on miss-reveal.
               Radii divided by transform.k so the dot stays a constant ~4px

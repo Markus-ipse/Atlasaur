@@ -26,6 +26,7 @@
 //                                         uninhabited land; out of the default
 //                                         pool behind the "Territories" setting)
 //   topoName? / neighborsOverride?       (escape hatches; see below)
+//   marker? / mapName?                   (R3.4; see below)
 //
 // `neighbors` is computed from the topology at build time (shared-arc
 // adjacency via topojson-client). Override with `neighborsOverride: iso3[]`
@@ -33,6 +34,18 @@
 // No entries currently use it — French Guiana used to drag France↔Brazil
 // and France↔Suriname adjacencies into the result, but that's fixed
 // upstream now (build-topology.mjs splits GUF out of France's MultiPolygon).
+//
+// `marker: true` (R3.4) is for a country in its own right that the 110m
+// topology does not carry — the island and micro-states, from Cabo Verde down
+// to the Vatican. The map draws it as a point at `capitalLonLat` instead of a
+// shape, so a marker row must have a capital, and must NOT be in the topology
+// (if a later world-atlas draws it, drop the flag). A point has no arcs, so
+// its land borders come from `neighborsOverride`, which for a marker row is
+// mirrored onto each neighbour's topology-computed list — Italy keeps its
+// computed borders and gains Vatican City and San Marino, with no override of
+// its own. `mapName` is the short form used for the marker's map label, in
+// world-atlas's own abbreviating style ("St. Vin. and Gren."), since a
+// topology row's label comes from the topology and a marker has none.
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -101,7 +114,6 @@ const COUNTRIES = {
   "040": { iso3: "AUT", name: "Austria", aliases: [], continent: "Europe", subregion: "Western Europe", capital: "Vienna", capitalLonLat: [16.37, 48.2], landAreaKm2: 83879, notabilityTier: 2 },
   "031": { iso3: "AZE", name: "Azerbaijan", aliases: [], continent: "Asia", subregion: "Western Asia", capital: "Baku", capitalLonLat: [49.87, 40.38], landAreaKm2: 86600, notabilityTier: 1 },
   "044": { iso3: "BHS", name: "Bahamas", aliases: ["The Bahamas"], continent: "North America", subregion: "Caribbean", capital: "Nassau", capitalLonLat: [-77.35, 25.08], landAreaKm2: 13943, notabilityTier: 1 },
-  "048": { iso3: "BHR", name: "Bahrain", aliases: [], continent: "Asia", subregion: "Western Asia", capital: "Manama", capitalLonLat: [50.57, 26.23], landAreaKm2: 765, notabilityTier: 0 },
   "050": { iso3: "BGD", name: "Bangladesh", aliases: [], continent: "Asia", subregion: "Southern Asia", capital: "Dhaka", capitalLonLat: [90.4, 23.72], landAreaKm2: 147570, notabilityTier: 1 },
   "112": { iso3: "BLR", name: "Belarus", aliases: [], continent: "Europe", subregion: "Eastern Europe", capital: "Minsk", capitalLonLat: [27.57, 53.9], landAreaKm2: 207600, notabilityTier: 1 },
   "056": { iso3: "BEL", name: "Belgium", aliases: [], continent: "Europe", subregion: "Western Europe", capital: "Brussels", capitalLonLat: [4.33, 50.83], landAreaKm2: 30528, notabilityTier: 2 },
@@ -276,6 +288,39 @@ const COUNTRIES = {
   "901": { iso3: "XKX", name: "Kosovo", aliases: ["Republic of Kosovo"], continent: "Europe", subregion: "Southern Europe", capital: "Pristina", capitalLonLat: [21.167, 42.667], capitalAliases: ["Prishtina"], landAreaKm2: 10887, notabilityTier: 1, topoName: "Kosovo" },
   "902": { iso3: "XNC", name: "Northern Cyprus", aliases: ["N. Cyprus", "Turkish Republic of Northern Cyprus", "TRNC"], continent: "Asia", subregion: "Western Asia", capital: "North Nicosia", capitalLonLat: [33.367, 35.183], landAreaKm2: 3355, notabilityTier: 0, topoName: "N. Cyprus" },
   "903": { iso3: "XSL", name: "Somaliland", aliases: ["Republic of Somaliland"], continent: "Africa", subregion: "Eastern Africa", capital: "Hargeisa", capitalLonLat: [44.067, 9.55], landAreaKm2: 176120, notabilityTier: 0, topoName: "Somaliland" },
+  // R3.4: countries in their own right that the 110m topology cannot draw.
+  // Each is a point marker at its capital rather than a shape (see `marker`
+  // in the header). None has shared arcs, so a land border has to be entered
+  // by hand in `neighborsOverride`; the build mirrors it onto the other side.
+  "020": { iso3: "AND", name: "Andorra", aliases: [], continent: "Europe", subregion: "Southern Europe", capital: "Andorra la Vella", capitalLonLat: [1.52, 42.51], landAreaKm2: 468, notabilityTier: 0, marker: true, neighborsOverride: ["ESP", "FRA"] },
+  "028": { iso3: "ATG", name: "Antigua and Barbuda", aliases: ["Antigua"], continent: "North America", subregion: "Caribbean", capital: "St. John's", capitalAliases: ["Saint John's"], capitalLonLat: [-61.85, 17.12], landAreaKm2: 442, notabilityTier: 0, marker: true, mapName: "Antigua and Barb." },
+  "048": { iso3: "BHR", name: "Bahrain", aliases: [], continent: "Asia", subregion: "Western Asia", capital: "Manama", capitalLonLat: [50.57, 26.23], landAreaKm2: 765, notabilityTier: 0, marker: true },
+  "052": { iso3: "BRB", name: "Barbados", aliases: [], continent: "North America", subregion: "Caribbean", capital: "Bridgetown", capitalLonLat: [-59.62, 13.1], landAreaKm2: 430, notabilityTier: 1, marker: true },
+  "132": { iso3: "CPV", name: "Cabo Verde", aliases: ["Cape Verde"], continent: "Africa", subregion: "Western Africa", capital: "Praia", capitalLonLat: [-23.51, 14.93], landAreaKm2: 4033, notabilityTier: 0, marker: true },
+  "174": { iso3: "COM", name: "Comoros", aliases: [], continent: "Africa", subregion: "Eastern Africa", capital: "Moroni", capitalLonLat: [43.26, -11.7], landAreaKm2: 1862, notabilityTier: 0, marker: true },
+  "212": { iso3: "DMA", name: "Dominica", aliases: [], continent: "North America", subregion: "Caribbean", capital: "Roseau", capitalLonLat: [-61.39, 15.3], landAreaKm2: 751, notabilityTier: 0, marker: true },
+  "308": { iso3: "GRD", name: "Grenada", aliases: [], continent: "North America", subregion: "Caribbean", capital: "St. George's", capitalAliases: ["Saint George's"], capitalLonLat: [-61.75, 12.05], landAreaKm2: 344, notabilityTier: 0, marker: true },
+  "296": { iso3: "KIR", name: "Kiribati", aliases: [], continent: "Oceania", subregion: "Micronesia", capital: "South Tarawa", capitalAliases: ["Tarawa"], capitalLonLat: [173.03, 1.33], landAreaKm2: 811, notabilityTier: 0, marker: true },
+  "438": { iso3: "LIE", name: "Liechtenstein", aliases: [], continent: "Europe", subregion: "Western Europe", capital: "Vaduz", capitalLonLat: [9.52, 47.14], landAreaKm2: 160, notabilityTier: 0, marker: true, neighborsOverride: ["AUT", "CHE"] },
+  "462": { iso3: "MDV", name: "Maldives", aliases: [], continent: "Asia", subregion: "Southern Asia", capital: "Malé", capitalLonLat: [73.51, 4.18], landAreaKm2: 298, notabilityTier: 1, marker: true },
+  "470": { iso3: "MLT", name: "Malta", aliases: [], continent: "Europe", subregion: "Southern Europe", capital: "Valletta", capitalLonLat: [14.51, 35.9], landAreaKm2: 316, notabilityTier: 1, marker: true },
+  "584": { iso3: "MHL", name: "Marshall Islands", aliases: [], continent: "Oceania", subregion: "Micronesia", capital: "Majuro", capitalLonLat: [171.38, 7.09], landAreaKm2: 181, notabilityTier: 0, marker: true, mapName: "Marshall Is." },
+  "480": { iso3: "MUS", name: "Mauritius", aliases: [], continent: "Africa", subregion: "Eastern Africa", capital: "Port Louis", capitalLonLat: [57.5, -20.16], landAreaKm2: 2040, notabilityTier: 1, marker: true },
+  "583": { iso3: "FSM", name: "Micronesia", aliases: ["Federated States of Micronesia"], continent: "Oceania", subregion: "Micronesia", capital: "Palikir", capitalLonLat: [158.16, 6.92], landAreaKm2: 702, notabilityTier: 0, marker: true },
+  "492": { iso3: "MCO", name: "Monaco", aliases: [], continent: "Europe", subregion: "Western Europe", capital: "Monaco", capitalLonLat: [7.42, 43.73], landAreaKm2: 2, notabilityTier: 1, marker: true, neighborsOverride: ["FRA"] },
+  "520": { iso3: "NRU", name: "Nauru", aliases: [], continent: "Oceania", subregion: "Micronesia", capital: "Yaren", capitalLonLat: [166.92, -0.55], landAreaKm2: 21, notabilityTier: 0, marker: true },
+  "585": { iso3: "PLW", name: "Palau", aliases: [], continent: "Oceania", subregion: "Micronesia", capital: "Ngerulmud", capitalLonLat: [134.62, 7.5], landAreaKm2: 459, notabilityTier: 0, marker: true },
+  "659": { iso3: "KNA", name: "Saint Kitts and Nevis", aliases: ["St. Kitts and Nevis", "Saint Kitts", "St. Kitts"], continent: "North America", subregion: "Caribbean", capital: "Basseterre", capitalLonLat: [-62.72, 17.3], landAreaKm2: 261, notabilityTier: 0, marker: true, mapName: "St. Kitts and Nevis" },
+  "662": { iso3: "LCA", name: "Saint Lucia", aliases: ["St. Lucia"], continent: "North America", subregion: "Caribbean", capital: "Castries", capitalLonLat: [-60.98, 14.01], landAreaKm2: 616, notabilityTier: 0, marker: true },
+  "670": { iso3: "VCT", name: "Saint Vincent and the Grenadines", aliases: ["St. Vincent and the Grenadines", "Saint Vincent", "St. Vincent"], continent: "North America", subregion: "Caribbean", capital: "Kingstown", capitalLonLat: [-61.23, 13.16], landAreaKm2: 389, notabilityTier: 0, marker: true, mapName: "St. Vin. and Gren." },
+  "882": { iso3: "WSM", name: "Samoa", aliases: [], continent: "Oceania", subregion: "Polynesia", capital: "Apia", capitalLonLat: [-171.77, -13.83], landAreaKm2: 2842, notabilityTier: 0, marker: true },
+  "674": { iso3: "SMR", name: "San Marino", aliases: [], continent: "Europe", subregion: "Southern Europe", capital: "San Marino", capitalLonLat: [12.45, 43.94], landAreaKm2: 61, notabilityTier: 0, marker: true, neighborsOverride: ["ITA"] },
+  "678": { iso3: "STP", name: "São Tomé and Príncipe", aliases: ["São Tomé"], continent: "Africa", subregion: "Middle Africa", capital: "São Tomé", capitalLonLat: [6.73, 0.34], landAreaKm2: 964, notabilityTier: 0, marker: true },
+  "690": { iso3: "SYC", name: "Seychelles", aliases: [], continent: "Africa", subregion: "Eastern Africa", capital: "Victoria", capitalLonLat: [55.45, -4.62], landAreaKm2: 459, notabilityTier: 1, marker: true },
+  "702": { iso3: "SGP", name: "Singapore", aliases: [], continent: "Asia", subregion: "South-eastern Asia", capital: "Singapore", capitalLonLat: [103.85, 1.29], landAreaKm2: 728, notabilityTier: 2, marker: true },
+  "776": { iso3: "TON", name: "Tonga", aliases: [], continent: "Oceania", subregion: "Polynesia", capital: "Nuku'alofa", capitalLonLat: [-175.2, -21.14], landAreaKm2: 747, notabilityTier: 0, marker: true },
+  "798": { iso3: "TUV", name: "Tuvalu", aliases: [], continent: "Oceania", subregion: "Polynesia", capital: "Funafuti", capitalLonLat: [179.19, -8.52], landAreaKm2: 26, notabilityTier: 0, marker: true },
+  "336": { iso3: "VAT", name: "Vatican City", aliases: ["Vatican", "Holy See"], continent: "Europe", subregion: "Southern Europe", capital: "Vatican City", capitalLonLat: [12.45, 41.9], landAreaKm2: 0.49, notabilityTier: 1, marker: true, neighborsOverride: ["ITA"] },
 };
 
 // landAreaKm2 → sizeTier. Buckets are log-scale enough to be useful without
@@ -398,6 +443,28 @@ for (const [numeric, info] of Object.entries(COUNTRIES)) {
   if (![0, 1, 2].includes(info.notabilityTier)) {
     errors.push(`${tag}: notabilityTier must be 0, 1, or 2.`);
   }
+  if (info.marker !== undefined) {
+    if (info.marker !== true) {
+      errors.push(`${tag}: marker, when present, must be true (omit it otherwise).`);
+    }
+    if (info.capital === null) {
+      errors.push(`${tag}: a marker is drawn at its capital, so it needs one.`);
+    }
+    if (info.topoName) {
+      errors.push(`${tag}: a marker has no topology feature, so topoName makes no sense.`);
+    }
+    if (topologyIds.has(numeric)) {
+      errors.push(`${tag}: marked as a marker but ${numeric} is in the topology — drop marker.`);
+    }
+  }
+  if (info.mapName !== undefined) {
+    if (info.marker !== true) {
+      errors.push(`${tag}: mapName is only for markers; a shape's label comes from the topology.`);
+    }
+    if (typeof info.mapName !== "string" || info.mapName.length === 0) {
+      errors.push(`${tag}: mapName must be a non-empty string.`);
+    }
+  }
 }
 if (errors.length > 0) {
   console.error("Errors in COUNTRIES table:");
@@ -417,7 +484,7 @@ for (const [numeric, info] of Object.entries(COUNTRIES)) {
       // a missing topoName almost always means a typo — fail loudly.
       missingTopoNames.push({ numeric, ...info });
     }
-  } else if (topologyIds.has(numeric)) {
+  } else if (topologyIds.has(numeric) || info.marker) {
     matched.push({ numeric, ...info });
   } else {
     missingFromTopology.push({ numeric, ...info });
@@ -534,6 +601,19 @@ const finalEntries = matched.map((m) => {
     ...(capitalAliases && capitalAliases.length > 0 ? { capitalAliases } : {}),
   };
 });
+// A marker's borders are entered on the marker row only; mirror each onto the
+// neighbour it names, so the pair is symmetric without the neighbour (Italy,
+// France…) giving up its computed list for a hand-maintained override.
+const entryByIso3 = new Map(finalEntries.map((e) => [e.iso3, e]));
+for (const e of finalEntries) {
+  if (!e.marker) continue;
+  for (const n of e.neighbors) {
+    const other = entryByIso3.get(n);
+    if (other && !other.neighbors.includes(e.iso3)) {
+      other.neighbors = [...other.neighbors, e.iso3].sort();
+    }
+  }
+}
 if (neighborResolutionErrors.length > 0) {
   console.error("Neighbor resolution failures:");
   for (const e of neighborResolutionErrors) console.error(`  ${e}`);

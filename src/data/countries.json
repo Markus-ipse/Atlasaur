@@ -68,6 +68,26 @@
     ]
   },
   {
+    "numeric": "020",
+    "iso3": "AND",
+    "name": "Andorra",
+    "aliases": [],
+    "continent": "Europe",
+    "subregion": "Southern Europe",
+    "capital": "Andorra la Vella",
+    "capitalLonLat": [
+      1.52,
+      42.51
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": [
+      "ESP",
+      "FRA"
+    ]
+  },
+  {
     "numeric": "024",
     "iso3": "AGO",
     "name": "Angola",
@@ -101,6 +121,29 @@
     "sizeTier": 3,
     "neighbors": [],
     "capitalLonLat": null
+  },
+  {
+    "numeric": "028",
+    "iso3": "ATG",
+    "name": "Antigua and Barbuda",
+    "aliases": [
+      "Antigua"
+    ],
+    "continent": "North America",
+    "subregion": "Caribbean",
+    "capital": "St. John's",
+    "capitalLonLat": [
+      -61.85,
+      17.12
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "mapName": "Antigua and Barb.",
+    "sizeTier": 0,
+    "neighbors": [],
+    "capitalAliases": [
+      "Saint John's"
+    ]
   },
   {
     "numeric": "032",
@@ -181,6 +224,7 @@
       "DEU",
       "HUN",
       "ITA",
+      "LIE",
       "SVK",
       "SVN"
     ]
@@ -225,6 +269,23 @@
     "neighbors": []
   },
   {
+    "numeric": "048",
+    "iso3": "BHR",
+    "name": "Bahrain",
+    "aliases": [],
+    "continent": "Asia",
+    "subregion": "Western Asia",
+    "capital": "Manama",
+    "capitalLonLat": [
+      50.57,
+      26.23
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
+  },
+  {
     "numeric": "050",
     "iso3": "BGD",
     "name": "Bangladesh",
@@ -242,6 +303,23 @@
       "IND",
       "MMR"
     ]
+  },
+  {
+    "numeric": "052",
+    "iso3": "BRB",
+    "name": "Barbados",
+    "aliases": [],
+    "continent": "North America",
+    "subregion": "Caribbean",
+    "capital": "Bridgetown",
+    "capitalLonLat": [
+      -59.62,
+      13.1
+    ],
+    "notabilityTier": 1,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "112",
@@ -529,6 +607,25 @@
     ]
   },
   {
+    "numeric": "132",
+    "iso3": "CPV",
+    "name": "Cabo Verde",
+    "aliases": [
+      "Cape Verde"
+    ],
+    "continent": "Africa",
+    "subregion": "Western Africa",
+    "capital": "Praia",
+    "capitalLonLat": [
+      -23.51,
+      14.93
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
+  },
+  {
     "numeric": "116",
     "iso3": "KHM",
     "name": "Cambodia",
@@ -712,6 +809,23 @@
       "PER",
       "VEN"
     ]
+  },
+  {
+    "numeric": "174",
+    "iso3": "COM",
+    "name": "Comoros",
+    "aliases": [],
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Moroni",
+    "capitalLonLat": [
+      43.26,
+      -11.7
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "188",
@@ -906,6 +1020,23 @@
       "ETH",
       "XSL"
     ]
+  },
+  {
+    "numeric": "212",
+    "iso3": "DMA",
+    "name": "Dominica",
+    "aliases": [],
+    "continent": "North America",
+    "subregion": "Caribbean",
+    "capital": "Roseau",
+    "capitalLonLat": [
+      -61.39,
+      15.3
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "214",
@@ -1161,12 +1292,14 @@
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
+      "AND",
       "BEL",
       "CHE",
       "DEU",
       "ESP",
       "ITA",
-      "LUX"
+      "LUX",
+      "MCO"
     ]
   },
   {
@@ -1355,6 +1488,26 @@
     "territory": true,
     "sizeTier": 3,
     "neighbors": []
+  },
+  {
+    "numeric": "308",
+    "iso3": "GRD",
+    "name": "Grenada",
+    "aliases": [],
+    "continent": "North America",
+    "subregion": "Caribbean",
+    "capital": "St. George's",
+    "capitalLonLat": [
+      -61.75,
+      12.05
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": [],
+    "capitalAliases": [
+      "Saint George's"
+    ]
   },
   {
     "numeric": "320",
@@ -1675,7 +1828,9 @@
       "AUT",
       "CHE",
       "FRA",
-      "SVN"
+      "SMR",
+      "SVN",
+      "VAT"
     ]
   },
   {
@@ -1781,6 +1936,26 @@
       "SSD",
       "TZA",
       "UGA"
+    ]
+  },
+  {
+    "numeric": "296",
+    "iso3": "KIR",
+    "name": "Kiribati",
+    "aliases": [],
+    "continent": "Oceania",
+    "subregion": "Micronesia",
+    "capital": "South Tarawa",
+    "capitalLonLat": [
+      173.03,
+      1.33
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": [],
+    "capitalAliases": [
+      "Tarawa"
     ]
   },
   {
@@ -1977,6 +2152,26 @@
     ]
   },
   {
+    "numeric": "438",
+    "iso3": "LIE",
+    "name": "Liechtenstein",
+    "aliases": [],
+    "continent": "Europe",
+    "subregion": "Western Europe",
+    "capital": "Vaduz",
+    "capitalLonLat": [
+      9.52,
+      47.14
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": [
+      "AUT",
+      "CHE"
+    ]
+  },
+  {
     "numeric": "440",
     "iso3": "LTU",
     "name": "Lithuania",
@@ -2074,6 +2269,23 @@
     ]
   },
   {
+    "numeric": "462",
+    "iso3": "MDV",
+    "name": "Maldives",
+    "aliases": [],
+    "continent": "Asia",
+    "subregion": "Southern Asia",
+    "capital": "Malé",
+    "capitalLonLat": [
+      73.51,
+      4.18
+    ],
+    "notabilityTier": 1,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
+  },
+  {
     "numeric": "466",
     "iso3": "MLI",
     "name": "Mali",
@@ -2098,6 +2310,41 @@
     ]
   },
   {
+    "numeric": "470",
+    "iso3": "MLT",
+    "name": "Malta",
+    "aliases": [],
+    "continent": "Europe",
+    "subregion": "Southern Europe",
+    "capital": "Valletta",
+    "capitalLonLat": [
+      14.51,
+      35.9
+    ],
+    "notabilityTier": 1,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
+  },
+  {
+    "numeric": "584",
+    "iso3": "MHL",
+    "name": "Marshall Islands",
+    "aliases": [],
+    "continent": "Oceania",
+    "subregion": "Micronesia",
+    "capital": "Majuro",
+    "capitalLonLat": [
+      171.38,
+      7.09
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "mapName": "Marshall Is.",
+    "sizeTier": 0,
+    "neighbors": []
+  },
+  {
     "numeric": "478",
     "iso3": "MRT",
     "name": "Mauritania",
@@ -2117,6 +2364,23 @@
       "MLI",
       "SEN"
     ]
+  },
+  {
+    "numeric": "480",
+    "iso3": "MUS",
+    "name": "Mauritius",
+    "aliases": [],
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Port Louis",
+    "capitalLonLat": [
+      57.5,
+      -20.16
+    ],
+    "notabilityTier": 1,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "484",
@@ -2143,6 +2407,25 @@
     ]
   },
   {
+    "numeric": "583",
+    "iso3": "FSM",
+    "name": "Micronesia",
+    "aliases": [
+      "Federated States of Micronesia"
+    ],
+    "continent": "Oceania",
+    "subregion": "Micronesia",
+    "capital": "Palikir",
+    "capitalLonLat": [
+      158.16,
+      6.92
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
+  },
+  {
     "numeric": "498",
     "iso3": "MDA",
     "name": "Moldova",
@@ -2159,6 +2442,25 @@
     "neighbors": [
       "ROU",
       "UKR"
+    ]
+  },
+  {
+    "numeric": "492",
+    "iso3": "MCO",
+    "name": "Monaco",
+    "aliases": [],
+    "continent": "Europe",
+    "subregion": "Western Europe",
+    "capital": "Monaco",
+    "capitalLonLat": [
+      7.42,
+      43.73
+    ],
+    "notabilityTier": 1,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": [
+      "FRA"
     ]
   },
   {
@@ -2294,6 +2596,23 @@
       "ZAF",
       "ZMB"
     ]
+  },
+  {
+    "numeric": "520",
+    "iso3": "NRU",
+    "name": "Nauru",
+    "aliases": [],
+    "continent": "Oceania",
+    "subregion": "Micronesia",
+    "capital": "Yaren",
+    "capitalLonLat": [
+      166.92,
+      -0.55
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "524",
@@ -2570,6 +2889,23 @@
       "IND",
       "IRN"
     ]
+  },
+  {
+    "numeric": "585",
+    "iso3": "PLW",
+    "name": "Palau",
+    "aliases": [],
+    "continent": "Oceania",
+    "subregion": "Micronesia",
+    "capital": "Ngerulmud",
+    "capitalLonLat": [
+      134.62,
+      7.5
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "275",
@@ -2872,6 +3208,124 @@
     ]
   },
   {
+    "numeric": "659",
+    "iso3": "KNA",
+    "name": "Saint Kitts and Nevis",
+    "aliases": [
+      "St. Kitts and Nevis",
+      "Saint Kitts",
+      "St. Kitts"
+    ],
+    "continent": "North America",
+    "subregion": "Caribbean",
+    "capital": "Basseterre",
+    "capitalLonLat": [
+      -62.72,
+      17.3
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "mapName": "St. Kitts and Nevis",
+    "sizeTier": 0,
+    "neighbors": []
+  },
+  {
+    "numeric": "662",
+    "iso3": "LCA",
+    "name": "Saint Lucia",
+    "aliases": [
+      "St. Lucia"
+    ],
+    "continent": "North America",
+    "subregion": "Caribbean",
+    "capital": "Castries",
+    "capitalLonLat": [
+      -60.98,
+      14.01
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
+  },
+  {
+    "numeric": "670",
+    "iso3": "VCT",
+    "name": "Saint Vincent and the Grenadines",
+    "aliases": [
+      "St. Vincent and the Grenadines",
+      "Saint Vincent",
+      "St. Vincent"
+    ],
+    "continent": "North America",
+    "subregion": "Caribbean",
+    "capital": "Kingstown",
+    "capitalLonLat": [
+      -61.23,
+      13.16
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "mapName": "St. Vin. and Gren.",
+    "sizeTier": 0,
+    "neighbors": []
+  },
+  {
+    "numeric": "882",
+    "iso3": "WSM",
+    "name": "Samoa",
+    "aliases": [],
+    "continent": "Oceania",
+    "subregion": "Polynesia",
+    "capital": "Apia",
+    "capitalLonLat": [
+      -171.77,
+      -13.83
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
+  },
+  {
+    "numeric": "674",
+    "iso3": "SMR",
+    "name": "San Marino",
+    "aliases": [],
+    "continent": "Europe",
+    "subregion": "Southern Europe",
+    "capital": "San Marino",
+    "capitalLonLat": [
+      12.45,
+      43.94
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": [
+      "ITA"
+    ]
+  },
+  {
+    "numeric": "678",
+    "iso3": "STP",
+    "name": "São Tomé and Príncipe",
+    "aliases": [
+      "São Tomé"
+    ],
+    "continent": "Africa",
+    "subregion": "Middle Africa",
+    "capital": "São Tomé",
+    "capitalLonLat": [
+      6.73,
+      0.34
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
+  },
+  {
     "numeric": "682",
     "iso3": "SAU",
     "name": "Saudi Arabia",
@@ -2943,6 +3397,23 @@
     ]
   },
   {
+    "numeric": "690",
+    "iso3": "SYC",
+    "name": "Seychelles",
+    "aliases": [],
+    "continent": "Africa",
+    "subregion": "Eastern Africa",
+    "capital": "Victoria",
+    "capitalLonLat": [
+      55.45,
+      -4.62
+    ],
+    "notabilityTier": 1,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
+  },
+  {
     "numeric": "694",
     "iso3": "SLE",
     "name": "Sierra Leone",
@@ -2960,6 +3431,23 @@
       "GIN",
       "LBR"
     ]
+  },
+  {
+    "numeric": "702",
+    "iso3": "SGP",
+    "name": "Singapore",
+    "aliases": [],
+    "continent": "Asia",
+    "subregion": "South-eastern Asia",
+    "capital": "Singapore",
+    "capitalLonLat": [
+      103.85,
+      1.29
+    ],
+    "notabilityTier": 2,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "703",
@@ -3153,6 +3641,7 @@
     "notabilityTier": 2,
     "sizeTier": 2,
     "neighbors": [
+      "AND",
       "FRA",
       "PRT"
     ]
@@ -3262,7 +3751,8 @@
       "AUT",
       "DEU",
       "FRA",
-      "ITA"
+      "ITA",
+      "LIE"
     ],
     "capitalAliases": [
       "Berne"
@@ -3419,6 +3909,23 @@
     ]
   },
   {
+    "numeric": "776",
+    "iso3": "TON",
+    "name": "Tonga",
+    "aliases": [],
+    "continent": "Oceania",
+    "subregion": "Polynesia",
+    "capital": "Nuku'alofa",
+    "capitalLonLat": [
+      -175.2,
+      -21.14
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
+  },
+  {
     "numeric": "780",
     "iso3": "TTO",
     "name": "Trinidad and Tobago",
@@ -3499,6 +4006,23 @@
       "KAZ",
       "UZB"
     ]
+  },
+  {
+    "numeric": "798",
+    "iso3": "TUV",
+    "name": "Tuvalu",
+    "aliases": [],
+    "continent": "Oceania",
+    "subregion": "Polynesia",
+    "capital": "Funafuti",
+    "capitalLonLat": [
+      179.19,
+      -8.52
+    ],
+    "notabilityTier": 0,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": []
   },
   {
     "numeric": "800",
@@ -3677,6 +4201,28 @@
     "notabilityTier": 0,
     "sizeTier": 0,
     "neighbors": []
+  },
+  {
+    "numeric": "336",
+    "iso3": "VAT",
+    "name": "Vatican City",
+    "aliases": [
+      "Vatican",
+      "Holy See"
+    ],
+    "continent": "Europe",
+    "subregion": "Southern Europe",
+    "capital": "Vatican City",
+    "capitalLonLat": [
+      12.45,
+      41.9
+    ],
+    "notabilityTier": 1,
+    "marker": true,
+    "sizeTier": 0,
+    "neighbors": [
+      "ITA"
+    ]
   },
   {
     "numeric": "862",

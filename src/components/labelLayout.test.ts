@@ -6,6 +6,8 @@ import {
   pinOffFrameLabels,
   GLYPH_W_RATIO,
   LABEL_EM,
+  MARKER_LABEL_DY_EM,
+  labelAnchor,
   type Label,
   type Rect,
 } from "./labelLayout";
@@ -645,5 +647,66 @@ describe("pinOffFrameLabels (R3.3a)", () => {
   it("drops the label when the frame is narrower than the label", () => {
     const narrow: Rect = { x0: 100, y0: 100, x1: 101, y1: 200 };
     expect(pinOffFrameLabels([giant()], { ...args, frame: narrow })).toEqual([]);
+  });
+});
+
+describe("marker labels (R3.4)", () => {
+  const dot = (partial: Partial<Label> = {}) =>
+    makeLabel({
+      numericId: "1",
+      name: "Malta",
+      marker: true,
+      x0: 99.55,
+      x1: 100.45,
+      y0: 99.55,
+      y1: 100.45,
+      area: 0,
+      ...partial,
+    });
+
+  it("anchors a marker's label below its dot and a shape's on its pole", () => {
+    const fs = fontSizeFor(2);
+    expect(labelAnchor(dot(), fs)).toEqual([100, 100 + fs * MARKER_LABEL_DY_EM]);
+    expect(labelAnchor(makeLabel({ numericId: "2", name: "B" }), fs)).toEqual([100, 100]);
+  });
+
+  it("tests collisions where the label is drawn, not at the dot", () => {
+    // A shape label just above the dot: it would overlap a label centred on
+    // the dot, and does not overlap one drawn below it.
+    const fs = fontSizeFor(1);
+    const above = makeLabel({ numericId: "2", name: "Sicily", cy: 100 - fs * 1.2, area: 50 });
+    const visible = computeVisibleLabels([above, dot()], {
+      k: 1,
+      effectiveScale: 1,
+      isInScope: allInScope,
+      isoFromNumeric,
+      revealIso3s: noReveal,
+    });
+    expect(visible.map((l) => l.name)).toEqual(["Sicily", "Malta"]);
+  });
+
+  it("draws a revealed marker's label below the dot", () => {
+    const l = dot();
+    const placed = pinOffFrameLabels([l], {
+      frame: { x0: 0, y0: 0, x1: 200, y1: 200 },
+      k: 1,
+      answerNumericId: "1",
+      revealNumerics: new Set(["1"]),
+      polygonsOf: () => [],
+    });
+    expect(placed).toEqual([
+      { label: l, x: 100, y: 100 + fontSizeFor(1) * MARKER_LABEL_DY_EM, pinned: false },
+    ]);
+  });
+
+  it("drops an off-screen marker's label, since it has no land to move onto", () => {
+    const placed = pinOffFrameLabels([dot()], {
+      frame: { x0: 300, y0: 300, x1: 500, y1: 500 },
+      k: 1,
+      answerNumericId: null,
+      revealNumerics: new Set(["1"]),
+      polygonsOf: () => [],
+    });
+    expect(placed).toEqual([]);
   });
 });

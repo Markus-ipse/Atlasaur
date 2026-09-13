@@ -84,7 +84,22 @@ export type Label = {
   // Largest-ring area in projected units; used as the importance score
   // when collision-rejecting overlapping labels (bigger country wins).
   area: number;
+  // R3.4: a country drawn as a point rather than a shape. Its label sits
+  // below the dot instead of on it (see labelAnchor).
+  marker?: true;
 };
+
+// How far below a marker's dot its label is centred, in font sizes: the dot's
+// radius, a hair of paper, and half the label's height.
+export const MARKER_LABEL_DY_EM = 0.95;
+
+// Where a label is drawn and measured. A shape's label sits on its pole of
+// inaccessibility; a marker's goes just below the dot, so the name never
+// covers the only mark there is. Font sizes shrink with zoom, so the offset
+// is recomputed per zoom rather than baked into the Label.
+export function labelAnchor(l: Label, fontSize: number): [number, number] {
+  return l.marker ? [l.cx, l.cy + fontSize * MARKER_LABEL_DY_EM] : [l.cx, l.cy];
+}
 
 // Half the collision rect of a label: half its estimated width and half its
 // height, each grown by the padding. Both placement passes below build their
@@ -194,11 +209,12 @@ export function computeVisibleLabels(
   const visible: Label[] = [];
   for (const c of candidates) {
     const { halfW, halfH } = labelHalfExtent(c.label.name.length, fontSize);
+    const [ax, ay] = labelAnchor(c.label, fontSize);
     const rect: Rect = {
-      x0: c.label.cx - halfW,
-      y0: c.label.cy - halfH,
-      x1: c.label.cx + halfW,
-      y1: c.label.cy + halfH,
+      x0: ax - halfW,
+      y0: ay - halfH,
+      x1: ax + halfW,
+      y1: ay + halfH,
     };
     if (!c.isReveal && placed.some((p) => rectsOverlap(p, rect))) continue;
     placed.push(rect);
@@ -359,7 +375,8 @@ export function pinOffFrameLabels(
   };
   const whollyOnScreen = (l: Label) => {
     const w = windowFor(l);
-    return l.cx >= w.x0 && l.cx <= w.x1 && l.cy >= w.y0 && l.cy <= w.y1;
+    const [ax, ay] = labelAnchor(l, fontSize);
+    return ax >= w.x0 && ax <= w.x1 && ay >= w.y0 && ay <= w.y1;
   };
   const at = (l: Label, x: number, y: number, pinned: boolean): PlacedLabel => ({ label: l, x, y, pinned });
 
@@ -367,8 +384,10 @@ export function pinOffFrameLabels(
   const ambient: PlacedLabel[] = [];
   const toPin: Label[] = [];
   for (const l of visible) {
-    if (!revealNumerics.has(l.numericId)) ambient.push(at(l, l.cx, l.cy, false));
-    else if (whollyOnScreen(l)) anchoredReveal.push(at(l, l.cx, l.cy, false));
+    const [ax, ay] = labelAnchor(l, fontSize);
+    if (!revealNumerics.has(l.numericId)) ambient.push(at(l, ax, ay, false));
+    else if (whollyOnScreen(l)) anchoredReveal.push(at(l, ax, ay, false));
+    // A marker has no land to move onto, so off screen it is simply dropped.
     else toPin.push(l);
   }
   if (toPin.length === 0) return [...anchoredReveal, ...ambient];

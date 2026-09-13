@@ -191,8 +191,13 @@ export function pickNextStudy(args: {
 // Filter, THEN rank: gating before ranking is load-bearing — a tiny region
 // with the lowest ratio but remaining below the gate must not be picked,
 // fail the gate, and return null while a larger above-gate region exists.
+//
+// `lastResort` subregions rank after every other survivor, whatever their
+// ratio: the ones the map draws only as dots (R3.4), which have no frame to
+// zoom a focus onto. They are still offered once nothing else clears the gate.
 export function pickSpotlight(
   masteryMap: ReadonlyMap<Subregion, { learned: number; total: number }>,
+  lastResort: ReadonlySet<Subregion> = new Set(),
 ): { subregion: Subregion; remaining: number } | null {
   const candidates: {
     subregion: Subregion;
@@ -206,10 +211,21 @@ export function pickSpotlight(
   }
   if (candidates.length === 0) return null;
   candidates.sort((a, b) => {
+    const resort = Number(lastResort.has(a.subregion)) - Number(lastResort.has(b.subregion));
+    if (resort !== 0) return resort; // a region with a frame first
     if (a.ratio !== b.ratio) return a.ratio - b.ratio; // lowest mastery first
     if (a.remaining !== b.remaining) return b.remaining - a.remaining; // largest pool
     return a.subregion.localeCompare(b.subregion); // deterministic
   });
   const top = candidates[0];
   return { subregion: top.subregion, remaining: top.remaining };
+}
+
+// Subregions with no shape on the map, only markers (R3.4): Micronesia and
+// Polynesia. Passed to pickSpotlight as its last resort.
+export function markerOnlySubregions(countries: readonly Country[]): Set<Subregion> {
+  const shaped = new Set(countries.filter((c) => !c.marker).map((c) => c.subregion));
+  return new Set(
+    countries.filter((c) => c.marker && !shaped.has(c.subregion)).map((c) => c.subregion),
+  );
 }

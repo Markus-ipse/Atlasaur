@@ -13,7 +13,7 @@ import type { Topology } from "topojson-specification";
 import topologyJson from "../data/world-110m.json";
 import countriesData from "../data/countries.json";
 import type { Country } from "../types";
-import { H, W } from "./revealZoom";
+import { H, W, tryFitUnion, visibleFrame, type Bounds, type Target } from "./revealZoom";
 import type { Label } from "./labelLayout";
 import {
   largestRing,
@@ -141,6 +141,78 @@ for (const f of collection.features) {
   LABELS.push({ numericId, name, cx, cy, x0, x1, y0, y1, area });
 }
 
+// R3.4: the countries the topology does not draw are points, one per
+// `marker` row, at the projected capital. Each gets a Label like any shape,
+// so the reveal zoom, the hit discs, the small-target framing and the label
+// pass all take it without a branch of their own. Its bounds are a nominal
+// square MARKER_EXTENT_SVG across, which is what those consumers measure:
+// under labelLayout's microstate width, so the fit check never hides the
+// label; tiny on screen at any zoom a phone reaches, so it always gets a hit
+// disc; and small enough that the reveal settles on the legibility floor in
+// revealZoom.ts, which frames about a dozen degrees around it. Area 0, so an
+// ambient marker label yields to every shape's.
+export const MARKER_EXTENT_SVG = 0.9;
+// On-screen radius of the dot, constant across zoom like the capital dot.
+export const MARKER_RADIUS_PX = 3.5;
+for (const c of countriesData as Country[]) {
+  if (!c.marker || !c.capitalLonLat) continue;
+  const p = projection(c.capitalLonLat);
+  if (!p || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) continue;
+  const [cx, cy] = p;
+  const h = MARKER_EXTENT_SVG / 2;
+  LABELS.push({
+    numericId: c.numeric,
+    name: c.mapName ?? c.name,
+    cx,
+    cy,
+    x0: cx - h,
+    x1: cx + h,
+    y0: cy - h,
+    y1: cy + h,
+    area: 0,
+    marker: true,
+  });
+}
+export const MARKER_LABELS: readonly Label[] = LABELS.filter((l) => l.marker);
+
 export const LABELS_BY_NUMERIC = new Map<string, Label>(
   LABELS.map((l) => [l.numericId, l]),
 );
+
+// The frame that fits a set of countries — a continent filter's resting
+// frame, or a small card's region (R1.6). Fitted to shapes only: markers ride
+// the frame's padding, which covers every one of them except the two that sit
+// across the map's edge from the rest of their region. Samoa and Tonga are
+// just east of the antimeridian, so Equal Earth draws them at the far left;
+// fitting them would stretch Oceania's frame to the whole world and take the
+// zoom away from the fourteen Oceania countries that are together. Null when
+// nothing in the set has a shape (the Polynesia and Micronesia subregions are
+// all markers), which callers read as "no frame worth adopting".
+export function frameFor(numerics: readonly string[]): Target | null {
+  const bounds: Bounds[] = [];
+  for (const n of numerics) {
+    const lab = LABELS_BY_NUMERIC.get(n);
+    if (lab && !lab.marker) bounds.push(lab);
+  }
+  return tryFitUnion(bounds);
+}
+
+// The frame a continent filter rests at: `frameFor`, unless a marker in the
+// set would fall outside it. Under an Oceania filter Samoa and Tonga do, at
+// the map's far left, and a resting frame that hides the answer to a question
+// the learner is being asked is worse than no zoom, so that filter rests on
+// the whole map instead (null). Measured against the 2:1 viewBox; a taller
+// screen only shows more. A small card's region frame (R1.6) keeps
+// `frameFor`: it is adopted for a card that is on screen in it.
+export function restingFrameFor(numerics: readonly string[]): Target | null {
+  const fit = frameFor(numerics);
+  if (!fit) return null;
+  const f = visibleFrame({ x: W / 2 - fit.cx * fit.k, y: H / 2 - fit.cy * fit.k, k: fit.k });
+  for (const n of numerics) {
+    const l = LABELS_BY_NUMERIC.get(n);
+    if (l?.marker && (l.cx < f.x0 || l.cx > f.x1 || l.cy < f.y0 || l.cy > f.y1)) {
+      return null;
+    }
+  }
+  return fit;
+}
