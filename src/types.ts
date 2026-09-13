@@ -121,6 +121,9 @@ export type Feedback = {
   kind: FeedbackKind;
   answerIso3: string;
   correctIso3: string;
+  // Epoch ms of the answer, from the action's `now`: the outcome log's time,
+  // so an effect running a render later cannot move it past midnight.
+  at: number;
 };
 
 export type Phase = "normal" | "review";

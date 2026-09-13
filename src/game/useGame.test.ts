@@ -54,6 +54,7 @@ describe("reducer — normal phase", () => {
       kind: "correct",
       answerIso3: "FRA",
       correctIso3: "FRA",
+      at: expect.any(Number),
     });
     expect(s1.retryQueue).toEqual([]);
     expect(s1.missed).toEqual([]);
@@ -78,7 +79,17 @@ describe("reducer — normal phase", () => {
       kind: "wrong",
       answerIso3: "DEU",
       correctIso3: "FRA",
+      at: expect.any(Number),
     });
+  });
+
+  it("feedback carries the answer action's now as its time", () => {
+    const now = new Date("2026-09-30T23:59:59");
+    const s0 = withCurrent(initialState(), "FRA");
+    expect(reducer(s0, { type: "answer", iso3: "FRA", now }).feedback?.at).toBe(
+      now.getTime(),
+    );
+    expect(reducer(s0, { type: "skip", now }).feedback?.at).toBe(now.getTime());
   });
 
   it("skip: same as wrong but with kind=skipped and empty answerIso3", () => {
@@ -92,6 +103,7 @@ describe("reducer — normal phase", () => {
       kind: "skipped",
       answerIso3: "",
       correctIso3: "FRA",
+      at: expect.any(Number),
     });
   });
 
@@ -292,7 +304,7 @@ describe("reducer — completion tracking", () => {
       ...s0,
       completedSet: new Set(["ATA", "ATF"]),
       retryQueue: [],
-      feedback: { kind: "correct", answerIso3: "ATA", correctIso3: "ATA" },
+      feedback: { kind: "correct", answerIso3: "ATA", correctIso3: "ATA", at: 0 },
     };
     const result = reducer(seeded, { type: "dismiss" });
     expect(result.sessionDone).toBe(true);
@@ -308,7 +320,7 @@ describe("reducer — completion tracking", () => {
       ...s0,
       completedSet: new Set(["ATA"]),
       retryQueue: [{ iso3: "ATF", dueAt: 1 }],
-      feedback: { kind: "correct", answerIso3: "ATA", correctIso3: "ATA" },
+      feedback: { kind: "correct", answerIso3: "ATA", correctIso3: "ATA", at: 0 },
     };
     const result = reducer(seeded, { type: "dismiss" });
     expect(result.sessionDone).toBe(false);
@@ -434,7 +446,7 @@ describe("reducer — setContinents", () => {
   it("clears feedback", () => {
     const s: State = {
       ...withCurrent(initialState("name-to-click", ALL_CONTINENTS), "FRA"),
-      feedback: { kind: "wrong", answerIso3: "DEU", correctIso3: "FRA" },
+      feedback: { kind: "wrong", answerIso3: "DEU", correctIso3: "FRA", at: 0 },
     };
     const result = reducer(s, {
       type: "setContinents",
@@ -882,7 +894,7 @@ describe("reducer — spotlight subregion", () => {
       spotlightSubregion: "Southern Africa",
       // Cap hit → no fresh introductions possible in the focused region.
       newIntroducedThisStretch: STUDY_NEW_CAP,
-      feedback: { kind: "correct", answerIso3: "ZAF", correctIso3: "ZAF" },
+      feedback: { kind: "correct", answerIso3: "ZAF", correctIso3: "ZAF", at: 0 },
       autoGradePending: "Good",
       // A due card outside the spotlight region, so the widened re-pick has
       // somewhere to land.
@@ -1296,6 +1308,7 @@ describe("reducer — ceremony (R2.2)", () => {
         kind: "correct" as const,
         answerIso3: "FRA",
         correctIso3: "FRA",
+        at: 0,
       },
     });
     const s1 = reducer(s0, { type: "dismiss", now: T0 });
@@ -1355,6 +1368,7 @@ describe("reducer — ceremony (R2.2)", () => {
         kind: "correct" as const,
         answerIso3: "FRA",
         correctIso3: "FRA",
+        at: 0,
       },
     });
     expect(reducer(s0, { type: "endSession" }).milestone).toBeNull();
@@ -1380,6 +1394,7 @@ describe("reducer — ceremony (R2.2)", () => {
         kind: "correct" as const,
         answerIso3: "FRA",
         correctIso3: "FRA",
+        at: 0,
       },
     });
     const s1 = reducer(s0, { type: "resetSrs" });
@@ -1514,7 +1529,12 @@ describe("reducer — the Daily Expedition (R3.1)", () => {
 
   it("a wrong answer and a skip both write Again and record an empty glyph", () => {
     const wrong = reducer(start(), { type: "answer", iso3: "DEU", now: NOW });
-    expect(wrong.feedback).toEqual({ kind: "wrong", answerIso3: "DEU", correctIso3: "FRA" });
+    expect(wrong.feedback).toEqual({
+      kind: "wrong",
+      answerIso3: "DEU",
+      correctIso3: "FRA",
+      at: NOW.getTime(),
+    });
     expect(wrong.expedition?.outcomes).toEqual(["missed"]);
     expect(wrong.srsStore.facts.location.FRA.misses).toBe(1);
     // No test-round bookkeeping: there is no review pass to feed.

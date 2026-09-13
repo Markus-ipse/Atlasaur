@@ -499,11 +499,43 @@ changing the continent filter never looks like progress or a loss. It uses
 pigment.
 
 "Erase all progress" clears the counters along with **both** SRS keys, the
-streak and the welcome flag — otherwise `firstSessionAnswers` would stay frozen
+streak, the welcome flag and every outcome-log month — otherwise `firstSessionAnswers` would stay frozen
 against a session the learner no longer has.
 
 The Data view in `SettingsMenu` omits a row rather than showing zero when there
 is nothing to say yet, so a first-day profile does not read as a report card.
+
+### Outcome log
+
+`src/game/outcomes.ts` keeps one entry per answer or skip, across days, so
+later analyses (delayed recall, confusion pairs) can read individual answers
+rather than the counters' aggregates. The plan and its rejected alternatives
+are in `docs/plans/outcome-log.md`. Local only, like the counters.
+
+- **One key per local month**, `atlasaur:outcomes:v1:YYYY-MM`, holding
+  `{ version: 1, entries }`. The latest `MAX_OUTCOME_MONTHS = 6` keys are kept,
+  pruned when a write opens a new month, and one key stops at
+  `MAX_OUTCOMES_PER_MONTH = 5000`, dropping its oldest.
+- **An entry is a fixed-position row of short codes**:
+  `[epochSeconds, asked, mode, practice, phase, outcome, given]`. The codes live
+  in typed `Record<…, string>` tables, so a new question mode fails to compile
+  until it has one. **Codes are not positions**: reordering `QUESTION_MODES`
+  changes nothing stored, and `outcomes.test.ts` pins every code. A row this
+  build cannot decode is kept on disk and skipped when read.
+- **Recorded from a `useGame` effect on a new non-null `state.feedback`**. Only
+  `applyCorrect` / `applyMiss` create one, so that is exactly one answer in every
+  practice mode and in the review pass; a ref stops a re-render logging it twice.
+  `cardsAnswered` is the wrong trigger, since it moves at dismiss and on several
+  non-answer paths.
+- **The time is `feedback.at`**, the answer action's `now`, never `new Date()`
+  in the effect, which runs a render later and could put a 23:59:59 answer in
+  the next day or month key.
+- **`appendOutcome` re-reads, appends and writes back in one call**, and the log
+  is never React state, so two tabs append onto each other's entries instead of
+  saving snapshots over them.
+- **Nothing in the UI reads it yet.** A Data-view row was dropped because it
+  would contradict "All time: Answers" (see the plan); a figure should arrive
+  with the first analysis that uses the log.
 
 ### The Daily Expedition (R3.1)
 

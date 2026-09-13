@@ -1,8 +1,8 @@
 # A per-answer outcome log
 
-Taken from `open-ideas.md` ("Measuring learning, not activity"). Nothing is
-built yet; this is the plan the PR works from, to be amended by the PR that
-proves any of it wrong.
+Taken from `open-ideas.md` ("Measuring learning, not activity"). Built as
+planned in `src/game/outcomes.ts`; CLAUDE.md ("Outcome log") describes what
+shipped. Kept for the reasoning and the rejected alternatives.
 
 ## Why
 
@@ -128,9 +128,12 @@ there is no rollback risk.
   `atlasaur:outcomes:v1:` key, found by prefix, along with the SRS keys, the
   streak, the counters and the welcome flag. The log describes
   the history the learner just erased.
-- One row under Data in `SettingsMenu`: "Answers logged: N since 12 Sept". It
-  is omitted when the log is empty, like the other rows, and read when the
-  menu opens rather than kept live.
+- **No row in the Data view** (changed in the PR). A planned "Answers logged:
+  N since 12 Sept" row was dropped: it sat a few rows below "All time:
+  Answers", which counts graded answers since the profile began, and the two
+  could never agree (the log starts at this build, keeps six months, and
+  counts review-pass answers). Nothing reads the log yet, so the row only
+  proved it exists. A row can return with the first analysis that uses it.
 - No analysis in the UI in this PR. Confusion pairs and a delayed-recall
   figure are their own plans, and each will be the log's first real reader.
 
@@ -160,7 +163,6 @@ there is no rollback risk.
 
 CI as usual (lint, typecheck, tests, build). By hand, at desktop and 390 px:
 - play a round in each practice mode and check this month's key in devtools;
-- check the Data row appears and counts;
 - erase and check every month key is gone;
 - answer in two tabs and check both tabs' answers are in the log.
 

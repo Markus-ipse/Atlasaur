@@ -39,9 +39,9 @@ const FRANCE_NEIGHBORS: ReadonlySet<string> = new Set([
   "ESP",
 ]);
 
-const wrong: Feedback = { kind: "wrong", answerIso3: "DEU", correctIso3: "FRA" };
-const skipped: Feedback = { kind: "skipped", answerIso3: "", correctIso3: "FRA" };
-const correct: Feedback = { kind: "correct", answerIso3: "FRA", correctIso3: "FRA" };
+const wrong: Feedback = { kind: "wrong", answerIso3: "DEU", correctIso3: "FRA", at: 0 };
+const skipped: Feedback = { kind: "skipped", answerIso3: "", correctIso3: "FRA", at: 0 };
+const correct: Feedback = { kind: "correct", answerIso3: "FRA", correctIso3: "FRA", at: 0 };
 
 describe("fillFor — precedence", () => {
   it("correct country wins over neighbor and highlight (wrong feedback)", () => {
@@ -349,6 +349,7 @@ describe("fillFor — ambient mastery paint", () => {
       kind: "wrong",
       answerIso3: "BEL",
       correctIso3: "FRA",
+      at: 0,
     };
     expect(
       fillFor({ ...base, masteryTier: 2, feedback: reveal }, LIGHT_PALETTE),

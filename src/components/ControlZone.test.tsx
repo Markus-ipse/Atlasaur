@@ -144,6 +144,7 @@ describe("ControlZone", () => {
       kind: "wrong",
       answerIso3: "DEU",
       correctIso3: "FRA",
+      at: 0,
     };
     const game = makeGame({ feedback: wrong });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -156,6 +157,7 @@ describe("ControlZone", () => {
       kind: "correct",
       answerIso3: "FRA",
       correctIso3: "FRA",
+      at: 0,
     };
     const game = makeGame({ feedback: correct });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -177,6 +179,7 @@ describe("ControlZone", () => {
       kind: "wrong",
       answerIso3: "DEU",
       correctIso3: "FRA",
+      at: 0,
     };
     const game = makeGame({ feedback: wrong });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -191,6 +194,7 @@ describe("ControlZone", () => {
       kind: "wrong",
       answerIso3: "DEU",
       correctIso3: "FRA",
+      at: 0,
     };
     const game = makeGame({ mode: "name-to-click", feedback: wrong });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -205,6 +209,7 @@ describe("ControlZone", () => {
       kind: "skipped",
       answerIso3: "",
       correctIso3: "FRA",
+      at: 0,
     };
     const game = makeGame({ mode: "name-to-click", feedback: skipped });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -218,6 +223,7 @@ describe("ControlZone", () => {
       kind: "wrong",
       answerIso3: "DEU",
       correctIso3: "FRA",
+      at: 0,
     };
     const game = makeGame({ mode: "shape-to-name", feedback: wrong });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -231,6 +237,7 @@ describe("ControlZone", () => {
       kind: "wrong",
       answerIso3: "DEU",
       correctIso3: "FRA",
+      at: 0,
     };
     const game = makeGame({ feedback: wrong });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -246,6 +253,7 @@ describe("ControlZone", () => {
       kind: "skipped",
       answerIso3: "",
       correctIso3: "FRA",
+      at: 0,
     };
     const game = makeGame({ feedback: skipped });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -270,6 +278,7 @@ describe("ControlZone", () => {
       kind: "wrong",
       answerIso3: "FRA",
       correctIso3: "JPN",
+      at: 0,
     };
     const game = makeGame({ current: japan, feedback: wrong });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -296,6 +305,7 @@ describe("ControlZone", () => {
       kind: "wrong",
       answerIso3: "FRA",
       correctIso3: "ATA",
+      at: 0,
     };
     const game = makeGame({ current: antarctica, feedback: wrong });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -309,6 +319,7 @@ describe("ControlZone", () => {
       kind: "wrong",
       answerIso3: "DEU",
       correctIso3: "FRA",
+      at: 0,
     };
     const game1 = makeGame({ feedback: wrong });
     const { rerender } = render(<ControlZone game={game1} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -319,6 +330,7 @@ describe("ControlZone", () => {
       kind: "skipped",
       answerIso3: "",
       correctIso3: "FRA",
+      at: 0,
     };
     const game2 = makeGame({ feedback: skipped });
     rerender(<ControlZone game={game2} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -331,6 +343,7 @@ describe("ControlZone", () => {
       kind: "correct",
       answerIso3: "FRA",
       correctIso3: "FRA",
+      at: 0,
     };
     const game = makeGame({ feedback: correct });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -360,6 +373,7 @@ describe("ControlZone", () => {
       kind: "wrong",
       answerIso3: "FRA",
       correctIso3: "BOL",
+      at: 0,
     };
     const game = makeGame({ current: bolivia, feedback: wrong });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -387,6 +401,7 @@ describe("ControlZone", () => {
       kind: "wrong",
       answerIso3: "FRA",
       correctIso3: "ZAF",
+      at: 0,
     };
     const game = makeGame({ current: southAfrica, feedback: wrong });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -417,6 +432,7 @@ describe("ControlZone", () => {
       kind: "wrong",
       answerIso3: "FRA",
       correctIso3: "LSO",
+      at: 0,
     };
     const namesByIso3: Record<string, string> = {
       ...NAMES_BY_ISO3,
@@ -484,6 +500,7 @@ describe("ControlZone", () => {
       kind: "wrong",
       answerIso3: "FRA",
       correctIso3: "RUS",
+      at: 0,
     };
     const game = makeGame({ current: russia, feedback: wrong });
     game.nameFromIso3 = (iso3) => russiaNames[iso3] ?? iso3;
@@ -518,6 +535,7 @@ describe("ControlZone", () => {
       kind: "wrong",
       answerIso3: "DEU",
       correctIso3: "FRA",
+      at: 0,
     };
     const game = makeGame({ practiceMode: "study", feedback: wrong });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -531,6 +549,7 @@ describe("ControlZone", () => {
       kind: "correct",
       answerIso3: "FRA",
       correctIso3: "FRA",
+      at: 0,
     };
     const game = makeGame({ practiceMode: "study", feedback: correct });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -604,6 +623,7 @@ describe("ControlZone — capital modes", () => {
         kind: "skipped",
         answerIso3: "",
         correctIso3: "PER",
+        at: 0,
       });
       const status = screen.getByRole("status");
       expect(status.textContent).toMatch(/Skipped[\s\S]*Peru/);
@@ -616,6 +636,7 @@ describe("ControlZone — capital modes", () => {
         kind: "correct",
         answerIso3: "PER",
         correctIso3: "PER",
+        at: 0,
       });
       const status = screen.getByRole("status");
       expect(status.textContent).toMatch(/Correct[\s\S]*Peru/);
@@ -626,6 +647,7 @@ describe("ControlZone — capital modes", () => {
         kind: "skipped",
         answerIso3: "",
         correctIso3: "PER",
+        at: 0,
       });
       const status = screen.getByRole("status");
       expect(status.textContent).toMatch(/Skipped[\s\S]*Lima/);
@@ -639,6 +661,7 @@ describe("ControlZone — capital modes", () => {
         kind: "wrong",
         answerIso3: "ECU",
         correctIso3: "PER",
+        at: 0,
       });
       expect(screen.getByRole("status").textContent).toContain(
         "That's the capital of Ecuador",
@@ -650,6 +673,7 @@ describe("ControlZone — capital modes", () => {
         kind: "wrong",
         answerIso3: "",
         correctIso3: "PER",
+        at: 0,
       });
       expect(screen.getByRole("status").textContent).not.toContain(
         "That's the capital of",
@@ -661,6 +685,7 @@ describe("ControlZone — capital modes", () => {
         kind: "wrong",
         answerIso3: "ECU",
         correctIso3: "PER",
+        at: 0,
       });
       expect(screen.getByRole("status").textContent).toContain(
         "You picked: Ecuador",
@@ -672,6 +697,7 @@ describe("ControlZone — capital modes", () => {
         kind: "correct",
         answerIso3: "PER",
         correctIso3: "PER",
+        at: 0,
       });
       const status = screen.getByRole("status");
       expect(status.textContent).toMatch(/Correct[\s\S]*Lima/);
