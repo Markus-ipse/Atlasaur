@@ -76,6 +76,14 @@ export type Country = {
   // unless the learner turns on the Territories setting; SRS records are
   // never deleted by the toggle.
   territory?: true;
+  // R3.4: a country the 110m topology does not draw (Malta, Singapore,
+  // Tuvalu…). The map shows it as a point at `capitalLonLat` instead of a
+  // shape, and the Daily Expedition leaves it out; everywhere else it is an
+  // ordinary country. Its `neighbors` are hand-entered in the build script.
+  marker?: true;
+  // The marker's map label, where `name` is too long for one ("St. Vin. and
+  // Gren."). A shape's label comes from the topology instead.
+  mapName?: string;
   // Set only for partially-recognized territories whose topology features
   // lack an ISO id; matched by world-atlas `properties.name` instead.
   topoName?: string;

@@ -85,6 +85,11 @@ describe("expeditionPool", () => {
     expect(POOL.some((c) => c.territory)).toBe(false);
     expect(POOL.length).toBeGreaterThan(EXPEDITION_SIZE);
   });
+
+  it("excludes the map's point markers, so a day never asks for a dot", () => {
+    expect(ALL_COUNTRIES.some((c) => c.marker)).toBe(true);
+    expect(POOL.some((c) => c.marker)).toBe(false);
+  });
 });
 
 describe("expeditionStatus", () => {

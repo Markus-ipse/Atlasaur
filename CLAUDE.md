@@ -98,7 +98,7 @@ Convert at the boundary using `isoFromNumeric` / `numericFromIso3` from `GameApi
 
 ### Country data is generated, not hand-edited
 
-`src/data/countries.json` is the output of `scripts/build-countries.mjs`. To add aliases, fix a name, or change any country metadata, edit the `COUNTRIES` table in the script and run `npm run build:countries`. The script intersects with the topology and warns about (a) entries in the table missing from the topology (won't render at the `countries-110m` resolution) and (b) topology features missing from the table (render but inert). The continent assignments follow UN M49 with documented exceptions for transcontinental cases (Russia → Europe, Turkey/Caucasus/Kazakhstan → Asia, etc.) — preserve those conventions when editing.
+`src/data/countries.json` is the output of `scripts/build-countries.mjs`. To add aliases, fix a name, or change any country metadata, edit the `COUNTRIES` table in the script and run `npm run build:countries`. The script intersects with the topology (a `marker` row is kept without a feature) and warns about (a) entries in the table missing from the topology that are not markers (won't render at the `countries-110m` resolution) and (b) topology features missing from the table (render but inert). The continent assignments follow UN M49 with documented exceptions for transcontinental cases (Russia → Europe, Turkey/Caucasus/Kazakhstan → Asia, etc.) — preserve those conventions when editing.
 
 Per-entry fields in the `COUNTRIES` table:
 
@@ -112,8 +112,10 @@ Per-entry fields in the `COUNTRIES` table:
 - **`notabilityTier`** — `0 | 1 | 2`. Hand-curated "well-known" axis independent of size (Singapore=2 despite tier-0 area; Kazakhstan=1 despite tier-3 area). Drives M5 introduction order.
 - **`territory`** — `true` or omitted. Dependent territories and uninhabited land (Antarctica, French Southern Territories, Greenland, Puerto Rico, Western Sahara, French Guiana, Falkland Islands, New Caledonia). Partially recognised states (Kosovo, Taiwan, Palestine, Somaliland, Northern Cyprus) are **not** territories. Out of the pool unless the learner turns on "Include territories" (R1.7); the validator rejects any value other than `true`.
 - **`neighbors`** — iso3 land-adjacency, **computed at build time** via `topojson-client`'s `neighbors()` from shared arcs. Do not hand-enter for real ISO entries.
-- **`neighborsOverride`** — escape hatch when the topology's adjacency doesn't match what learners expect. No entries currently use it. The old France/Brazil/Suriname overrides existed to suppress France↔Brazil/Suriname adjacencies inferred via French Guiana — fixed at the topology layer now (see `build-topology.mjs`). If an override is needed in the future, both sides must be overridden for symmetric pairs.
+- **`neighborsOverride`** — escape hatch when the topology's adjacency doesn't match what learners expect. Only marker rows use it (see `marker` below). For a topology row it replaces the computed list. The old France/Brazil/Suriname overrides existed to suppress France↔Brazil/Suriname adjacencies inferred via French Guiana — fixed at the topology layer now (see `build-topology.mjs`). If an override is needed in the future, both sides must be overridden for symmetric pairs.
 - **`topoName`** — only for partially-recognized territories without an ISO numeric (see below).
+- **`marker`** — `true` or omitted (R3.4). A country in its own right that the 110m topology does not draw: the 29 island and micro-states from Cabo Verde down to the Vatican. The map shows it as a dot at `capitalLonLat`, so a marker needs a capital, and the validator rejects a marker whose numeric *is* in the topology (drop the flag if a later world-atlas draws it). A point shares no arcs, so its land borders are hand-entered in `neighborsOverride` on the marker row and the build **mirrors** each onto the neighbour's computed list — Italy keeps its topology borders and gains Vatican City and San Marino with no override of its own. Five rows have one: Andorra, Liechtenstein, Monaco, San Marino, Vatican City.
+- **`mapName`** — markers only: the short label for the dot where `name` is too long, in world-atlas's abbreviating style (`St. Vin. and Gren.`). A shape's label comes from the topology.
 
 Partially-recognized territories (Kosovo, N. Cyprus, Somaliland) have no official ISO 3166-1 numeric and ship in the topology without a `feature.id`. They're keyed in the table by a synthetic numeric in the ISO-reserved 900–999 user-assigned range and an alpha-3 in the user-assigned `XAA–XZZ` range, with a `topoName` field that names the topology feature to match (`properties.name`). The build script enforces: synthetic numerics must be in 900–999, `topoName` must resolve to a real topology feature, no entry can have both a real numeric AND a `topoName`, and iso3s must be unique. `mapGeometry.ts` reads `countries.json` only at module load to wire the synthetic numeric onto these features (via `numericIdFor`); no game data flows from `countries.json` into the map otherwise.
 
@@ -191,6 +193,8 @@ back out, so stage 1 is skipped in that case.
 
 The survey's last reveal bug, a neighbour label landing off screen on a
 tight reveal, was reduced by this to 26 countries and closed by R3.3a.
+(R3.4 added three of the same kind — Andorra, Monaco and Vatican City, points
+beside France, Spain and Italy — so the pinned list is 29.)
 Those 26 are all answers next to a giant neighbour (Denmark and Germany,
 the Baltics and Russia), where `computeRevealTarget` drops that neighbour
 from the frame on purpose while `revealIso3s` still labels it. Framing it
@@ -509,10 +513,12 @@ about the expedition: the seeded ten, the day's status, the share text.
 `expeditionFor(day, pool)` sorts the pool by iso3, Fisher–Yates shuffles it
 with a mulberry32 generator seeded from an FNV-1a hash of the `YYYY-MM-DD`
 key, and takes the first `EXPEDITION_SIZE = 10`. The pool is
-`expeditionPool(COUNTRIES)`: every non-territory entry, **whatever the
-continent filter or territories setting says** — everyone gets the same ten,
-or the result cannot be compared. Growing the pool (R3.4) changes every future
-day's ten by design; the seed is over the pool, not a fixed table.
+`expeditionPool(COUNTRIES)`: every entry that is neither a territory nor a
+map marker, **whatever the continent filter or territories setting says** —
+everyone gets the same ten, or the result cannot be compared. Growing the pool
+changes every future day's ten by design; the seed is over the pool, not a
+fixed table. R3.4's markers are deliberately left out (see Markers below), so
+their arrival changed no day's ten.
 `expedition.test.ts` pins that a date yields the same ten across runs and
 across the pool's order.
 
@@ -607,6 +613,76 @@ formatted by `formatDay` in fixed English so two phones read the same.
 `ExpeditionDoor` is the shared button on the Today card and the Study summary;
 its label says what waits (fresh, resume with the count so far, or the
 result). There is no second go — that is tomorrow.
+
+### Markers: the countries the topology cannot draw (R3.4)
+
+Twenty-nine countries in their own right have no feature at 110m — most are a
+pixel or less across even in the 50m data, and Tuvalu exists only at 10m — so
+they are drawn as **dots at their capitals**, not shapes. The topology
+artefact is untouched. Everything else treats them as ordinary countries:
+the pool, the scheduler, both capital modes, the mastery store, the continent
+captions (which count them), the settings figures.
+
+`mapGeometry.ts` pushes one `Label` per marker row (`marker: true`) at the
+projected capital, with a nominal `MARKER_EXTENT_SVG` square for bounds and
+area 0, so the reveal zoom, hit discs, the R1.6 small-card framing, the pinch
+hint and the label pass all take a marker with no branch of their own. The
+extent is chosen against those consumers: under labelLayout's microstate
+width, so the fit check never hides the label; always a speck on a phone, so
+it always has a hit disc; and small enough that the reveal settles on
+`minLegibleK`, about a dozen degrees around the dot. `polygonsFor` has nothing
+for a marker, so an off-screen marker label is dropped rather than pinned.
+
+`WorldMap` draws `MARKER_LABELS` as circles of constant on-screen radius
+(`MARKER_RADIUS_PX`), painted by the same `fillFor` / `strokeFor` chain as a
+path and clickable under the same rule. On a touch screen each dot also
+gets an invisible `HIT_DISC_PX` tap circle (`data-marker-hit`), capped at half
+the gap to the nearest in-scope dot and drawn above the land but beneath every
+dot: the ordinary hit disc lies beneath the land, so an enclave's would answer
+Italy or France and leave a 7 px dot to tap. A mouse gets no such circle, so a
+click on Rome still answers Italy. And a tap on any dot, tap circle or dot's
+hit disc answers the in-scope dot **nearest the pointer** (`nearestPoint`), not
+the element drawn last: at a phone's world view the Antilles dots overlap, and
+paint order let Saint Vincent's dot answer for Grenada, Saint Lucia and
+Barbados. They are drawn **above the land and the
+labels**: on an enclave the dot sits on its neighbour and is the only thing to
+tap. Every in-scope marker is drawn, never only the card's, so the dots give
+nothing away. A dot a typed question is asking about gets an ochre ring
+(`data-marker-ring`), since a few pixels of highlight cannot be found by
+colour. There is no capital dot on a marker's reveal (it has no drawn bounds
+for the gate, and the marker is already at the capital) and no engraved hatch
+(no path to hatch); the panel's ceremony still plays. A marker's label is
+anchored **below** its dot by `labelAnchor` in `labelLayout.ts`, which both the
+collision pass and the pin pass measure from, so the rects are where the text
+is drawn.
+
+**Region frames fit shapes only** (`frameFor` in `mapGeometry.ts`). Samoa and
+Tonga lie just east of the antimeridian, which Equal Earth draws at the map's
+left edge, while the rest of Oceania is at its right; fitting them would make
+Oceania's filter frame the whole world. Every other marker falls inside its
+continent's and its subregion's frame through the frame's padding —
+`mapGeometry.test.ts` pins that, and pins Samoa and Tonga as the two that do
+not. Micronesia and Polynesia have no shapes and so no frame; a small card there keeps the filter's frame and its hit disc. A continent
+filter's **resting** frame goes one step further (`restingFrameFor`): when a
+marker in scope would be off that frame it rests on the whole map instead,
+because a frame that hides a question's answer is worse than no zoom. Oceania
+is the one continent that does; `mapGeometry.test.ts` pins it.
+
+**Out of the Daily Expedition.** It is one attempt a day with no retry, and
+most markers are a few pixels of ocean on a phone; admitting them would put
+one or two "find the dot" cards into the average day. Study introduces them
+late on its own: `sizeTier` 0 puts each at the tail of its notability tier, so
+the tier-0 dots come last, Malta, Monaco and the other tier-1 dots after the
+larger tier-1 shapes, and Singapore (tier 2) early.
+
+Three accepted consequences. The end-of-session spotlight ranks Micronesia and
+Polynesia, which have no frame, after every other subregion that clears its
+gate (`markerOnlySubregions` → `pickSpotlight`'s `lastResort`), so they are
+offered only once nothing else is. Monaco, San Marino, Singapore and Vatican
+City share their capital's name, so their Capital → Click cards are trivial,
+accepted as Djibouti's and Luxembourg's are. And a country spread over an
+ocean is one point, Kiribati at Tarawa, so a tap on its other islands is not
+an answer.
 
 ### Scope: continent filter × territories
 

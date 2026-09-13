@@ -7,7 +7,7 @@ import {
   masteryBySubregion,
   totalReviews as srsTotalReviews,
 } from "../game/srs";
-import { pickSpotlight } from "../game/pickCountry";
+import { markerOnlySubregions, pickSpotlight } from "../game/pickCountry";
 import type { ExpeditionStatus } from "../game/expedition";
 import { ExpeditionDoor } from "./ExpeditionDoor";
 
@@ -178,8 +178,10 @@ function StudySummary({
   const reviews = srsTotalReviews(srsStore);
   const accuracy = srsLifetimeAccuracy(srsStore);
   // Recommend the most-neglected subregion in scope, if any clears the gate.
+  // A subregion drawn only as dots has no frame to focus on: offered last.
   const spotlight = pickSpotlight(
     masteryBySubregion(factRecords, countries, scopeIso3s),
+    markerOnlySubregions(countries),
   );
   // Auto-focus the recommended action: the Focus CTA when a spotlight is
   // offered, otherwise Start quiz.

@@ -555,3 +555,172 @@ describe("WorldMap — off-frame neighbour labels (R3.3a)", () => {
     expect(labelText(container, "Russia")).toBeUndefined();
   });
 });
+
+describe("WorldMap — markers (R3.4)", () => {
+  afterEach(cleanup);
+
+  // Malta is a marker in the real table: no shape, a dot at Valletta.
+  const MLT = "470";
+  const isoFromNumeric = (n: string) => (n === MLT ? "MLT" : undefined);
+  const numericFromMlt = (iso3: string) => (iso3 === "MLT" ? MLT : undefined);
+  const dot = (c: HTMLElement) =>
+    c.querySelector<SVGCircleElement>(`circle[data-marker="${MLT}"]`);
+
+  it("draws a marker country as a dot painted by its mastery tier", () => {
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        feedback={null}
+        revealCapitalLonLat={null}
+        masteryByIso3={new Map<string, MasteryTier>([["MLT", 2]])}
+      />,
+    );
+    expect(dot(container)?.getAttribute("fill")).toBe(PALETTE.masteryKnown);
+  });
+
+  it("answers with the dot's country when it is clicked", () => {
+    const clicked: string[] = [];
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        feedback={null}
+        revealCapitalLonLat={null}
+        onCountryClick={(iso3) => clicked.push(iso3)}
+      />,
+    );
+    fireEvent.click(dot(container)!);
+    expect(clicked).toEqual(["MLT"]);
+  });
+
+  function withCoarsePointer(run: () => void) {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: query === "(pointer: coarse)",
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+    try {
+      run();
+    } finally {
+      window.matchMedia = original;
+    }
+  }
+  const follows = (a: Element, b: Element) =>
+    Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+  it("gives a dot an enlarged tap circle on a touch screen only", () => {
+    const clicked: string[] = [];
+    const props = {
+      ...BASE_PROPS,
+      isoFromNumeric,
+      feedback: null,
+      revealCapitalLonLat: null,
+      onCountryClick: (iso3: string) => clicked.push(iso3),
+    };
+    const mouse = render(<WorldMap {...props} />);
+    expect(mouse.container.querySelector("circle[data-marker-hit]")).toBeNull();
+    mouse.unmount();
+    withCoarsePointer(() => {
+      const { container } = render(<WorldMap {...props} />);
+      const hit = container.querySelector<SVGCircleElement>(`circle[data-marker-hit="${MLT}"]`);
+      expect(hit).not.toBeNull();
+      // Above the land, beneath the dot.
+      expect(follows(hit!, dot(container)!)).toBe(true);
+      expect(Number(hit!.getAttribute("r"))).toBeGreaterThan(
+        Number(dot(container)!.getAttribute("r")),
+      );
+      fireEvent.click(hit!);
+      expect(clicked).toEqual(["MLT"]);
+    });
+  });
+
+  it("keeps neighbouring dots' tap circles apart and beneath every dot", () => {
+    // Grenada and Saint Vincent: a few screen pixels apart in the Antilles.
+    const GRD = "308";
+    const VCT = "670";
+    const iso = (n: string) => (n === GRD ? "GRD" : n === VCT ? "VCT" : undefined);
+    withCoarsePointer(() => {
+      const { container } = render(
+        <WorldMap {...BASE_PROPS} isoFromNumeric={iso} feedback={null} revealCapitalLonLat={null} />,
+      );
+      const hits = Array.from(container.querySelectorAll("circle[data-marker-hit]"));
+      const dots = [GRD, VCT].map((n) => container.querySelector(`circle[data-marker="${n}"]`)!);
+      expect(hits).toHaveLength(2);
+      const at = (el: Element, a: string) => Number(el.getAttribute(a));
+      const gap = Math.hypot(at(dots[0], "cx") - at(dots[1], "cx"), at(dots[0], "cy") - at(dots[1], "cy"));
+      expect(at(hits[0], "r") + at(hits[1], "r")).toBeLessThanOrEqual(gap + 1e-9);
+      for (const h of hits) for (const d of dots) expect(follows(h, d)).toBe(true);
+    });
+  });
+
+  it("paints an out-of-scope dot inert and takes no click on it", () => {
+    const clicked: string[] = [];
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        isInScope={() => false}
+        feedback={null}
+        revealCapitalLonLat={null}
+        onCountryClick={(iso3) => clicked.push(iso3)}
+      />,
+    );
+    expect(dot(container)?.getAttribute("fill")).toBe(PALETTE.inert);
+    fireEvent.click(dot(container)!);
+    expect(clicked).toEqual([]);
+  });
+
+  it("rings the dot a typed question is asking about, and no other", () => {
+    const { container, rerender } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        mode="shape-to-name"
+        isoFromNumeric={isoFromNumeric}
+        highlightedIso3="MLT"
+        feedback={null}
+        revealCapitalLonLat={null}
+      />,
+    );
+    expect(container.querySelectorAll("circle[data-marker-ring]")).toHaveLength(1);
+    expect(dot(container)?.getAttribute("fill")).toBe(PALETTE.highlight);
+    rerender(
+      <WorldMap
+        {...BASE_PROPS}
+        mode="shape-to-name"
+        isoFromNumeric={isoFromNumeric}
+        highlightedIso3={null}
+        feedback={null}
+        revealCapitalLonLat={null}
+      />,
+    );
+    expect(container.querySelectorAll("circle[data-marker-ring]")).toHaveLength(0);
+  });
+
+  it("names a revealed marker below its dot, and draws no capital dot over it", () => {
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        numericFromIso3={numericFromMlt}
+        feedback={{ kind: "skipped", answerIso3: "MLT", correctIso3: "MLT" }}
+        revealCapitalLonLat={[14.51, 35.9]}
+      />,
+    );
+    const label = Array.from(container.querySelectorAll("text")).find(
+      (t) => t.textContent === "Malta",
+    );
+    expect(label).toBeDefined();
+    expect(Number(label!.getAttribute("y"))).toBeGreaterThan(
+      Number(dot(container)!.getAttribute("cy")),
+    );
+    expect(dot(container)?.getAttribute("fill")).toBe(PALETTE.skipped);
+    expect(capitalDotCircles(container)).toHaveLength(0);
+  });
+});

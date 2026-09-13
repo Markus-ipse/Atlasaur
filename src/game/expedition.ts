@@ -64,8 +64,14 @@ function seeded(seed: number): () => number {
 // The pool an expedition draws from: every country in its own right, whatever
 // the learner's continent filter or territories setting says. Everyone gets
 // the same ten, or the result cannot be compared with anyone else's.
+//
+// Minus the map's point markers (R3.4). Most of them are a few pixels of
+// ocean on a phone, and the expedition is one attempt a day with no retry:
+// admitting them would put one or two "find Tuvalu" cards into the average
+// day and change the difficulty the result row was tuned for. Leaving them
+// out also keeps every day's ten exactly what it was before they arrived.
 export function expeditionPool(countries: readonly Country[]): Country[] {
-  return countries.filter((c) => !c.territory);
+  return countries.filter((c) => !c.territory && !c.marker);
 }
 
 // The ten for a day. Sorted by iso3 before the shuffle so the input order

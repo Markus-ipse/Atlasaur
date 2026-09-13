@@ -5,6 +5,7 @@ import {
   NARROW_MAP_PX,
   TAP_TARGET_PX,
   hitDiscRadiusSvg,
+  nearestPoint,
   screenSizePx,
   shouldFrameContinent,
   worthFraming,
@@ -58,5 +59,18 @@ describe("worthFraming", () => {
     expect(worthFraming(4.87, 1)).toBe(true);
     // Relative to an already-narrowed filter frame.
     expect(worthFraming(2.5, 2)).toBe(false);
+  });
+});
+
+describe("nearestPoint", () => {
+  const a = { id: "a", cx: 0, cy: 0 };
+  const b = { id: "b", cx: 3, cy: 0 };
+  it("picks the point nearest the pointer, whichever comes last", () => {
+    expect(nearestPoint(1, 0, [a, b])).toBe(a);
+    expect(nearestPoint(2, 0.5, [a, b])).toBe(b);
+    expect(nearestPoint(1, 0, [b, a])).toBe(a);
+  });
+  it("returns null with nothing to pick", () => {
+    expect(nearestPoint(0, 0, [])).toBeNull();
   });
 });
