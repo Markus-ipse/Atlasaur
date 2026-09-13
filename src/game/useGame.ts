@@ -50,6 +50,7 @@ import {
   type Counters,
   type ReturnInfo,
 } from "./counters";
+import { appendOutcome, clearOutcomes } from "./outcomes";
 import {
   dayKey,
   emptyStreak,
@@ -877,7 +878,12 @@ function applyMiss(
   now: Date,
 ): State {
   const correctIso3 = current.iso3;
-  const feedback: Feedback = { kind, answerIso3, correctIso3 };
+  const feedback: Feedback = {
+    kind,
+    answerIso3,
+    correctIso3,
+    at: now.getTime(),
+  };
 
   if (state.practiceMode === "study") {
     // Study mode doesn't touch session counters or retryQueue. Both a
@@ -951,6 +957,7 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
     kind: "correct",
     answerIso3: correctIso3,
     correctIso3,
+    at: now.getTime(),
   };
 
   const completedSet = state.completedSet.has(correctIso3)
@@ -1778,6 +1785,29 @@ export function useGame(): GameApi {
     setCounters((c) => recordAnswer(c, modeRef.current));
   }, [state.cardsAnswered]);
 
+  // One answer logged the moment its feedback appears. Only applyCorrect and
+  // applyMiss create a Feedback, each a new object, so a new non-null feedback
+  // is exactly one answer, in every practice mode and in the review pass. The
+  // mode, practice mode and phase are this render's, the ones it was given in;
+  // the time is the reducer's, so running a render later cannot move the
+  // answer past midnight or month-end. The ref stops a re-render or
+  // StrictMode's second run logging it twice.
+  const lastLoggedFeedbackRef = useRef(state.feedback);
+  useEffect(() => {
+    const feedback = state.feedback;
+    if (!feedback || feedback === lastLoggedFeedbackRef.current) return;
+    lastLoggedFeedbackRef.current = feedback;
+    appendOutcome({
+      at: feedback.at,
+      asked: feedback.correctIso3,
+      mode: state.mode,
+      practice: state.practiceMode,
+      phase: state.phase,
+      outcome: feedback.kind,
+      given: feedback.kind === "wrong" ? feedback.answerIso3 : "",
+    });
+  }, [state.feedback, state.mode, state.practiceMode, state.phase]);
+
   // A round begins when its first card is dismissed. Started is counted on the
   // transition into card 1 so an abandoned round still counts as begun — which
   // is the whole point of comparing the two.
@@ -2055,10 +2085,12 @@ export function useGame(): GameApi {
       // finished round would continue the old day count — the counters, and
       // the welcome flag, so the learner meets the app as a stranger on the
       // next load. A kept counters key would also re-freeze
-      // firstSessionAnswers against a session the learner no longer has.
+      // firstSessionAnswers against a session the learner no longer has. The
+      // outcome log goes too: it describes the history being erased.
       dispatch({ type: "resetSrs" });
       // Both SRS keys, or the v1 blob would be migrated back on the next load.
       clearStore();
+      clearOutcomes();
       setStreakStore(emptyStreak());
       setCounters(startSession(emptyCounters(), false));
       saveSeenWelcome(false);

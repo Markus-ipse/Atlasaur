@@ -51,7 +51,7 @@ const BASE_PROPS = {
   palette: PALETTE,
 };
 
-const WRONG: Feedback = { kind: "wrong", answerIso3: "DEU", correctIso3: "FRA" };
+const WRONG: Feedback = { kind: "wrong", answerIso3: "DEU", correctIso3: "FRA", at: 0 };
 
 // Paris — comfortably inside France's drawn geometry.
 const PARIS: [number, number] = [2.33, 48.87];
@@ -132,6 +132,7 @@ describe("WorldMap — floating Correct! badge", () => {
     kind: "correct",
     answerIso3: "FRA",
     correctIso3: "FRA",
+    at: 0,
   };
   // Make France's path clickable: the base fixture's isoFromNumeric returns
   // undefined for everything, which leaves every path inert (Boolean(iso3) is
@@ -524,7 +525,7 @@ describe("WorldMap — off-frame neighbour labels (R3.3a)", () => {
     correctNeighborIso3s: ["RUS"],
     revealCapitalLonLat: null,
   };
-  const MISS: Feedback = { kind: "skipped", answerIso3: "", correctIso3: "EST" };
+  const MISS: Feedback = { kind: "skipped", answerIso3: "", correctIso3: "EST", at: 0 };
 
   function labelText(container: HTMLElement, name: string) {
     return Array.from(container.querySelectorAll<SVGTextElement>("text")).find(
@@ -709,7 +710,7 @@ describe("WorldMap — markers (R3.4)", () => {
         {...BASE_PROPS}
         isoFromNumeric={isoFromNumeric}
         numericFromIso3={numericFromMlt}
-        feedback={{ kind: "skipped", answerIso3: "MLT", correctIso3: "MLT" }}
+        feedback={{ kind: "skipped", answerIso3: "MLT", correctIso3: "MLT", at: 0 }}
         revealCapitalLonLat={[14.51, 35.9]}
       />,
     );

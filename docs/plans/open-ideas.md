@@ -15,13 +15,6 @@ here is not a backlog — each item needs its own plan before it is built.
   scheduler picks are also biased: it resurfaces exactly the cards it expects
   to be shaky. Read the R2.4 counters with that in mind, and do not claim a
   change improved learning on their strength alone.
-- **A per-answer outcome log.** The counters are aggregates, so nothing stored
-  today can answer "does a missed country get easier on later days?". A
-  versioned local log of answers — country, time, question mode, practice
-  mode, phase, correct / wrong / skipped — would. It needs a documented size
-  bound or aggregation policy rather than growing without limit, and should be
-  local only, like the counters. A remediation attempt in a review pass is an
-  observation even though it is deliberately not graded into FSRS again.
 
 ## Question kinds
 
@@ -34,8 +27,8 @@ here is not a backlog — each item needs its own plan before it is built.
 - **Confusion pairs.** Notice when a learner repeatedly clicks one country
   when asked for another (Slovakia for Slovenia, Niger for Nigeria) and teach
   the two side by side, rather than revealing each miss in isolation. Builds
-  on the miss reveal. Wants the outcome log above, since the wrong-clicked
-  country is held only for the current reveal and never persisted.
+  on the miss reveal. Reads the outcome log (`outcome-log.md`), which persists
+  the wrong-clicked country that the reveal only holds for a moment.
 
 ## Findings still true in the code (checked 2026-09-11)
 
