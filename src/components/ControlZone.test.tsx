@@ -90,6 +90,7 @@ function makeGame(overrides: {
       sittingNew: 0,
       expedition: null,
       modeBeforeExpedition: null,
+      resumeCurrent: false,
     },
     unlearnedCount: 0,
     counters: emptyCounters(),

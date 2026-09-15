@@ -316,6 +316,12 @@ export type State = {
   phase: Phase;
   feedback: Feedback | null;
   sessionDone: boolean;
+  // Study: Done was pressed with no answer given to the card on screen, so
+  // closing the summary resumes on it rather than picking past it. The
+  // summary's counts include that card, so Keep going's promise ("1 coming
+  // back first") holds only if it comes back. Every endSession rewrites it,
+  // and Study reaches its summary only through endSession.
+  resumeCurrent: boolean;
   srsStore: SrsStore;
   newIntroducedThisStretch: number;
   // Study-only in-session resurface: missed cards come back a few cards
@@ -502,6 +508,7 @@ export function initialState(
     phase: "normal",
     feedback: null,
     sessionDone: false,
+    resumeCurrent: false,
     srsStore,
     newIntroducedThisStretch: 0,
     studyResurfaceQueue: [],
@@ -1476,6 +1483,7 @@ export function reducer(state: State, action: Action): State {
           autoGradePending: null,
           milestone: null,
           sessionDone: true,
+          resumeCurrent: false,
           feedback: null,
           roundDone: false,
         };
@@ -1484,6 +1492,7 @@ export function reducer(state: State, action: Action): State {
       return {
         ...closed,
         sessionDone: true,
+        resumeCurrent: state.practiceMode === "study" && !state.feedback,
         feedback: null,
         milestone: null,
         roundDone: false,
@@ -1548,6 +1557,7 @@ export function reducer(state: State, action: Action): State {
         ...FRESH_STRETCH,
       };
       if (state.practiceMode === "study") {
+        if (state.resumeCurrent) return { ...next, resumeCurrent: false };
         const { current, spotlightSubregion, transientMessage } =
           pickStudyWithSpotlightFallback(next, now);
         return { ...next, current, spotlightSubregion, transientMessage };

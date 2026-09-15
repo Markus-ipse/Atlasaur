@@ -796,6 +796,27 @@ describe("reducer — resetSrs / closeSummary", () => {
     expect(next.sessionDone).toBe(false);
     expect(next.score).toBe(7);
   });
+
+  // The summary counts the card on screen, so Keep going must not pick past
+  // an unanswered one: if it was the only card coming back, "1 coming back
+  // first" would be false.
+  it("closeSummary resumes on a Study card left unanswered by Done", () => {
+    const s0 = initialState({ practiceMode: "study" });
+    const ended = reducer(s0, { type: "endSession" });
+    expect(ended.resumeCurrent).toBe(true);
+    const back = reducer(ended, { type: "closeSummary", now: NOW });
+    expect(back.current.iso3).toBe(s0.current.iso3);
+    expect(back.resumeCurrent).toBe(false);
+  });
+
+  it("closeSummary moves on from a Study card answered before Done", () => {
+    const s0 = initialState({ practiceMode: "study" });
+    const answered = reducer(s0, { type: "answer", iso3: s0.current.iso3, now: NOW });
+    const ended = reducer(answered, { type: "endSession" });
+    expect(ended.resumeCurrent).toBe(false);
+    const back = reducer(ended, { type: "closeSummary", now: NOW });
+    expect(back.current.iso3).not.toBe(s0.current.iso3);
+  });
 });
 
 describe("reducer — spotlight subregion", () => {
