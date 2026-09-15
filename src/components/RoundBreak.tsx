@@ -1,7 +1,10 @@
 import { useEffect, useRef } from "react";
-import type { PracticeMode } from "../types";
+import type { PracticeMode, Subregion } from "../types";
 import { tallyParts } from "./tallyParts";
 import { nextBackOrNothing } from "../game/nextBack";
+import { STUDY_NEW_CAP } from "../game/pickCountry";
+import type { CapitalOffer } from "../game/offer";
+import { CapitalsDoor } from "./CapitalsDoor";
 
 type Props = {
   practiceMode: PracticeMode;
@@ -11,10 +14,26 @@ type Props = {
   roundCards: number;
   roundRight: number;
   roundNew: number;
-  // Nothing due and today's new cards done: the scheduler has no more work.
-  // Flips the copy to "that's everything for now" and makes Done the
-  // default, so stopping feels like a reward rather than a wall.
+  // The scheduler has no more useful work: nothing due and the stretch's new
+  // cards done, or a round that ended early because its next card would only
+  // have been filler. Flips the copy to "that's everything for now" and makes
+  // Done the default, so stopping feels like a reward rather than a wall.
   caughtUp: boolean;
+  // The focus the learner is in, if any. A caught-up round inside a focus is
+  // only out of work in that region, so the title says so.
+  spotlightSubregion: Subregion | null;
+  // The round's new cards are used but unseen ones remain: Keep going brings
+  // more (continueRound refills the allowance), so this is no "everything".
+  newCapReached: boolean;
+  // Capitals worth offering, or null. Shown only on a caught-up break: inside
+  // a sitting that is the moment a learner has demonstrably run out of work,
+  // so the offer is earned there, as it was on the CaughtUp banner.
+  capitalOffer: CapitalOffer | null;
+  onTryCapitals: () => void;
+  // Leaves the focus and carries on with the whole scope. Offered only on a
+  // caught-up break inside one, where the region is out of work but the rest
+  // of the scope may not be.
+  onLeaveFocus: () => void;
   // When the next card comes back (nextBackLine), or null. Said only when
   // caught up.
   nextBack: string | null;
@@ -24,8 +43,9 @@ type Props = {
 
 // The interstitial between rounds. Deliberately small: a line of numbers
 // and two buttons. Enter follows the focused default (Keep going, or Done
-// when caught up); Escape always keeps going; "Done for now" lands on the
-// session summary.
+// when caught up); "Done for now" lands on the rest card. Escape and a click
+// on the backdrop do nothing: either could be a learner trying to put the
+// app down, and neither should start another round.
 export function RoundBreak({
   practiceMode,
   roundsCompleted,
@@ -34,6 +54,11 @@ export function RoundBreak({
   roundRight,
   roundNew,
   caughtUp,
+  spotlightSubregion,
+  newCapReached,
+  capitalOffer,
+  onTryCapitals,
+  onLeaveFocus,
   nextBack,
   onKeepGoing,
   onDone,
@@ -44,16 +69,12 @@ export function RoundBreak({
     focusRef.current?.focus();
   }, []);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onKeepGoing();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onKeepGoing]);
-
-  const title = caughtUp
-    ? "That's everything for now."
+  const title = newCapReached
+    ? `${STUDY_NEW_CAP} new ones met.`
+    : caughtUp
+    ? spotlightSubregion !== null
+      ? `That's all in ${spotlightSubregion} for now.`
+      : "That's everything for now."
     : roundRight === roundCards
     ? "A clean round."
     : roundRight >= roundCards - 2
@@ -72,12 +93,7 @@ export function RoundBreak({
     "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
 
   return (
-    <div
-      className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onKeepGoing();
-      }}
-    >
+    <div className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4">
       <div
         role="dialog"
         aria-modal="true"
@@ -93,11 +109,16 @@ export function RoundBreak({
         </h2>
         <p id="round-break-line" className="text-sm text-ink-mid tabular-nums">
           {parts.join(" · ")}
-          {/* A sentence on its own line, never inside the " · " tally. */}
-          {caughtUp && (
+          {/* A sentence on its own line, never inside the " · " tally. Not
+              in a focus: nextBack counts the whole scope, which can already
+              have cards back outside the region. */}
+          {caughtUp && spotlightSubregion === null && (
             <span className="block mt-1">
               {`${nextBackOrNothing(nextBack)}.`}
             </span>
+          )}
+          {newCapReached && (
+            <span className="block mt-1">Keep going for more, or rest here.</span>
           )}
         </p>
         <div className="flex flex-col gap-2">
@@ -118,6 +139,23 @@ export function RoundBreak({
               >
                 Keep going anyway
               </button>
+              {capitalOffer && (
+                <CapitalsDoor
+                  offer={capitalOffer}
+                  onClick={onTryCapitals}
+                  className={secondaryClass}
+                  subClassName="text-ink-faded"
+                />
+              )}
+              {spotlightSubregion !== null && (
+                <button
+                  type="button"
+                  onClick={onLeaveFocus}
+                  className={secondaryClass}
+                >
+                  Back to all regions
+                </button>
+              )}
             </>
           ) : (
             <>

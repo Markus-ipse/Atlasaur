@@ -86,10 +86,15 @@ export function ControlZone({
         {showCaughtUp ? (
           <CaughtUp
             onKeepGoing={onAckCaughtUp}
-            capitalOffer={game.capitalOffer}
+            capitalOffer={
+              // Not in a focus: the offer counts the whole scope's countries.
+              state.spotlightSubregion === null ? game.capitalOffer : null
+            }
             onTryCapitals={() => game.setMode("country-to-capital")}
             nextBack={game.nextBack}
             newLeft={game.newAvailableCount > 0}
+            spotlightSubregion={state.spotlightSubregion}
+            onLeaveFocus={game.clearSpotlight}
           />
         ) : heroFeedback ? (
           <RevealHero

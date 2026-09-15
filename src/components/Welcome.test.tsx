@@ -21,18 +21,23 @@ function setup() {
 }
 
 describe("Welcome", () => {
-  it("states the one idea the app runs on", () => {
+  it("says what to do, and leaves the scheduler to the first miss", () => {
     setup();
-    expect(screen.getByText(/Every country comes back/)).toBeTruthy();
+    expect(screen.getByText(/Learn the world map, a few places at a time/)).toBeTruthy();
+    expect(screen.getByText(/we'll show you and bring it back/)).toBeTruthy();
+    expect(screen.queryByText(/Every country comes back/)).toBeNull();
   });
 
-  it("offers three doors and focuses the first", () => {
+  it("offers one primary route, focused, with two quieter alternatives", () => {
     const { onStartBig, onStartTest } = setup();
-    const big = screen.getByRole("button", { name: /Start with the big ones/ });
+    const big = screen.getByRole("button", {
+      name: /Start a short round.*Big, familiar countries first/,
+    });
     expect(document.activeElement).toBe(big);
     fireEvent.click(big);
     expect(onStartBig).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: /Test me/ }));
+    expect(screen.getByRole("button", { name: "Pick a region" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /test me/ }));
     expect(onStartTest).toHaveBeenCalledTimes(1);
   });
 
@@ -50,10 +55,10 @@ describe("Welcome", () => {
     expect(onStartRegion).toHaveBeenCalledWith(["Africa", "Europe"]);
   });
 
-  it("Back returns to the three doors", () => {
+  it("Back returns to the doors", () => {
     setup();
     fireEvent.click(screen.getByRole("button", { name: "Pick a region" }));
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
-    expect(screen.getByRole("button", { name: /Start with the big ones/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Start a short round/ })).toBeTruthy();
   });
 });

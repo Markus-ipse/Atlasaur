@@ -4,7 +4,8 @@ import {
   lifetimeAccuracy as srsLifetimeAccuracy,
   learnedCount as srsLearnedCount,
   seenCount as srsSeenCount,
-  masteryBySubregion,
+  askableBySubregion,
+  hasAnyRecord,
   totalReviews as srsTotalReviews,
 } from "../game/srs";
 import { markerOnlySubregions, pickSpotlight } from "../game/pickCountry";
@@ -24,9 +25,10 @@ type Props = {
   dueCount: number;
   // When the next card comes back (nextBackLine), or null.
   nextBack: string | null;
-  // Nothing has come back and this stretch's new cards are used up (App's
-  // caughtUp). Closing the summary does not refill the new-card cap, so Keep
-  // going brings back old ground rather than new countries.
+  // Nothing has come back and no new card can be asked (App's caughtUp): the
+  // stretch's new cards are used and nothing unseen is left in the pool that
+  // closing the summary would refill them for. Keep going brings back old
+  // ground rather than new countries.
   caughtUp: boolean;
   // The focus the learner is in, if any. While one is on every Study pick
   // comes from that subregion, so the whole-scope counts say nothing about
@@ -39,6 +41,13 @@ type Props = {
   sittingCards: number;
   sittingRight: number;
   sittingNew: number;
+  // Cards missed earlier in the sitting and later answered right in it.
+  sittingRecovered: number;
+  // A miss from this sitting is queued and comes back next, so Keep going is
+  // not "anyway".
+  missQueued: boolean;
+  // The latest save of the learning records landed (useGame's save effect), so "kept in this browser" is true.
+  progressSaved: boolean;
   // The fact the learner is working on. The scoped figures and the spotlight
   // count over it; the two lifetime rows are across every fact.
   fact: Fact;
@@ -186,6 +195,9 @@ function StudySummary({
   sittingCards,
   sittingRight,
   sittingNew,
+  sittingRecovered,
+  missQueued,
+  progressSaved,
   fact,
   scopeIso3s,
   countries,
@@ -203,28 +215,21 @@ function StudySummary({
   // Recommend the most-neglected subregion in scope, if any clears the gate.
   // A subregion drawn only as dots has no frame to focus on: offered last.
   const spotlight = pickSpotlight(
-    masteryBySubregion(factRecords, countries, scopeIso3s),
+    // Counted over what a focus can ask now (unseen or due), so tapping the
+    // door always opens on useful work rather than on a "nothing more" banner.
+    askableBySubregion(factRecords, countries, scopeIso3s, new Date()),
     markerOnlySubregions(countries),
   );
-  // Auto-focus the recommended action: the Focus CTA when a spotlight is
-  // offered, otherwise Keep going. A test sits under "Or test yourself", so
-  // it is never the default the page presents as the alternative.
-  const focusRef = useRef<HTMLButtonElement>(null);
+  // This is where the learner stops, so nothing that acts takes focus and
+  // Enter starts nothing: focus lands on the dialog itself. Escape and the
+  // backdrop do nothing either — the app stays at rest until the learner
+  // picks a door.
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    focusRef.current?.focus();
+    dialogRef.current?.focus();
   }, []);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onKeepStudying();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onKeepStudying]);
-
-  const primaryClass =
-    "min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium flex flex-col items-center justify-center leading-tight hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
   const secondaryClass =
     "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
 
@@ -236,7 +241,10 @@ function StudySummary({
   // During a focus it promises no order at all: the counts are the whole
   // scope's and the picks are the region's.
   // caughtUp already implies nothing has come back.
-  const nothingWaiting = caughtUp || (dueCount === 0 && newAvailableCount === 0);
+  // A queued miss is waiting even when nothing is due or new.
+  const nothingWaiting =
+    !missQueued &&
+    (caughtUp || (dueCount === 0 && newAvailableCount === 0));
   const keepGoingLabel =
     nothingWaiting && spotlightSubregion === null
       ? "Keep going anyway"
@@ -249,44 +257,80 @@ function StudySummary({
       : !nothingWaiting
       ? `New ${subject(fact, 2)} next`
       : caughtUp && newAvailableCount > 0
-      ? // Unseen countries are on the tiles, so say why they aren't next.
+      ? // Only in a focus now: outside one a spent allowance with unseen
+        // countries left is newCapReached, which closing the summary refills.
+        // Unseen countries elsewhere are on the tiles, so say why they
+        // aren't next.
         `${NO_MORE_NEW} · ${nextBackOrNothing(nextBack)}`
       : nextBackOrNothing(nextBack);
 
   const stackedSecondaryClass =
     secondaryClass + " flex flex-col items-center justify-center leading-tight";
-  const primarySubClass = "text-xs font-normal text-parchment-base/70";
   const secondarySubClass = "text-xs font-normal text-ink-faded";
 
+  // Only once there is something to keep: a Done before any first answer has
+  // nothing in this browser yet.
+  const showSaved = progressSaved && hasAnyRecord(srsStore);
+  const hasSittingLines = sittingCards > 0 || showSaved;
+
   return (
-    <div
-      className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onKeepStudying();
-      }}
-    >
+    <div className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4">
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="study-summary-title"
-        aria-describedby={sittingCards > 0 ? "study-summary-sitting" : undefined}
-        className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-parchment-base rounded-lg shadow-lg p-6 flex flex-col gap-4"
+        aria-describedby={hasSittingLines ? "study-summary-sitting" : undefined}
+        className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-parchment-base rounded-lg shadow-lg p-6 flex flex-col gap-4 focus:outline-none"
       >
+        {/* A finish, not a verdict: no "Nice work" over a sitting of misses. */}
         <h2 id="study-summary-title" className="text-2xl font-bold text-ink-deep">
-          Nice work
+          That's it for now.
         </h2>
-        {/* The only figures here about the sitting itself; everything below
-            is a standing or lifetime total. Omitted when "Done" was pressed
-            before any answer, rather than reading "0 of 0". */}
-        {sittingCards > 0 && (
-          <p
+        {hasSittingLines && (
+          <div
             id="study-summary-sitting"
-            className="text-sm text-ink-mid tabular-nums -mt-2"
+            className="text-sm text-ink-mid -mt-2 flex flex-col gap-1"
           >
-            This sitting:{" "}
-            {tallyParts(sittingRight, sittingCards, sittingNew).join(" · ")}
-          </p>
+            {/* A miss put right later in the same sitting. Recovered, not
+                remembered: it says nothing about next week, so no "known"
+                and no "learned". Fact-neutral, since a sitting can span a
+                question-mode switch. First, so the ending leads with what
+                changed for the learner rather than with accuracy. */}
+            {sittingRecovered > 0 && (
+              <p>{recoveryLine(sittingRecovered)}</p>
+            )}
+            {/* The only figures here about the sitting itself; everything
+                under the disclosure is a standing or lifetime total. Omitted
+                when "Done" was pressed before any answer, rather than reading
+                "0 of 0". */}
+            {sittingCards > 0 && (
+              <p className="tabular-nums">
+                This sitting:{" "}
+                {tallyParts(sittingRight, sittingCards, sittingNew).join(" · ")}
+              </p>
+            )}
+            {showSaved && <p>Kept in this browser — no account needed.</p>}
+          </div>
         )}
+        <button
+          type="button"
+          onClick={onKeepStudying}
+          className={stackedSecondaryClass}
+        >
+          <span>{keepGoingLabel}</span>
+          <span className={secondarySubClass}>{keepGoingSub}</span>
+        </button>
+        {/* Everything else a finished sitting could lead to, out of the way
+            of someone who only wants to stop. */}
+        <details className="flex flex-col gap-4">
+          <summary className="min-h-11 flex items-center justify-center gap-1 cursor-pointer select-none rounded text-sm text-ink-mid hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1">
+            {/* Says what it holds, so a learner looking for a test knows
+                where it went. */}
+            Figures, focus and tests
+          </summary>
+          <div className="flex flex-col gap-4 pt-2">
         {/* Two groups, labelled as the settings label them. The first four
             count the learner's fact over the active scope; the last two are
             lifetime totals across every fact and every country, so they
@@ -322,37 +366,22 @@ function StudySummary({
             />
           </div>
         </section>
-        {/* Four doors, in two groups, each carrying its own reason: bare
-            labels left "Focus", "Test" and "Keep studying" reading as three
-            names for the same thing, and the hint paragraph that used to sit
-            here only repeated whichever door was primary. */}
-        <div className="flex flex-col gap-2">
-          {spotlight && (
-            <button
-              ref={focusRef}
-              type="button"
-              onClick={() => onSetSpotlight(spotlight.subregion)}
-              className={primaryClass}
-            >
-              <span>Focus on {spotlight.subregion}</span>
-              <span className={primarySubClass}>
-                {spotlight.remaining} left to learn there — just that region
-                for now
-              </span>
-            </button>
-          )}
+        {/* Each door carries its own reason: bare labels left "Focus",
+            "Test" and "Keep studying" reading as three names for the same
+            thing. */}
+        {spotlight && (
           <button
-            ref={spotlight ? undefined : focusRef}
             type="button"
-            onClick={onKeepStudying}
-            className={spotlight ? stackedSecondaryClass : primaryClass}
+            onClick={() => onSetSpotlight(spotlight.subregion)}
+            className={stackedSecondaryClass}
           >
-            <span>{keepGoingLabel}</span>
-            <span className={spotlight ? secondarySubClass : primarySubClass}>
-              {keepGoingSub}
+            <span>Focus on {spotlight.subregion}</span>
+            <span className={secondarySubClass}>
+              {spotlight.remaining} waiting there — just that region
+              for now
             </span>
           </button>
-        </div>
+        )}
         <section
           aria-labelledby="study-summary-test"
           className="flex flex-col gap-2"
@@ -380,9 +409,16 @@ function StudySummary({
             subClassName="text-ink-faded"
           />
         </section>
+          </div>
+        </details>
       </div>
     </div>
   );
+}
+
+function recoveryLine(n: number): string {
+  // Digits, like the sitting's tally directly below it.
+  return `You got ${n} right that you'd missed earlier.`;
 }
 
 function Tile({ label, value }: { label: string; value: string }) {
