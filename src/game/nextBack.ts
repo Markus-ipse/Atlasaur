@@ -1,4 +1,4 @@
-import { dayKey, daysBetween } from "../game/streak";
+import { dayKey, daysBetween } from "./streak";
 
 // One line saying when the next country comes back, shared by every surface
 // that says it so they keep one voice. No final stop: a sub-line takes it as
@@ -18,6 +18,12 @@ export function nextBackLine(next: Date | null, now: Date): string | null {
   return `The next ones come back in ${d} days`;
 }
 
-// Said where a next-back line would go and nothing is scheduled at all,
-// which in practice is a learner who has not met a country yet.
-export const NOTHING_BACK_YET = "Nothing has been met yet";
+// The line for a surface that always says something: where nothing is
+// scheduled at all, which in practice is a learner who has not met a country
+// yet. CaughtUp alone reads the null, to fall back to "Come back later".
+export function nextBackOrNothing(line: string | null): string {
+  return line ?? "Nothing has been met yet";
+}
+
+// Why unseen countries are not next: the stretch's new cards are used up.
+export const NO_MORE_NEW = "No more new ones for now";

@@ -20,6 +20,7 @@ import {
   withGrade,
 } from "./srs";
 import { factOf, isClickMode } from "./questionModes";
+import { nextBackLine } from "./nextBack";
 import { capitalOffer, type CapitalOffer } from "./offer";
 import { milestoneFor, streakNote, type Milestone } from "./milestones";
 import {
@@ -1618,9 +1619,10 @@ export type GameApi = {
   totalInScope: number;
   completedInScopeCount: number;
   dueCount: number;
-  // When the next in-scope card comes back; null when none is scheduled.
-  // Never counted in dueCount (see srs.nextDueAt).
-  nextDueAt: Date | null;
+  // When the next in-scope card comes back, as the line every surface says
+  // (nextBackLine); null when none is scheduled. Never one dueCount counts
+  // (see srs.nextDueAt).
+  nextBack: string | null;
   newAvailableCount: number;
   seenSrsIntro: boolean;
   markSrsIntroSeen: () => void;
@@ -2003,8 +2005,10 @@ export function useGame(): GameApi {
     [learnerRecords, scopeSet, nowBucket],
   );
 
-  const nextDueAt = useMemo(
-    () => srsNextDueAt(learnerRecords, scopeSet, new Date()),
+  const nextBack = useMemo(() => {
+    const now = new Date();
+    return nextBackLine(srsNextDueAt(learnerRecords, scopeSet, now), now);
+  },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [learnerRecords, scopeSet, nowBucket],
   );
@@ -2056,7 +2060,7 @@ export function useGame(): GameApi {
     returns,
     totalInScope,
     dueCount,
-    nextDueAt,
+    nextBack,
     newAvailableCount,
     seenSrsIntro,
     markSrsIntroSeen,

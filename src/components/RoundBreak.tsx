@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { PracticeMode } from "../types";
 import { tallyParts } from "./tallyParts";
-import { NOTHING_BACK_YET } from "./nextBack";
+import { nextBackOrNothing } from "../game/nextBack";
 
 type Props = {
   practiceMode: PracticeMode;
@@ -96,7 +96,7 @@ export function RoundBreak({
           {/* A sentence on its own line, never inside the " · " tally. */}
           {caughtUp && (
             <span className="block mt-1">
-              {`${nextBack ?? NOTHING_BACK_YET}.`}
+              {`${nextBackOrNothing(nextBack)}.`}
             </span>
           )}
         </p>

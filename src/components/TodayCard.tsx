@@ -3,7 +3,7 @@ import type { ExpeditionStatus } from "../game/expedition";
 import type { CapitalOffer } from "../game/offer";
 import { ExpeditionDoor } from "./ExpeditionDoor";
 import { CapitalsDoor } from "./CapitalsDoor";
-import { NOTHING_BACK_YET } from "./nextBack";
+import { nextBackOrNothing } from "../game/nextBack";
 
 type Props = {
   dueCount: number;
@@ -79,7 +79,7 @@ export function TodayCard({
           {parts.join(" · ")}
           {nothingWaiting && (
             <span className="block mt-1">
-              {`${nextBack ?? NOTHING_BACK_YET}.`} A round
+              {`${nextBackOrNothing(nextBack)}.`} A round
               anyway keeps the hand in.
             </span>
           )}

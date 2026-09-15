@@ -97,7 +97,7 @@ function makeGame(overrides: {
     totalInScope: 0,
     completedInScopeCount: 0,
     dueCount: 0,
-    nextDueAt: null,
+    nextBack: null,
     newAvailableCount: 0,
     seenSrsIntro: true,
     markSrsIntroSeen: vi.fn(),
@@ -142,7 +142,7 @@ afterEach(() => {
 describe("ControlZone", () => {
   it("renders Skip when there is no feedback", () => {
     const game = makeGame({});
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     expect(screen.getByRole("button", { name: "Skip" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
   });
@@ -155,7 +155,7 @@ describe("ControlZone", () => {
       at: 0,
     };
     const game = makeGame({ feedback: wrong });
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     const cont = screen.getByRole("button", { name: "Continue" });
     expect(document.activeElement).toBe(cont);
   });
@@ -168,14 +168,14 @@ describe("ControlZone", () => {
       at: 0,
     };
     const game = makeGame({ feedback: correct });
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
   });
 
   it("Skip click invokes game.skip", () => {
     const game = makeGame({});
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     act(() => {
       screen.getByRole("button", { name: "Skip" }).click();
     });
@@ -190,7 +190,7 @@ describe("ControlZone", () => {
       at: 0,
     };
     const game = makeGame({ feedback: wrong });
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     act(() => {
       screen.getByRole("button", { name: "Continue" }).click();
     });
@@ -205,7 +205,7 @@ describe("ControlZone", () => {
       at: 0,
     };
     const game = makeGame({ mode: "name-to-click", feedback: wrong });
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("You picked: Germany");
     // Assert the label-name pairing — only the hero produces this sequence.
@@ -220,7 +220,7 @@ describe("ControlZone", () => {
       at: 0,
     };
     const game = makeGame({ mode: "name-to-click", feedback: skipped });
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toMatch(/Skipped[\s\S]*France/);
     expect(status.textContent).not.toContain("You picked");
@@ -234,7 +234,7 @@ describe("ControlZone", () => {
       at: 0,
     };
     const game = makeGame({ mode: "shape-to-name", feedback: wrong });
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toMatch(/You missed[\s\S]*France/);
     expect(status.textContent).not.toContain("You picked");
@@ -248,7 +248,7 @@ describe("ControlZone", () => {
       at: 0,
     };
     const game = makeGame({ feedback: wrong });
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("Capital: Paris");
     expect(status.textContent).toContain(
@@ -264,7 +264,7 @@ describe("ControlZone", () => {
       at: 0,
     };
     const game = makeGame({ feedback: skipped });
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     expect(screen.getByRole("status").textContent).toContain("Capital: Paris");
   });
 
@@ -289,7 +289,7 @@ describe("ControlZone", () => {
       at: 0,
     };
     const game = makeGame({ current: japan, feedback: wrong });
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("Capital: Tokyo");
     expect(status.textContent).not.toContain("Bordered by");
@@ -316,7 +316,7 @@ describe("ControlZone", () => {
       at: 0,
     };
     const game = makeGame({ current: antarctica, feedback: wrong });
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toMatch(/You missed[\s\S]*Antarctica/);
     expect(status.textContent).not.toContain("Capital");
@@ -330,7 +330,7 @@ describe("ControlZone", () => {
       at: 0,
     };
     const game1 = makeGame({ feedback: wrong });
-    const { rerender } = render(<ControlZone game={game1} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    const { rerender } = render(<ControlZone game={game1} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     expect(screen.getByRole("status").textContent).toContain("You missed");
     expect(screen.getByRole("status").textContent).not.toContain("Skipped");
 
@@ -341,7 +341,7 @@ describe("ControlZone", () => {
       at: 0,
     };
     const game2 = makeGame({ feedback: skipped });
-    rerender(<ControlZone game={game2} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    rerender(<ControlZone game={game2} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     expect(screen.getByRole("status").textContent).toContain("Skipped");
     expect(screen.getByRole("status").textContent).not.toContain("You missed");
   });
@@ -354,7 +354,7 @@ describe("ControlZone", () => {
       at: 0,
     };
     const game = makeGame({ feedback: correct });
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("Correct");
     expect(status.textContent).toContain("France");
@@ -384,7 +384,7 @@ describe("ControlZone", () => {
       at: 0,
     };
     const game = makeGame({ current: bolivia, feedback: wrong });
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("Capitals: Sucre, La Paz");
     expect(status.textContent).not.toContain("Capital: Sucre");
@@ -412,7 +412,7 @@ describe("ControlZone", () => {
       at: 0,
     };
     const game = makeGame({ current: southAfrica, feedback: wrong });
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain(
       "Capitals: Pretoria, Cape Town, Bloemfontein",
@@ -449,7 +449,7 @@ describe("ControlZone", () => {
     };
     const game = makeGame({ current: lesotho, feedback: wrong });
     game.nameFromIso3 = (iso3) => namesByIso3[iso3] ?? iso3;
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("Bordered by: South Africa");
     // No trailing comma — single neighbor.
@@ -512,7 +512,7 @@ describe("ControlZone", () => {
     };
     const game = makeGame({ current: russia, feedback: wrong });
     game.nameFromIso3 = (iso3) => russiaNames[iso3] ?? iso3;
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     const status = screen.getByRole("status");
     // Alphabetical by display name. North Korea sorts under "N".
     expect(status.textContent).toContain(
@@ -523,7 +523,7 @@ describe("ControlZone", () => {
   it("renders the AnswerInput only in shape-to-name mode", () => {
     const a = makeGame({ mode: "name-to-click" });
     const { rerender } = render(
-      <ControlZone game={a} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />,
+      <ControlZone game={a} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />,
     );
     expect(screen.queryByPlaceholderText(/type the country name/i)).toBeNull();
     rerender(
@@ -531,7 +531,7 @@ describe("ControlZone", () => {
         game={makeGame({ mode: "shape-to-name" })}
         showCaughtUp={false}
         onAckCaughtUp={() => {}}
-        nextBack={null}
+       
         themePref="system"
         onSetThemePref={() => {}}
       />,
@@ -547,7 +547,7 @@ describe("ControlZone", () => {
       at: 0,
     };
     const game = makeGame({ practiceMode: "study", feedback: wrong });
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     expect(screen.getByRole("button", { name: "Got it" })).toBeTruthy();
     expect(screen.queryByRole("group", { name: "Grade" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Knew it|Forgot|Easy|Hard/ })).toBeNull();
@@ -561,7 +561,7 @@ describe("ControlZone", () => {
       at: 0,
     };
     const game = makeGame({ practiceMode: "study", feedback: correct });
-    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} nextBack={null} themePref="system" onSetThemePref={() => {}} />);
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     expect(screen.queryByRole("group", { name: "Grade" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Got it" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
@@ -592,7 +592,7 @@ describe("ControlZone — capital modes", () => {
         game={game}
         showCaughtUp={false}
         onAckCaughtUp={() => {}}
-        nextBack={null}
+       
         themePref="system"
         onSetThemePref={() => {}}
       />,
@@ -725,6 +725,7 @@ describe("CaughtUp — the capitals offer", () => {
     const game = {
       ...makeGame({ practiceMode: "study" }),
       capitalOffer,
+      nextBack,
       newAvailableCount,
     };
     render(
@@ -732,7 +733,6 @@ describe("CaughtUp — the capitals offer", () => {
         game={game}
         showCaughtUp
         onAckCaughtUp={() => {}}
-        nextBack={nextBack}
         themePref="system"
         onSetThemePref={() => {}}
       />,
@@ -796,7 +796,7 @@ describe("the Back again pill", () => {
         game={makeGame(overrides)}
         showCaughtUp={false}
         onAckCaughtUp={() => {}}
-        nextBack={null}
+       
         themePref="system"
         onSetThemePref={() => {}}
       />,
@@ -861,7 +861,7 @@ describe("the focus chip", () => {
         game={game}
         showCaughtUp={false}
         onAckCaughtUp={() => {}}
-        nextBack={null}
+       
         themePref="system"
         onSetThemePref={() => {}}
       />,

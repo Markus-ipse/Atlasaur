@@ -11,7 +11,7 @@ import { markerOnlySubregions, pickSpotlight } from "../game/pickCountry";
 import type { ExpeditionStatus } from "../game/expedition";
 import { ExpeditionDoor } from "./ExpeditionDoor";
 import { tallyParts } from "./tallyParts";
-import { NOTHING_BACK_YET } from "./nextBack";
+import { NO_MORE_NEW, nextBackOrNothing } from "../game/nextBack";
 
 type Props = {
   practiceMode: PracticeMode;
@@ -235,7 +235,8 @@ function StudySummary({
   // is "anyway", as on the round break, and says when the next ones come back.
   // During a focus it promises no order at all: the counts are the whole
   // scope's and the picks are the region's.
-  const nothingWaiting = dueCount === 0 && (newAvailableCount === 0 || caughtUp);
+  // caughtUp already implies nothing has come back.
+  const nothingWaiting = caughtUp || (dueCount === 0 && newAvailableCount === 0);
   const keepGoingLabel =
     nothingWaiting && spotlightSubregion === null
       ? "Keep going anyway"
@@ -249,8 +250,8 @@ function StudySummary({
       ? `New ${subject(fact, 2)} next`
       : caughtUp && newAvailableCount > 0
       ? // Unseen countries are on the tiles, so say why they aren't next.
-        `No more new ones for now · ${nextBack ?? NOTHING_BACK_YET}`
-      : (nextBack ?? NOTHING_BACK_YET);
+        `${NO_MORE_NEW} · ${nextBackOrNothing(nextBack)}`
+      : nextBackOrNothing(nextBack);
 
   const stackedSecondaryClass =
     secondaryClass + " flex flex-col items-center justify-center leading-tight";

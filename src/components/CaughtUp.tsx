@@ -1,5 +1,6 @@
 import { CapitalsDoor } from "./CapitalsDoor";
 import type { CapitalOffer } from "../game/offer";
+import { NO_MORE_NEW } from "../game/nextBack";
 
 type Props = {
   onKeepGoing: () => void;
@@ -26,12 +27,10 @@ export function CaughtUp({
   // vaguer than the app needs to be: say when, and once capitals are on
   // offer, say that too.
   const line = [
-    newLeft && "No more new ones for now.",
+    newLeft && `${NO_MORE_NEW}.`,
     nextBack && `${nextBack}.`,
     capitalOffer &&
-      (nextBack
-        ? "Meanwhile, there's another way to know these places."
-        : "There's another way to know these places."),
+      `${nextBack ? "Meanwhile, there's" : "There's"} another way to know these places.`,
   ]
     .filter(Boolean)
     .join(" ");

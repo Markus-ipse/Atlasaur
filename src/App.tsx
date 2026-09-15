@@ -6,7 +6,6 @@ import { SessionSummary } from "./components/SessionSummary";
 import { RoundBreak } from "./components/RoundBreak";
 import { ExpeditionResult } from "./components/ExpeditionResult";
 import { TodayCard } from "./components/TodayCard";
-import { nextBackLine } from "./components/nextBack";
 import { Welcome } from "./components/Welcome";
 import { StatusBar } from "./components/StatusBar";
 import { Toast } from "./components/Toast";
@@ -123,10 +122,6 @@ export default function App() {
   const hatchIso3 =
     state.feedback?.kind === "correct" ? (state.milestone?.iso3 ?? null) : null;
 
-  // When the next card comes back, said once so every surface that says it
-  // agrees.
-  const nextBack = nextBackLine(game.nextDueAt, new Date());
-
   // Nothing due and today's new cards introduced: the scheduler has no
   // more work. Surfaced two ways — the RoundBreak's "That's everything for
   // now" variant at a round boundary, and the CaughtUp banner when a
@@ -198,7 +193,6 @@ export default function App() {
         game={game}
         showCaughtUp={showCaughtUp}
         onAckCaughtUp={() => setCaughtUpAck(true)}
-        nextBack={nextBack}
         themePref={themePref}
         onSetThemePref={setThemePref}
       />
@@ -221,7 +215,7 @@ export default function App() {
           completedCount={game.completedInScopeCount}
           totalInScope={game.totalInScope}
           dueCount={game.dueCount}
-          nextBack={nextBack}
+          nextBack={game.nextBack}
           caughtUp={caughtUp}
           spotlightSubregion={state.spotlightSubregion}
           newAvailableCount={game.newAvailableCount}
@@ -277,7 +271,7 @@ export default function App() {
       {showTodayCard && (
         <TodayCard
           dueCount={game.dueCount}
-          nextBack={nextBack}
+          nextBack={game.nextBack}
           newToday={Math.min(STUDY_NEW_CAP, game.newAvailableCount)}
           day={game.streak.day}
           expedition={game.expeditionToday}
@@ -302,7 +296,7 @@ export default function App() {
           roundRight={state.roundRight}
           roundNew={state.roundNew}
           caughtUp={caughtUp}
-          nextBack={nextBack}
+          nextBack={game.nextBack}
           onKeepGoing={keepGoing}
           onDone={game.endSession}
         />

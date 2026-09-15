@@ -270,9 +270,9 @@ export function nextDueAt(
 ): Date | null {
   let earliest = Infinity;
   for (const iso3 in records) {
-    if (!scope.has(iso3)) continue;
+    if (!scope.has(iso3) || isDue(records[iso3], now)) continue;
     const t = new Date(records[iso3].due).getTime();
-    if (t > now.getTime() && t < earliest) earliest = t;
+    if (t < earliest) earliest = t;
   }
   return earliest === Infinity ? null : new Date(earliest);
 }

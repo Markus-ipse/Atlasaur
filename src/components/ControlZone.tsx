@@ -17,8 +17,6 @@ type Props = {
   // while the banner is up (otherwise a stray click bypasses it).
   showCaughtUp: boolean;
   onAckCaughtUp: () => void;
-  // When the next card comes back (nextBackLine), or null.
-  nextBack: string | null;
   themePref: ThemePref;
   onSetThemePref: (pref: ThemePref) => void;
 };
@@ -27,7 +25,6 @@ export function ControlZone({
   game,
   showCaughtUp,
   onAckCaughtUp,
-  nextBack,
   themePref,
   onSetThemePref,
 }: Props) {
@@ -69,8 +66,9 @@ export function ControlZone({
   // hides, which is the leak that collapse exists to prevent. The retry pass
   // keeps it on the prompt, where every card is a retry and it tells nothing.
   const returning = cardIsReturning(state);
-  const findsAPlace = hidesIntroduced(state.mode);
-  const pillWithAnswer = returning && findsAPlace;
+  const pillWithAnswer = returning && hidesIntroduced(state.mode);
+  const pillOnPrompt =
+    state.phase === "review" || (returning && !pillWithAnswer);
   const paused =
     roundBreak ||
     ((game.showTodayCard || game.showWelcome) && !state.sessionDone);
@@ -90,7 +88,7 @@ export function ControlZone({
             onKeepGoing={onAckCaughtUp}
             capitalOffer={game.capitalOffer}
             onTryCapitals={() => game.setMode("country-to-capital")}
-            nextBack={nextBack}
+            nextBack={game.nextBack}
             newLeft={game.newAvailableCount > 0}
           />
         ) : heroFeedback ? (
@@ -113,9 +111,7 @@ export function ControlZone({
           <Prompt
             mode={state.mode}
             current={state.current}
-            returning={
-              state.phase === "review" || (returning && !findsAPlace)
-            }
+            returning={pillOnPrompt}
           />
         )}
       </div>
