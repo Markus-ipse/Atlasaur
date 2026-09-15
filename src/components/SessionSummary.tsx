@@ -11,6 +11,7 @@ import { markerOnlySubregions, pickSpotlight } from "../game/pickCountry";
 import type { ExpeditionStatus } from "../game/expedition";
 import { ExpeditionDoor } from "./ExpeditionDoor";
 import { tallyParts } from "./tallyParts";
+import { NOTHING_BACK_YET } from "./nextBack";
 
 type Props = {
   practiceMode: PracticeMode;
@@ -21,6 +22,16 @@ type Props = {
   completedCount: number;
   totalInScope: number;
   dueCount: number;
+  // When the next card comes back (nextBackLine), or null.
+  nextBack: string | null;
+  // Nothing has come back and this stretch's new cards are used up (App's
+  // caughtUp). Closing the summary does not refill the new-card cap, so Keep
+  // going brings back old ground rather than new countries.
+  caughtUp: boolean;
+  // The focus the learner is in, if any. While one is on every Study pick
+  // comes from that subregion, so the whole-scope counts say nothing about
+  // what Keep going brings next.
+  spotlightSubregion: Subregion | null;
   newAvailableCount: number;
   srsStore: SrsStore;
   // The sitting that just ended (Study summary only): every card since the
@@ -108,7 +119,7 @@ function TestSummary({
         </div>
         {dueCount > 0 && (
           <p className="text-xs text-ink-mid text-center">
-            {dueCount} to review when you go back to studying.
+            {dueCount} coming back — first up when you go back to studying.
           </p>
         )}
         {missed.length > 0 ? (
@@ -166,6 +177,9 @@ function TestSummary({
 
 function StudySummary({
   dueCount,
+  nextBack,
+  caughtUp,
+  spotlightSubregion,
   newAvailableCount,
   totalInScope,
   srsStore,
@@ -193,7 +207,8 @@ function StudySummary({
     markerOnlySubregions(countries),
   );
   // Auto-focus the recommended action: the Focus CTA when a spotlight is
-  // offered, otherwise Start quiz.
+  // offered, otherwise Keep going. A test sits under "Or test yourself", so
+  // it is never the default the page presents as the alternative.
   const focusRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -213,18 +228,34 @@ function StudySummary({
   const secondaryClass =
     "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
 
-  const hint = spotlight
-    ? `${spotlight.subregion} has ${spotlight.remaining} left to learn — focus there?`
-    : dueCount > 0
-    ? `${dueCount} to review — keep going, or test yourself on what you know.`
-    : newAvailableCount > 0
-    ? `${newAvailableCount} ${subject(
-        fact,
-        newAvailableCount,
-      )} still to meet — keep going, or test yourself.`
-    : "All caught up for now — test yourself, or come back tomorrow.";
-
   const scopeLabel = `${totalInScope} ${subject(fact, totalInScope)}`;
+
+  // What Keep going picks next, in the scheduler's own order: what has come
+  // back, then new cards while the stretch's cap allows them. With neither it
+  // is "anyway", as on the round break, and says when the next ones come back.
+  // During a focus it promises no order at all: the counts are the whole
+  // scope's and the picks are the region's.
+  const nothingWaiting = dueCount === 0 && (newAvailableCount === 0 || caughtUp);
+  const keepGoingLabel =
+    nothingWaiting && spotlightSubregion === null
+      ? "Keep going anyway"
+      : "Keep going";
+  const keepGoingSub =
+    spotlightSubregion !== null
+      ? `Still focusing on ${spotlightSubregion}`
+      : dueCount > 0
+      ? `${dueCount} coming back first`
+      : !nothingWaiting
+      ? `New ${subject(fact, 2)} next`
+      : caughtUp && newAvailableCount > 0
+      ? // Unseen countries are on the tiles, so say why they aren't next.
+        `No more new ones for now · ${nextBack ?? NOTHING_BACK_YET}`
+      : (nextBack ?? NOTHING_BACK_YET);
+
+  const stackedSecondaryClass =
+    secondaryClass + " flex flex-col items-center justify-center leading-tight";
+  const primarySubClass = "text-xs font-normal text-parchment-base/70";
+  const secondarySubClass = "text-xs font-normal text-ink-faded";
 
   return (
     <div
@@ -237,7 +268,7 @@ function StudySummary({
         role="dialog"
         aria-modal="true"
         aria-labelledby="study-summary-title"
-        aria-describedby="study-summary-sitting study-summary-hint"
+        aria-describedby={sittingCards > 0 ? "study-summary-sitting" : undefined}
         className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-parchment-base rounded-lg shadow-lg p-6 flex flex-col gap-4"
       >
         <h2 id="study-summary-title" className="text-2xl font-bold text-ink-deep">
@@ -267,10 +298,12 @@ function StudySummary({
             {fact === "capital" ? "Capitals" : "Places"}
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-            <Tile label="Known" value={String(learned)} />
-            <Tile label="Seen" value={String(seen)} />
-            <Tile label="To review" value={String(dueCount)} />
+            {/* Unseen first, known after. Not stages that add up: Seen
+                includes Known, and Coming back draws on both. */}
             <Tile label="Not yet seen" value={String(newAvailableCount)} />
+            <Tile label="Seen" value={String(seen)} />
+            <Tile label="Known" value={String(learned)} />
+            <Tile label="Coming back" value={String(dueCount)} />
           </div>
         </section>
         <section aria-labelledby="study-summary-lifetime" className="flex flex-col gap-1">
@@ -288,12 +321,10 @@ function StudySummary({
             />
           </div>
         </section>
-        <p
-          id="study-summary-hint"
-          className="text-sm text-ink-mid text-center"
-        >
-          {hint}
-        </p>
+        {/* Four doors, in two groups, each carrying its own reason: bare
+            labels left "Focus", "Test" and "Keep studying" reading as three
+            names for the same thing, and the hint paragraph that used to sit
+            here only repeated whichever door was primary. */}
         <div className="flex flex-col gap-2">
           {spotlight && (
             <button
@@ -303,28 +334,42 @@ function StudySummary({
               className={primaryClass}
             >
               <span>Focus on {spotlight.subregion}</span>
+              <span className={primarySubClass}>
+                {spotlight.remaining} left to learn there — just that region
+                for now
+              </span>
             </button>
           )}
           <button
             ref={spotlight ? undefined : focusRef}
             type="button"
+            onClick={onKeepStudying}
+            className={spotlight ? stackedSecondaryClass : primaryClass}
+          >
+            <span>{keepGoingLabel}</span>
+            <span className={spotlight ? secondarySubClass : primarySubClass}>
+              {keepGoingSub}
+            </span>
+          </button>
+        </div>
+        <section
+          aria-labelledby="study-summary-test"
+          className="flex flex-col gap-2"
+        >
+          <h3
+            id="study-summary-test"
+            className="text-xs text-ink-mid text-center italic"
+          >
+            Or test yourself
+          </h3>
+          <button
+            type="button"
             onClick={onStartTest}
-            className={
-              spotlight
-                ? secondaryClass +
-                  " flex flex-col items-center justify-center leading-tight"
-                : primaryClass
-            }
+            className={stackedSecondaryClass}
           >
             <span>Test me on these</span>
-            <span
-              className={
-                spotlight
-                  ? "text-xs font-normal text-ink-faded"
-                  : "text-xs font-normal text-parchment-base/70"
-              }
-            >
-              {scopeLabel}
+            <span className={secondarySubClass}>
+              All {scopeLabel}, scored
             </span>
           </button>
           <ExpeditionDoor
@@ -333,14 +378,7 @@ function StudySummary({
             className={secondaryClass}
             subClassName="text-ink-faded"
           />
-          <button
-            type="button"
-            onClick={onKeepStudying}
-            className={secondaryClass}
-          >
-            Keep studying
-          </button>
-        </div>
+        </section>
       </div>
     </div>
   );

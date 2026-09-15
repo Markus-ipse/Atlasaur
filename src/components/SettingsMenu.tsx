@@ -327,21 +327,23 @@ export function SettingsMenu({
                 {fact === "capital" ? "Capitals" : "Places"}
               </p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-mid tabular-nums mb-2">
-                <span>Known</span>
+                {/* The same order as the Study summary's tiles: unseen
+                    first, known after. The counts overlap, so they don't sum. */}
+                <span>Not yet seen</span>
                 <span className="text-ink-deep font-medium text-right">
-                  {learnedCount}
+                  {newAvailableCount}
                 </span>
                 <span>Seen</span>
                 <span className="text-ink-deep font-medium text-right">
                   {seenCount}
                 </span>
-                <span>To review</span>
+                <span>Known</span>
+                <span className="text-ink-deep font-medium text-right">
+                  {learnedCount}
+                </span>
+                <span>Coming back</span>
                 <span className="text-ink-deep font-medium text-right">
                   {dueCount}
-                </span>
-                <span>Not yet seen</span>
-                <span className="text-ink-deep font-medium text-right">
-                  {newAvailableCount}
                 </span>
               </div>
               <p className="text-xs text-ink-mid mb-1 italic">All time</p>

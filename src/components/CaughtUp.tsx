@@ -8,25 +8,47 @@ type Props = {
   // rather than advertised.
   capitalOffer: CapitalOffer | null;
   onTryCapitals: () => void;
+  // When the next card comes back (nextBackLine), or null.
+  nextBack: string | null;
+  // Unseen countries remain: the banner is up because this stretch's new
+  // cards are used up, not because there is nothing left to meet.
+  newLeft: boolean;
 };
 
-export function CaughtUp({ onKeepGoing, capitalOffer, onTryCapitals }: Props) {
+export function CaughtUp({
+  onKeepGoing,
+  capitalOffer,
+  onTryCapitals,
+  nextBack,
+  newLeft,
+}: Props) {
+  // "Come back later" is only true when there is nothing else to do, and
+  // vaguer than the app needs to be: say when, and once capitals are on
+  // offer, say that too.
+  const line = [
+    newLeft && "No more new ones for now.",
+    nextBack && `${nextBack}.`,
+    capitalOffer &&
+      (nextBack
+        ? "Meanwhile, there's another way to know these places."
+        : "There's another way to know these places."),
+  ]
+    .filter(Boolean)
+    .join(" ");
   return (
     <div className="flex flex-col gap-2">
       <p className="leading-tight">
         <span className="block font-display text-xs uppercase tracking-wide text-teal-engraving">
           Caught up
         </span>
+        {/* Not an achievement: a missed card leaves the due count for a few
+            minutes, so "you cleared them all" could be false. And the banner
+            shows in capital modes too, so nothing about places. */}
         <span className="block text-xl font-semibold text-ink-deep">
-          You've cleared every due card.
+          Nothing more has come back for now.
         </span>
-        {/* "Come back later" is only true when there is nothing else to do.
-            Once capitals are on offer it is a promise the app is breaking in
-            the same breath it makes it. */}
         <span className="block text-sm text-ink-mid mt-1">
-          {capitalOffer
-            ? "There's another way to know these places."
-            : "Come back later — we'll have more for you."}
+          {line || "Come back later — we'll have more for you."}
         </span>
       </p>
       <div className="flex flex-wrap gap-2">
@@ -43,7 +65,7 @@ export function CaughtUp({ onKeepGoing, capitalOffer, onTryCapitals }: Props) {
           onClick={onKeepGoing}
           className="min-h-11 px-4 rounded border border-ink-faded text-ink-mid text-sm hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
         >
-          Keep practicing anyway
+          Keep going anyway
         </button>
       </div>
     </div>

@@ -18,10 +18,10 @@ describe("useGame — transient toast timer", () => {
     const { result } = renderHook(() => useGame());
 
     act(() => {
-      result.current.setTransientMessage("Spotlight cleared — back to full scope");
+      result.current.setTransientMessage("Nothing left to focus on in Eastern Europe — back to all your regions.");
     });
     expect(result.current.state.transientMessage).toBe(
-      "Spotlight cleared — back to full scope",
+      "Nothing left to focus on in Eastern Europe — back to all your regions.",
     );
 
     // The hook owns a ~3s auto-dismiss timer.

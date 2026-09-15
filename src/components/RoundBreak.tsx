@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { PracticeMode } from "../types";
 import { tallyParts } from "./tallyParts";
+import { NOTHING_BACK_YET } from "./nextBack";
 
 type Props = {
   practiceMode: PracticeMode;
@@ -11,9 +12,12 @@ type Props = {
   roundRight: number;
   roundNew: number;
   // Nothing due and today's new cards done: the scheduler has no more work.
-  // Flips the copy to "that's everything for today" and makes Done the
+  // Flips the copy to "that's everything for now" and makes Done the
   // default, so stopping feels like a reward rather than a wall.
   caughtUp: boolean;
+  // When the next card comes back (nextBackLine), or null. Said only when
+  // caught up.
+  nextBack: string | null;
   onKeepGoing: () => void;
   onDone: () => void;
 };
@@ -30,6 +34,7 @@ export function RoundBreak({
   roundRight,
   roundNew,
   caughtUp,
+  nextBack,
   onKeepGoing,
   onDone,
 }: Props) {
@@ -48,7 +53,7 @@ export function RoundBreak({
   }, [onKeepGoing]);
 
   const title = caughtUp
-    ? "That's everything for today."
+    ? "That's everything for now."
     : roundRight === roundCards
     ? "A clean round."
     : roundRight >= roundCards - 2
@@ -60,7 +65,6 @@ export function RoundBreak({
     roundCards,
     practiceMode === "study" ? roundNew : 0,
   );
-  if (caughtUp) parts.push("nothing more is due");
 
   const primaryClass =
     "min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
@@ -89,6 +93,12 @@ export function RoundBreak({
         </h2>
         <p id="round-break-line" className="text-sm text-ink-mid tabular-nums">
           {parts.join(" · ")}
+          {/* A sentence on its own line, never inside the " · " tally. */}
+          {caughtUp && (
+            <span className="block mt-1">
+              {`${nextBack ?? NOTHING_BACK_YET}.`}
+            </span>
+          )}
         </p>
         <div className="flex flex-col gap-2">
           {caughtUp ? (

@@ -66,6 +66,8 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
             newAvailable={game.newAvailableCount}
             newIntroduced={state.newIntroducedThisStretch}
             fact={game.fact}
+            spotlight={state.spotlightSubregion}
+            onClearSpotlight={game.clearSpotlight}
           />
         ) : isExpedition ? null : (
           <>
@@ -82,7 +84,7 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
                 className="shrink-0 text-xs text-ink-mid tabular-nums px-1.5 py-0.5 rounded hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink-deep"
               >
                 <span className="font-semibold text-ink-deep">{game.dueCount}</span>{" "}
-                to review
+                coming back
               </button>
             )}
           </>
@@ -159,14 +161,19 @@ function StudyChips({
   newAvailable,
   newIntroduced,
   fact,
+  spotlight,
+  onClearSpotlight,
 }: {
   due: number;
   newAvailable: number;
   newIntroduced: number;
   fact: Fact;
+  // The subregion the learner chose to focus on from the summary, if any.
+  spotlight: string | null;
+  onClearSpotlight: () => void;
 }) {
   return (
-    <div className="flex items-baseline gap-2 text-xs text-ink-mid tabular-nums">
+    <div className="flex flex-wrap items-baseline gap-x-2 text-xs text-ink-mid tabular-nums">
       {/* These count the learner's fact, which is not always what the prompt
           beside them is asking. Name it, so the numbers can't be read as the
           other fact's. */}
@@ -177,7 +184,7 @@ function StudyChips({
         </>
       )}
       <span>
-        <span className="font-semibold text-ink-deep">{due}</span> to review
+        <span className="font-semibold text-ink-deep">{due}</span> coming back
       </span>
       {newAvailable > 0 && (
         <>
@@ -186,6 +193,24 @@ function StudyChips({
             <span className="font-semibold text-ink-deep">{newIntroduced}</span>{" "}
             of {Math.min(STUDY_NEW_CAP, newIntroduced + newAvailable)} new
           </span>
+        </>
+      )}
+      {/* The way out of "Focus on …": until this, nothing but a change of
+          continents ended one. Clearing keeps the card and the round; the
+          next pick reads the whole scope again, and the chip going away is
+          the only feedback needed. */}
+      {spotlight && (
+        <>
+          <span aria-hidden>·</span>
+          <button
+            type="button"
+            onClick={onClearSpotlight}
+            aria-label={`Focus: ${spotlight}, stop`}
+            className="shrink-0 px-1.5 py-0.5 rounded hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink-deep"
+          >
+            Focus: <span className="text-ink-deep">{spotlight}</span>{" "}
+            <span aria-hidden>×</span>
+          </button>
         </>
       )}
     </div>

@@ -24,7 +24,7 @@ export function ExpeditionDoor({ status, onClick, className, subClassName }: Pro
       ? `${status.answered} of ${EXPEDITION_SIZE} answered`
       : status.kind === "finished"
         ? `${status.found} of ${EXPEDITION_SIZE} found`
-        : `${EXPEDITION_SIZE} countries, the same for everyone`;
+        : `${EXPEDITION_SIZE} countries, one try, the same for everyone`;
   return (
     <button
       type="button"

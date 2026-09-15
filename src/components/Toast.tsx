@@ -2,7 +2,7 @@ type Props = {
   message: string;
 };
 
-// One-shot transient notification (currently only "Spotlight cleared").
+// One-shot transient notification (currently only a focus running out).
 // Positioned top-center below the StatusBar; auto-dismiss is owned by the
 // useGame hook's timer, so this component just renders whatever message is
 // passed. The fade-in honours prefers-reduced-motion via the `toast-fade`

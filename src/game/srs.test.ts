@@ -11,6 +11,8 @@ import {
   lifetimeAccuracy,
   seenCount,
   loadStore,
+  loadSeenIntro,
+  saveSeenIntro,
   masteryBySubregion,
   masteryByContinent,
   masteryTierOf,
@@ -18,6 +20,7 @@ import {
   masteryPercent,
   paintTiers,
   newAvailableCount,
+  nextDueAt,
   saveStore,
   toJSON,
   totalReviews,
@@ -94,6 +97,52 @@ describe("isDue / dueCount", () => {
     expect(dueCount(records, new Set(["FRA", "DEU", "JPN"]), fut)).toBe(3);
     expect(dueCount(records, new Set(["FRA"]), fut)).toBe(1);
     expect(dueCount(records, new Set([]), fut)).toBe(0);
+  });
+});
+
+describe("seen intro", () => {
+  it("shows the rewritten intro to a learner who dismissed the old one", () => {
+    window.localStorage.setItem("atlasaur:srs:seenIntro", "true");
+    expect(loadSeenIntro()).toBe(false);
+    saveSeenIntro(true);
+    expect(loadSeenIntro()).toBe(true);
+  });
+});
+
+describe("nextDueAt", () => {
+  const dueAt = (d: Date): SrsRecord => ({
+    ...grade(null, "Good", T0),
+    due: d.toISOString(),
+  });
+
+  it("returns the earliest return still ahead", () => {
+    const records: SrsRecords = {
+      FRA: dueAt(days(3)),
+      DEU: dueAt(days(1)),
+      JPN: dueAt(days(2)),
+    };
+    expect(nextDueAt(records, new Set(["FRA", "DEU", "JPN"]), T0)).toEqual(
+      days(1),
+    );
+  });
+
+  it("partitions with dueCount: a record due at or before now is never next", () => {
+    const records: SrsRecords = { FRA: dueAt(T0), DEU: dueAt(days(1)) };
+    const scope = new Set(["FRA", "DEU"]);
+    expect(dueCount(records, scope, T0)).toBe(1);
+    expect(nextDueAt(records, scope, T0)).toEqual(days(1));
+  });
+
+  it("ignores records outside the scope", () => {
+    const records: SrsRecords = { FRA: dueAt(days(1)), DEU: dueAt(days(2)) };
+    expect(nextDueAt(records, new Set(["DEU"]), T0)).toEqual(days(2));
+  });
+
+  it("is null when nothing is scheduled ahead", () => {
+    expect(nextDueAt({}, new Set(["FRA"]), T0)).toBeNull();
+    expect(
+      nextDueAt({ FRA: dueAt(days(-1)) }, new Set(["FRA"]), T0),
+    ).toBeNull();
   });
 });
 
