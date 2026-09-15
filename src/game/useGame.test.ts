@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   answerFact,
+  cardIsFiller,
   cardIsReturning,
+  newCapReached,
+  nothingUseful,
   filterPool,
   initialState,
   learnerFact,
@@ -937,18 +940,23 @@ describe("reducer — spotlight subregion", () => {
     expect(next.current.iso3).toBe("EGY");
   });
 
-  it("depletes at activation via closeSummary: auto-clears and toasts", () => {
+  it("a spent new-card allowance does not deplete a focus via closeSummary", () => {
+    // Keep going on the rest card refills the allowance while unseen
+    // countries remain, so the focus region introduces new ones instead of
+    // clearing with "nothing left to focus on" (#54).
     const seeded: State = {
       ...withCurrent(africaStudy(), "EGY"),
       spotlightSubregion: "Southern Africa",
-      newIntroducedThisStretch: STUDY_NEW_CAP, // already depleted region
+      newIntroducedThisStretch: STUDY_NEW_CAP,
       srsStore: emptyStore(),
       sessionDone: true,
     };
     const next = reducer(seeded, { type: "closeSummary", now: NOW });
-    expect(next.spotlightSubregion).toBeNull();
-    expect(next.transientMessage).toBe(SPOTLIGHT_CLEARED);
+    expect(next.spotlightSubregion).toBe("Southern Africa");
+    expect(next.transientMessage).toBeNull();
     expect(next.sessionDone).toBe(false);
+    expect(next.newIntroducedThisStretch).toBe(0);
+    expect(next.current.subregion).toBe("Southern Africa");
   });
 
   it("Quiz mode ignores spotlightSubregion (defense-in-depth)", () => {
@@ -1007,6 +1015,13 @@ describe("reducer — rounds of twelve", () => {
     const answered = reducer(s, { type: "skip", now: NOW });
     return reducer(answered, { type: "dismiss", now: NOW });
   }
+  // A round ends early once nothing useful is left, and a spent new-card
+  // allowance ends it even after Keep going anyway. Tests about full
+  // twelve-card rounds start from a caught-up sitting (nothing unseen) that
+  // has already chosen to keep going anyway.
+  function studyFullRounds(): State {
+    return { ...caughtUpOceania(), fillerAccepted: true };
+  }
 
   it("counts a card only when its feedback dismisses", () => {
     const s0 = initialState({ practiceMode: "study" });
@@ -1033,7 +1048,7 @@ describe("reducer — rounds of twelve", () => {
   });
 
   it("opens the round break on the twelfth card and blocks answers until continued", () => {
-    let s = initialState({ practiceMode: "study" });
+    let s = studyFullRounds();
     for (let i = 0; i < ROUND_SIZE - 1; i++) s = playCorrect(s);
     expect(s.roundDone).toBe(false);
     expect(s.roundsCompleted).toBe(0);
@@ -1063,7 +1078,7 @@ describe("reducer — rounds of twelve", () => {
   });
 
   it("Done for now from the break ends the session and credits the round", () => {
-    let s = initialState({ practiceMode: "study" });
+    let s = studyFullRounds();
     for (let i = 0; i < ROUND_SIZE; i++) s = playCorrect(s);
     const ended = reducer(s, { type: "endSession" });
     expect(ended.sessionDone).toBe(true);
@@ -1095,7 +1110,7 @@ describe("reducer — rounds of twelve", () => {
   });
 
   it("counts the sitting across round breaks and resets it when the summary closes", () => {
-    let s = initialState({ practiceMode: "study" });
+    let s = studyFullRounds();
     for (let i = 0; i < ROUND_SIZE; i++) s = playCorrect(s);
     // STUDY_NEW_CAP holds some of the twelve back from being new.
     const firstRoundNew = s.roundNew;
@@ -1111,6 +1126,295 @@ describe("reducer — rounds of twelve", () => {
     expect(back.sittingCards).toBe(0);
     expect(back.sittingRight).toBe(0);
     expect(back.sittingNew).toBe(0);
+  });
+
+  it("ends a round early, and credits it, once nothing useful is left", () => {
+    let s = initialState({ practiceMode: "study" });
+    for (let i = 0; i < STUDY_NEW_CAP - 1; i++) s = playCorrect(s);
+    expect(s.roundDone).toBe(false);
+    // The last new card of the stretch: everything after it would be filler.
+    s = playCorrect(s);
+    expect(s.roundCards).toBe(STUDY_NEW_CAP);
+    expect(s.roundEndedEarly).toBe(true);
+    expect(s.roundDone).toBe(true);
+    expect(s.roundsCompleted).toBe(1);
+    expect(cardIsFiller(s, NOW)).toBe(true);
+  });
+
+  it("asks a pending miss before ending the round early", () => {
+    let s = initialState({ practiceMode: "study" });
+    for (let i = 0; i < STUDY_NEW_CAP - 2; i++) s = playCorrect(s);
+    const missed = s.current.iso3;
+    s = playMiss(s);
+    // The tenth new card: nothing due, no new card allowed, but the miss is
+    // still waiting out its gap — it comes forward instead of the round ending.
+    s = playCorrect(s);
+    expect(s.roundDone).toBe(false);
+    expect(s.current.iso3).toBe(missed);
+    expect(cardIsFiller(s, NOW)).toBe(false);
+    s = playCorrect(s);
+    expect(s.roundCards).toBe(STUDY_NEW_CAP + 1);
+    expect(s.roundDone).toBe(true);
+    expect(s.sittingRecovered.has(`location:${missed}`)).toBe(true);
+  });
+
+  it("Keep going after the new-card cap refills it rather than serving repeats", () => {
+    let s = initialState({ practiceMode: "study" });
+    while (!s.roundDone) s = playCorrect(s);
+    expect(s.roundEndedEarly).toBe(true);
+    expect(newCapReached(s)).toBe(true);
+    s = reducer(s, { type: "continueRound", now: NOW });
+    expect(s.fillerAccepted).toBe(false);
+    expect(s.newIntroducedThisStretch).toBe(0);
+    expect(s.srsStore.facts.location[s.current.iso3]).toBeUndefined();
+    s = playCorrect(s);
+    expect(s.roundNew).toBe(1);
+  });
+
+  it("Keep going starts a fresh allowance even when the last one was not spent", () => {
+    // Round one met seven new around its retries; without a per-round refill
+    // round two would reach the cap on its fourth card and end there.
+    const s: State = {
+      ...initialState({ practiceMode: "study" }),
+      newIntroducedThisStretch: 7,
+      roundCards: ROUND_SIZE,
+      roundDone: true,
+    };
+    const next = reducer(s, { type: "continueRound", now: NOW });
+    expect(next.newIntroducedThisStretch).toBe(0);
+    expect(next.roundDone).toBe(false);
+  });
+
+  it("closing the rest card refills the new-card cap too", () => {
+    let s = initialState({ practiceMode: "study" });
+    while (!s.roundDone) s = playCorrect(s);
+    const ended = reducer(s, { type: "endSession" });
+    const back = reducer(ended, { type: "closeSummary", now: NOW });
+    expect(back.newIntroducedThisStretch).toBe(0);
+    expect(back.srsStore.facts.location[back.current.iso3]).toBeUndefined();
+    // It lands on useful work, so a later run of filler still gets asked about.
+    expect(back.fillerAccepted).toBe(false);
+  });
+
+  it("holds the round open for a miss on the last useful card", () => {
+    let s = initialState({ practiceMode: "study" });
+    for (let i = 0; i < STUDY_NEW_CAP - 1; i++) s = playCorrect(s);
+    const missed = s.current.iso3;
+    s = playMiss(s);
+    // Nothing useful is left but the miss, which can't be asked straight
+    // back: one met card runs, then the miss returns.
+    expect(s.roundDone).toBe(false);
+    expect(s.roundEndedEarly).toBe(false);
+    expect(cardIsFiller(s, NOW)).toBe(true);
+    s = playCorrect(s);
+    expect(s.current.iso3).toBe(missed);
+    s = playCorrect(s);
+    expect(s.roundDone).toBe(true);
+    expect(s.sittingRecovered.has(`location:${missed}`)).toBe(true);
+  });
+
+  // Every Oceania country met and not due, except the first, which is due now.
+  function caughtUpOceania(): State {
+    const pool = ALL_COUNTRIES.filter(
+      (c) => c.continent === "Oceania" && !c.territory,
+    );
+    const past = new Date(NOW.getTime() - 86_400_000);
+    const records: Record<string, SrsRecord> = {};
+    pool.forEach((c, i) => {
+      const due = NOW.getTime() + (i === 0 ? -60_000 : 86_400_000);
+      records[c.iso3] = {
+        ...srsGrade(null, "Good", past),
+        due: new Date(due).toISOString(),
+      };
+    });
+    return initialState({
+      practiceMode: "study",
+      selectedContinents: ["Oceania"],
+      srsStore: storeWith(records),
+    });
+  }
+
+  it("Keep going when truly caught up runs full rounds until the sitting ends", () => {
+    let s = caughtUpOceania();
+    expect(cardIsFiller(s, NOW)).toBe(false);
+    s = playCorrect(s);
+    expect(s.roundCards).toBe(1);
+    expect(s.roundEndedEarly).toBe(true);
+    expect(s.roundDone).toBe(true);
+    expect(newCapReached(s)).toBe(false);
+    s = reducer(s, { type: "continueRound", now: NOW });
+    expect(s.fillerAccepted).toBe(true);
+    expect(s.roundEndedEarly).toBe(false);
+    for (let i = 0; i < ROUND_SIZE - 1; i++) s = playCorrect(s);
+    expect(s.roundDone).toBe(false);
+    s = playCorrect(s);
+    expect(s.roundDone).toBe(true);
+    expect(s.roundsCompleted).toBe(2);
+    // Keep going (anyway) on the rest card is the same choice: closing it onto
+    // a filler card accepts filler, so the CaughtUp banner does not ask again.
+    const ended = reducer(s, { type: "endSession" });
+    const back = reducer(ended, { type: "closeSummary", now: NOW });
+    expect(cardIsFiller(back, NOW)).toBe(true);
+    expect(back.fillerAccepted).toBe(true);
+  });
+
+  it("taking the capitals door from a caught-up break does not accept filler", () => {
+    let s = playCorrect(caughtUpOceania());
+    expect(s.roundEndedEarly).toBe(true);
+    // The door dispatches the mode switch first, then continues the round.
+    s = reducer(s, { type: "setMode", mode: "country-to-capital", now: NOW });
+    s = reducer(s, { type: "continueRound", now: NOW });
+    expect(s.roundDone).toBe(false);
+    expect(s.mode).toBe("country-to-capital");
+    expect(cardIsFiller(s, NOW)).toBe(false);
+    expect(s.fillerAccepted).toBe(false);
+  });
+
+  it("a spent new-card allowance ends the round even after Keep going anyway", () => {
+    // Anyway was chosen, then unseen countries came within reach (a wider
+    // scope, say): the round still ends at the cap, so Keep going can refill
+    // rather than pad the round with repeats.
+    let s: State = { ...initialState({ practiceMode: "study" }), fillerAccepted: true };
+    while (!s.roundDone) s = playCorrect(s);
+    expect(s.roundCards).toBe(STUDY_NEW_CAP);
+    expect(s.roundEndedEarly).toBe(true);
+    expect(newCapReached(s)).toBe(true);
+  });
+
+  it("a queued miss means something useful is left, so nothing asks about filler", () => {
+    // The due card answered, so nothing else in Oceania is due.
+    const s = playCorrect(caughtUpOceania());
+    const [filler, missed] = ALL_COUNTRIES.filter(
+      (c) => c.continent === "Oceania" && !c.territory,
+    ).slice(1, 3);
+    const onFiller = withCurrent(
+      { ...s, studyResurfaceQueue: [{ iso3: missed.iso3, dueAt: 99 }] },
+      filler.iso3,
+    );
+    expect(cardIsFiller(onFiller, NOW)).toBe(true);
+    expect(nothingUseful(onFiller, NOW)).toBe(false);
+    expect(nothingUseful(withCurrent(s, filler.iso3), NOW)).toBe(true);
+  });
+
+  it("closing the rest card onto filler in a focus does not accept filler", () => {
+    const s = playCorrect(caughtUpOceania());
+    const ended = reducer(s, { type: "endSession" });
+    const back = reducer(
+      { ...ended, spotlightSubregion: "Melanesia" },
+      { type: "closeSummary", now: NOW },
+    );
+    expect(back.current.subregion).toBe("Melanesia");
+    expect(cardIsFiller(back, NOW)).toBe(true);
+    expect(back.fillerAccepted).toBe(false);
+  });
+
+  function oceania(): Country[] {
+    return ALL_COUNTRIES.filter((c) => c.continent === "Oceania" && !c.territory);
+  }
+
+  it("something due elsewhere in the pool means nothing asks about filler", () => {
+    const [due, filler] = oceania();
+    const onFiller = withCurrent(caughtUpOceania(), filler.iso3);
+    expect(cardIsFiller(onFiller, NOW)).toBe(true);
+    expect(nothingUseful(onFiller, NOW)).toBe(false);
+    expect(due.iso3).not.toBe(filler.iso3);
+  });
+
+  it("closing the rest card re-picks a resumed filler card when something is due", () => {
+    const [due, filler] = oceania();
+    const resting: State = {
+      ...withCurrent(caughtUpOceania(), filler.iso3),
+      sessionDone: true,
+      resumeCurrent: true,
+    };
+    const back = reducer(resting, { type: "closeSummary", now: NOW });
+    expect(back.current.iso3).toBe(due.iso3);
+    expect(back.fillerAccepted).toBe(false);
+  });
+
+  it("leaving a focus clears Keep going anyway and moves off a filler card", () => {
+    const [due, ...rest] = oceania();
+    const melanesian = rest.find((c) => c.subregion === "Melanesia")!;
+    const focused: State = {
+      ...withCurrent(caughtUpOceania(), melanesian.iso3),
+      spotlightSubregion: "Melanesia",
+      fillerAccepted: true,
+    };
+    const left = reducer(focused, { type: "clearSpotlight", now: NOW });
+    expect(left.spotlightSubregion).toBeNull();
+    expect(left.fillerAccepted).toBe(false);
+    expect(left.current.iso3).toBe(due.iso3);
+  });
+
+  it("a scope change clears Keep going anyway and moves off a filler card", () => {
+    const accepted = reducer(playCorrect(caughtUpOceania()), {
+      type: "continueRound",
+      now: NOW,
+    });
+    expect(accepted.fillerAccepted).toBe(true);
+    const wider = reducer(accepted, {
+      type: "setContinents",
+      continents: ["Oceania", "Europe"],
+      now: NOW,
+    });
+    expect(wider.fillerAccepted).toBe(false);
+    expect(wider.srsStore.facts.location[wider.current.iso3]).toBeUndefined();
+  });
+
+  it("leaving a focus or changing scope starts a fresh new-card allowance", () => {
+    const spent: State = {
+      ...initialState({ practiceMode: "study" }),
+      newIntroducedThisStretch: STUDY_NEW_CAP,
+      spotlightSubregion: "Western Europe",
+    };
+    expect(
+      reducer(spent, { type: "clearSpotlight", now: NOW }).newIntroducedThisStretch,
+    ).toBe(0);
+    const wider = reducer(
+      { ...spent, spotlightSubregion: null },
+      { type: "setContinents", continents: ["Europe", "Asia"], now: NOW },
+    );
+    expect(wider.newIntroducedThisStretch).toBe(0);
+  });
+
+  it("acceptFiller keeps a round from ending early", () => {
+    let s = caughtUpOceania();
+    s = reducer(s, { type: "acceptFiller" });
+    expect(reducer(s, { type: "acceptFiller" })).toBe(s);
+    for (let i = 0; i < ROUND_SIZE; i++) s = playCorrect(s);
+    expect(s.roundCards).toBe(ROUND_SIZE);
+    expect(s.roundEndedEarly).toBe(false);
+  });
+
+  it("counts a miss answered right later in the sitting as a recovery, once", () => {
+    let s = initialState({ practiceMode: "study" });
+    s = playMiss(withCurrent(s, "FRA"));
+    expect(s.sittingMissed.has("location:FRA")).toBe(true);
+    expect(s.sittingRecovered.size).toBe(0);
+    s = playCorrect(withCurrent(s, "FRA"));
+    expect([...s.sittingRecovered]).toEqual(["location:FRA"]);
+    // Missed and put right again: still one country.
+    s = playCorrect(withCurrent(playMiss(withCurrent(s, "FRA")), "FRA"));
+    expect(s.sittingRecovered.size).toBe(1);
+    // A card Done closes mid-reveal counts too.
+    s = playMiss(withCurrent(s, "DEU"));
+    const answered = reducer(withCurrent(s, "DEU"), {
+      type: "answer",
+      iso3: "DEU",
+      now: NOW,
+    });
+    const ended = reducer(answered, { type: "endSession" });
+    expect(ended.sittingRecovered.has("location:DEU")).toBe(true);
+    const back = reducer(ended, { type: "closeSummary", now: NOW });
+    expect(back.sittingRecovered.size).toBe(0);
+    expect(back.sittingMissed.size).toBe(0);
+  });
+
+  it("does not count a right answer on a card first answered right as a recovery", () => {
+    let s = initialState({ practiceMode: "study" });
+    s = playCorrect(withCurrent(s, "FRA"));
+    s = playCorrect(withCurrent(s, "FRA"));
+    expect(s.sittingRecovered.size).toBe(0);
   });
 
   it("counts a card Done closes mid-reveal into the sitting", () => {

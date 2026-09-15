@@ -16,9 +16,10 @@ type Props = {
   onStartTest: () => void;
 };
 
-// The first screen a stranger sees, once. One sentence on what this is,
-// then three doors. No tour, no account, no settings — the app explains
-// itself by being played.
+// The first screen a stranger sees, once. What this is and what to do, then
+// one obvious way in, with a region and a test as quieter alternatives. No
+// tour, no account, no settings, and nothing about how the scheduler works —
+// StudyIntro says that on the first miss, when there is a reason to care.
 export function Welcome({
   includeTerritories,
   onStartBig,
@@ -54,6 +55,10 @@ export function Welcome({
     "min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed";
   const secondaryClass =
     "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
+  // The alternatives to the one route: still a full tap target, but read as
+  // links rather than as competing buttons.
+  const quietClass =
+    "min-h-11 px-3 rounded text-sm text-ink-mid underline underline-offset-4 decoration-ink-faded hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
 
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4">
@@ -77,12 +82,13 @@ export function Welcome({
           </h2>
         </div>
         <p id="welcome-line" className="text-base text-ink-deep leading-snug">
-          {/* The one sentence the scheduler runs on. "Place" and "on your
-              map" are safe here and nowhere else: every door out of the
-              welcome starts on locations. */}
-          A world map you learn by heart. Every country comes back — sooner
-          if you miss it, later each time you don't; once it has come back
-          and you place it again, it's on your map.
+          {/* "Places" and "find a country" are safe here: every door out of
+              the welcome starts on Name → Click. */}
+          Learn the world map, a few places at a time.
+          <span className="block mt-1 text-sm text-ink-mid">
+            Find a country. If you don't know it, we'll show you and bring it
+            back.
+          </span>
         </p>
         {picking ? (
           <>
@@ -140,28 +146,23 @@ export function Welcome({
               onClick={onStartBig}
               className={primaryClass + " flex flex-col items-center leading-tight"}
             >
-              <span>Start with the big ones</span>
+              <span>Start a short round</span>
               <span className="text-xs font-normal text-parchment-base/70">
-                The whole world, largest countries first
+                Big, familiar countries first
               </span>
             </button>
-            <button
-              type="button"
-              onClick={() => setPicking(true)}
-              className={secondaryClass}
-            >
-              Pick a region
-            </button>
-            <button
-              type="button"
-              onClick={onStartTest}
-              className={secondaryClass + " flex flex-col items-center leading-tight"}
-            >
-              <span>Test me</span>
-              <span className="text-xs font-normal text-ink-faded">
-                I know my way around already
-              </span>
-            </button>
+            <div className="flex flex-wrap justify-center gap-x-2">
+              <button
+                type="button"
+                onClick={() => setPicking(true)}
+                className={quietClass}
+              >
+                Pick a region
+              </button>
+              <button type="button" onClick={onStartTest} className={quietClass}>
+                I know my way around — test me
+              </button>
+            </div>
           </div>
         )}
       </div>

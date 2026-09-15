@@ -19,6 +19,9 @@ type Props = {
   capitalOffer: CapitalOffer | null;
   onTryCapitals: () => void;
   onBegin: () => void;
+  // Escape and a backdrop click: close the card without choosing anything.
+  // Begin can mean "a round anyway", so it is never inferred from a dismissal.
+  onDismiss: () => void;
 };
 
 // What a returning learner sees before the first prompt: one line they can
@@ -34,6 +37,7 @@ export function TodayCard({
   capitalOffer,
   onTryCapitals,
   onBegin,
+  onDismiss,
 }: Props) {
   const beginRef = useRef<HTMLButtonElement>(null);
 
@@ -43,11 +47,11 @@ export function TodayCard({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onBegin();
+      if (e.key === "Escape") onDismiss();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onBegin]);
+  }, [onDismiss]);
 
   const nothingWaiting = dueCount === 0 && newToday === 0;
   const parts: string[] = [];
@@ -59,7 +63,7 @@ export function TodayCard({
     <div
       className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onBegin();
+        if (e.target === e.currentTarget) onDismiss();
       }}
     >
       <div

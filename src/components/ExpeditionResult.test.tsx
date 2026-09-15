@@ -113,11 +113,12 @@ describe("ExpeditionResult", () => {
     expect(screen.getByRole("button", { name: "Share" })).toBeTruthy();
   });
 
-  it("closes on Escape and on Back to studying", () => {
+  it("closes on Back to studying, and stays at rest on Escape and the backdrop", () => {
     const onClose = renderCard();
     fireEvent.click(screen.getByRole("button", { name: "Back to studying" }));
     expect(onClose).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(document, { key: "Escape" });
-    expect(onClose).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole("dialog").parentElement!);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { SessionSummary } from "./SessionSummary";
 import { emptyStore } from "../game/srs";
 import countriesJson from "../data/countries.json";
@@ -36,13 +36,20 @@ function renderStudy(
     caughtUp?: boolean;
     spotlightSubregion?: Subregion | null;
     scope?: ReadonlySet<string>;
+    recovered?: number;
+    progressSaved?: boolean;
+    missQueued?: boolean;
+    noRecords?: boolean;
   } = {},
+  handlers: { onKeepStudying?: () => void } = {},
 ) {
   const store = emptyStore();
-  // In scope, known, answered right three times.
-  store.facts.location.FRA = record(2, 3, 0);
-  // Out of scope and another fact: in the lifetime totals, not the scoped four.
-  store.facts.capital.JPN = record(1, 0, 1);
+  if (!figures.noRecords) {
+    // In scope, known, answered right three times.
+    store.facts.location.FRA = record(2, 3, 0);
+    // Out of scope and another fact: in the lifetime totals, not the scoped four.
+    store.facts.capital.JPN = record(1, 0, 1);
+  }
   render(
     <SessionSummary
       practiceMode="study"
@@ -61,6 +68,9 @@ function renderStudy(
       sittingCards={sitting.cards}
       sittingRight={sitting.right}
       sittingNew={sitting.fresh}
+      sittingRecovered={figures.recovered ?? 0}
+      missQueued={figures.missQueued ?? false}
+      progressSaved={figures.progressSaved ?? false}
       fact={fact}
       scopeIso3s={figures.scope ?? new Set(["FRA", "DEU"])}
       countries={COUNTRIES}
@@ -68,7 +78,7 @@ function renderStudy(
       onPlayAgain={vi.fn()}
       onStartTest={vi.fn()}
       onBackToStudy={vi.fn()}
-      onKeepStudying={vi.fn()}
+      onKeepStudying={handlers.onKeepStudying ?? vi.fn()}
       onSetSpotlight={vi.fn()}
       expedition={{ kind: "fresh" }}
       onExpedition={vi.fn()}
@@ -124,6 +134,87 @@ describe("StudySummary sitting line", () => {
   });
 });
 
+describe("StudySummary rest", () => {
+  const NONE = { cards: 0, right: 0, fresh: 0 };
+
+  it("acknowledges the finish rather than grading it", () => {
+    renderStudy("location", { cards: 4, right: 1, fresh: 2 });
+    expect(screen.getByRole("heading", { name: "That's it for now." })).toBeTruthy();
+    expect(screen.queryByText("Nice work")).toBeNull();
+  });
+
+  it("stays at rest on Escape and a backdrop click", () => {
+    const onKeepStudying = vi.fn();
+    renderStudy("location", NONE, {}, { onKeepStudying });
+    fireEvent.keyDown(document, { key: "Escape" });
+    const backdrop = screen.getByRole("dialog").parentElement!;
+    fireEvent.click(backdrop);
+    expect(onKeepStudying).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /^Keep going/ }));
+    expect(onKeepStudying).toHaveBeenCalledTimes(1);
+  });
+
+  it("names the misses put right later in the sitting", () => {
+    renderStudy("location", { cards: 6, right: 4, fresh: 2 }, { recovered: 2 });
+    expect(screen.getByText("You got 2 right that you'd missed earlier.")).toBeTruthy();
+    cleanup();
+    renderStudy("location", { cards: 6, right: 4, fresh: 2 }, { recovered: 1 });
+    expect(screen.getByText("You got 1 right that you'd missed earlier.")).toBeTruthy();
+    cleanup();
+    renderStudy("location", { cards: 6, right: 4, fresh: 2 });
+    expect(screen.queryByText(/missed earlier/)).toBeNull();
+  });
+
+  it("leads with the recovery, then the sitting's tally", () => {
+    renderStudy("location", { cards: 6, right: 4, fresh: 2 }, { recovered: 2 });
+    const lines = [
+      ...document.querySelectorAll("#study-summary-sitting p"),
+    ].map((p) => p.textContent);
+    expect(lines[0]).toMatch(/missed earlier/);
+    expect(lines[1]).toMatch(/^This sitting/);
+  });
+
+  it("says progress is saved only when this browser can save it", () => {
+    renderStudy("location", NONE, { progressSaved: true });
+    expect(screen.getByText("Kept in this browser — no account needed.")).toBeTruthy();
+    expect(screen.getByRole("dialog").getAttribute("aria-describedby")).toBe(
+      "study-summary-sitting",
+    );
+    cleanup();
+    renderStudy("location", NONE, { progressSaved: false });
+    expect(screen.queryByText(/Kept in this browser/)).toBeNull();
+  });
+
+  it("says nothing of 'anyway' while a missed card is queued to come back", () => {
+    renderStudy("location", NONE, {
+      dueCount: 0,
+      newAvailableCount: 0,
+      caughtUp: true,
+      missQueued: true,
+    });
+    expect(screen.queryByRole("button", { name: /Keep going anyway/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /^Keep going/ })).toBeTruthy();
+  });
+
+  it("keeps quiet about saving before anything has been kept", () => {
+    renderStudy("location", NONE, { progressSaved: true, noRecords: true });
+    expect(screen.queryByText(/Kept in this browser/)).toBeNull();
+  });
+
+  it("tucks the figures and the other doors under a disclosure that names them", () => {
+    renderStudy("location", NONE, {
+      scope: new Set(COUNTRIES.map((c) => c.iso3)),
+    });
+    const more = screen.getByText("Figures, focus and tests").closest("details")!;
+    expect(more.open).toBe(false);
+    expect(within(more).getByRole("region", { name: "Places" })).toBeTruthy();
+    expect(within(more).getByRole("region", { name: "All time" })).toBeTruthy();
+    expect(within(more).getByRole("button", { name: /^Focus on/ })).toBeTruthy();
+    expect(within(more).getByRole("button", { name: /Test me on these/ })).toBeTruthy();
+    expect(within(more).queryByRole("button", { name: /^Keep going/ })).toBeNull();
+  });
+});
+
 describe("StudySummary doors", () => {
   const NONE = { cards: 0, right: 0, fresh: 0 };
 
@@ -149,9 +240,9 @@ describe("StudySummary doors", () => {
     expect(screen.getByRole("dialog").hasAttribute("aria-describedby")).toBe(false);
   });
 
-  it("defaults to Keep going when no focus is offered", () => {
+  it("focuses the dialog, not a door, so Enter starts nothing", () => {
     renderStudy("location");
-    expect(document.activeElement?.textContent).toMatch(/^Keep going/);
+    expect(document.activeElement).toBe(screen.getByRole("dialog"));
   });
 
   it("promises no order during a focus, whose picks are the region's", () => {
@@ -216,7 +307,7 @@ describe("StudySummary doors", () => {
     });
     expect(
       screen.getByRole("button", {
-        name: /^Focus on .*\d+ left to learn there — just that region for now/,
+        name: /^Focus on .*\d+ waiting there — just that region for now/,
       }),
     ).toBeTruthy();
   });
