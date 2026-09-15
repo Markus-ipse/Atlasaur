@@ -77,8 +77,12 @@ export function Welcome({
           </h2>
         </div>
         <p id="welcome-line" className="text-base text-ink-deep leading-snug">
-          A world map you learn by heart. Find each country when asked; what
-          you miss comes back until it sticks.
+          {/* The one sentence the scheduler runs on. "Place" and "on your
+              map" are safe here and nowhere else: every door out of the
+              welcome starts on locations. */}
+          A world map you learn by heart. Every country comes back — sooner
+          if you miss it, later each time you don't; once it has come back
+          and you place it again, it's on your map.
         </p>
         {picking ? (
           <>

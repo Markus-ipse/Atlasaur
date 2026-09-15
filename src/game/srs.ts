@@ -27,7 +27,10 @@ import type {
 // given in such a tab land in v1 and never reach v2.
 const SRS_STORAGE_KEY = "atlasaur:srs:v2";
 const SRS_V1_KEY = "atlasaur:srs:v1";
-const SRS_SEEN_INTRO_KEY = "atlasaur:srs:seenIntro";
+// Versioned because the intro was rewritten to explain that every country
+// comes back: a learner who dismissed the old text sees the new one once, on
+// their next Study miss. The old key is left where it is and never read.
+const SRS_SEEN_INTRO_KEY = "atlasaur:srs:seenIntro:v2";
 const SEEN_WELCOME_KEY = "atlasaur:seenWelcome";
 const STORE_VERSION = 2;
 
@@ -257,6 +260,23 @@ export function dueCount(
   return n;
 }
 
+// When the next in-scope card comes back, or null when none is scheduled
+// ahead. Strictly after `now` — the complement of isDue's <= — so a record is
+// counted by dueCount or is a candidate here, never both.
+export function nextDueAt(
+  records: SrsRecords,
+  scope: ReadonlySet<string>,
+  now: Date,
+): Date | null {
+  let earliest = Infinity;
+  for (const iso3 in records) {
+    if (!scope.has(iso3) || isDue(records[iso3], now)) continue;
+    const t = new Date(records[iso3].due).getTime();
+    if (t < earliest) earliest = t;
+  }
+  return earliest === Infinity ? null : new Date(earliest);
+}
+
 export function newAvailableCount(
   records: SrsRecords,
   scope: ReadonlySet<string>,
@@ -372,6 +392,14 @@ export function paintsProgress(
   return practiceMode === "study" && mode !== "capital-to-click";
 }
 
+// Whether the question is a place to find on the map, where knowing a card has
+// been met narrows the answer: `name-to-click`. The map collapses the
+// introduced wash there (paintTiers), and ControlZone moves the Back again
+// pill off the prompt for the same reason. One rule, so the two cannot drift.
+export function hidesIntroduced(mode: QuestionMode): boolean {
+  return mode === "name-to-click";
+}
+
 export function paintTiers(
   records: SrsRecords,
   mode: QuestionMode,
@@ -387,7 +415,7 @@ export function paintTiers(
   // is the most neutral measurement of all and gets the same blank map.
   if (!paintsProgress(mode, practiceMode)) return new Map();
   const tiers = masteryTiers(records);
-  if (mode !== "name-to-click") return tiers;
+  if (!hidesIntroduced(mode)) return tiers;
   for (const [iso3, tier] of tiers) {
     if (tier === 1) tiers.set(iso3, 0);
   }

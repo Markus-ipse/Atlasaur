@@ -124,7 +124,7 @@ export default function App() {
 
   // Nothing due and today's new cards introduced: the scheduler has no
   // more work. Surfaced two ways — the RoundBreak's "That's everything for
-  // today" variant at a round boundary, and the CaughtUp banner when a
+  // now" variant at a round boundary, and the CaughtUp banner when a
   // fresh round starts in that state (e.g. after closing the summary). The
   // banner never interrupts a round in progress: the picker's most-overdue
   // fallback fills the remaining cards instead.
@@ -215,6 +215,9 @@ export default function App() {
           completedCount={game.completedInScopeCount}
           totalInScope={game.totalInScope}
           dueCount={game.dueCount}
+          nextBack={game.nextBack}
+          caughtUp={caughtUp}
+          spotlightSubregion={state.spotlightSubregion}
           newAvailableCount={game.newAvailableCount}
           srsStore={state.srsStore}
           sittingCards={state.sittingCards}
@@ -268,6 +271,7 @@ export default function App() {
       {showTodayCard && (
         <TodayCard
           dueCount={game.dueCount}
+          nextBack={game.nextBack}
           newToday={Math.min(STUDY_NEW_CAP, game.newAvailableCount)}
           day={game.streak.day}
           expedition={game.expeditionToday}
@@ -292,6 +296,7 @@ export default function App() {
           roundRight={state.roundRight}
           roundNew={state.roundNew}
           caughtUp={caughtUp}
+          nextBack={game.nextBack}
           onKeepGoing={keepGoing}
           onDone={game.endSession}
         />

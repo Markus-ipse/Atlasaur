@@ -1,16 +1,20 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup, act } from "@testing-library/react";
+import { render, screen, cleanup, act, fireEvent } from "@testing-library/react";
 import { ControlZone } from "./ControlZone";
 import type { GameApi } from "../game/useGame";
 import { emptyCounters } from "../game/counters";
-import { emptyStore } from "../game/srs";
+import { emptyStore, grade } from "../game/srs";
+import { storeWith } from "../game/srsFixtures";
 import {
   ALL_CONTINENTS,
   type Country,
   type Feedback,
   type PracticeMode,
+  type Phase,
   type QuestionMode,
+  type SrsStore,
+  type Subregion,
 } from "../types";
 
 const SAMPLE: Country = {
@@ -46,6 +50,9 @@ function makeGame(overrides: {
   practiceMode?: PracticeMode;
   feedback?: Feedback | null;
   current?: Country;
+  srsStore?: SrsStore;
+  phase?: Phase;
+  spotlightSubregion?: Subregion | null;
 }): GameApi {
   return {
     state: {
@@ -55,7 +62,7 @@ function makeGame(overrides: {
       includeTerritories: false,
       current: overrides.current ?? SAMPLE,
       feedback: overrides.feedback ?? null,
-      phase: "normal",
+      phase: overrides.phase ?? "normal",
       score: 0,
       streak: 0,
       milestone: null,
@@ -66,12 +73,12 @@ function makeGame(overrides: {
       retryQueue: [],
       completedSet: new Set<string>(),
       sessionDone: false,
-      srsStore: emptyStore(),
+      srsStore: overrides.srsStore ?? emptyStore(),
       newIntroducedThisStretch: 0,
       studyResurfaceQueue: [],
       studyStep: 0,
       autoGradePending: null,
-      spotlightSubregion: null,
+      spotlightSubregion: overrides.spotlightSubregion ?? null,
       transientMessage: null,
       roundCards: 0,
       roundRight: 0,
@@ -83,6 +90,7 @@ function makeGame(overrides: {
       sittingNew: 0,
       expedition: null,
       modeBeforeExpedition: null,
+      resumeCurrent: false,
     },
     unlearnedCount: 0,
     counters: emptyCounters(),
@@ -90,6 +98,7 @@ function makeGame(overrides: {
     totalInScope: 0,
     completedInScopeCount: 0,
     dueCount: 0,
+    nextBack: null,
     newAvailableCount: 0,
     seenSrsIntro: true,
     markSrsIntroSeen: vi.fn(),
@@ -523,6 +532,7 @@ describe("ControlZone", () => {
         game={makeGame({ mode: "shape-to-name" })}
         showCaughtUp={false}
         onAckCaughtUp={() => {}}
+       
         themePref="system"
         onSetThemePref={() => {}}
       />,
@@ -583,6 +593,7 @@ describe("ControlZone — capital modes", () => {
         game={game}
         showCaughtUp={false}
         onAckCaughtUp={() => {}}
+       
         themePref="system"
         onSetThemePref={() => {}}
       />,
@@ -707,8 +718,17 @@ describe("ControlZone — capital modes", () => {
 });
 
 describe("CaughtUp — the capitals offer", () => {
-  function showCaughtUp(capitalOffer: { due: number; ready: number } | null) {
-    const game = { ...makeGame({ practiceMode: "study" }), capitalOffer };
+  function showCaughtUp(
+    capitalOffer: { due: number; ready: number } | null,
+    nextBack: string | null = null,
+    newAvailableCount = 0,
+  ) {
+    const game = {
+      ...makeGame({ practiceMode: "study" }),
+      capitalOffer,
+      nextBack,
+      newAvailableCount,
+    };
     render(
       <ControlZone
         game={game}
@@ -729,15 +749,137 @@ describe("CaughtUp — the capitals offer", () => {
     expect(screen.getByText("12 countries you already know")).toBeDefined();
   });
 
-  it("says 'review' once capitals have been met and come round", () => {
+  it("says they're back once capitals have been met and come round", () => {
     showCaughtUp({ due: 5, ready: 3 });
-    expect(screen.getByText("Review capitals")).toBeDefined();
-    expect(screen.getByText("5 to review")).toBeDefined();
+    expect(screen.getByText("Capitals are back")).toBeDefined();
+    expect(screen.getByText("5 coming back")).toBeDefined();
   });
 
   it("keeps the old line when there is genuinely nothing else", () => {
     showCaughtUp(null);
     expect(screen.getByText(/Come back later/)).toBeDefined();
     expect(screen.queryByText("Try capitals")).toBeNull();
+  });
+
+  it("says when the next ones come back instead of 'come back later'", () => {
+    showCaughtUp(null, "The next ones come back tomorrow");
+    expect(screen.getByText("Nothing more has come back for now.")).toBeDefined();
+    expect(screen.getByText("The next ones come back tomorrow.")).toBeDefined();
+    expect(screen.queryByText(/Come back later/)).toBeNull();
+  });
+
+  it("says why unseen countries aren't next when the new cards are used up", () => {
+    showCaughtUp(null, "The next ones come back tomorrow", 5);
+    expect(
+      screen.getByText(
+        "No more new ones for now. The next ones come back tomorrow.",
+      ),
+    ).toBeDefined();
+  });
+
+  it("says when first, then offers capitals in the meantime", () => {
+    showCaughtUp({ due: 0, ready: 4 }, "More come back later today");
+    expect(
+      screen.getByText(
+        "More come back later today. Meanwhile, there's another way to know these places.",
+      ),
+    ).toBeDefined();
+  });
+});
+
+describe("the Back again pill", () => {
+  const withFrance = () =>
+    storeWith({ FRA: grade(null, "Good", new Date("2026-09-13T12:00:00Z")) });
+
+  function pill(overrides: Parameters<typeof makeGame>[0]) {
+    render(
+      <ControlZone
+        game={makeGame(overrides)}
+        showCaughtUp={false}
+        onAckCaughtUp={() => {}}
+       
+        themePref="system"
+        onSetThemePref={() => {}}
+      />,
+    );
+    return screen.queryByText("Back again");
+  }
+
+  it("marks a Study card that has come back", () => {
+    expect(
+      pill({ practiceMode: "study", mode: "shape-to-name", srsStore: withFrance() }),
+    ).not.toBeNull();
+  });
+
+  it("keeps it off the Name → Click prompt, where it would narrow the answer", () => {
+    expect(
+      pill({ practiceMode: "study", mode: "name-to-click", srsStore: withFrance() }),
+    ).toBeNull();
+  });
+
+  it("marks the Name → Click answer instead, on a miss and on a correct flash", () => {
+    for (const kind of ["wrong", "correct"] as const) {
+      const feedback: Feedback = {
+        kind,
+        answerIso3: kind === "wrong" ? "DEU" : "FRA",
+        correctIso3: "FRA",
+        at: 0,
+      };
+      expect(
+        pill({
+          practiceMode: "study",
+          mode: "name-to-click",
+          srsStore: withFrance(),
+          feedback,
+        }),
+      ).not.toBeNull();
+      cleanup();
+    }
+  });
+
+  it("leaves a card met for the first time unmarked", () => {
+    expect(pill({ practiceMode: "study" })).toBeNull();
+  });
+
+  it("is not shown on an ordinary test card, even one with a record", () => {
+    expect(pill({ practiceMode: "quiz", srsStore: withFrance() })).toBeNull();
+  });
+
+  it("marks every card of a test's retry pass", () => {
+    expect(pill({ practiceMode: "quiz", phase: "review" })).not.toBeNull();
+  });
+
+  it("is not shown in an expedition", () => {
+    expect(pill({ practiceMode: "expedition", srsStore: withFrance() })).toBeNull();
+  });
+});
+
+describe("the focus chip", () => {
+  function renderStudy(spotlightSubregion: Subregion | null) {
+    const game = makeGame({ practiceMode: "study", spotlightSubregion });
+    render(
+      <ControlZone
+        game={game}
+        showCaughtUp={false}
+        onAckCaughtUp={() => {}}
+       
+        themePref="system"
+        onSetThemePref={() => {}}
+      />,
+    );
+    return game;
+  }
+
+  it("offers a way out of a focus", () => {
+    const game = renderStudy("Eastern Europe");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Focus: Eastern Europe, stop" }),
+    );
+    expect(game.clearSpotlight).toHaveBeenCalledTimes(1);
+  });
+
+  it("is absent without one", () => {
+    renderStudy(null);
+    expect(screen.queryByRole("button", { name: /^Focus:/ })).toBeNull();
   });
 });

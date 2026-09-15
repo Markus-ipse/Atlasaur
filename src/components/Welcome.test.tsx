@@ -21,6 +21,11 @@ function setup() {
 }
 
 describe("Welcome", () => {
+  it("states the one idea the app runs on", () => {
+    setup();
+    expect(screen.getByText(/Every country comes back/)).toBeTruthy();
+  });
+
   it("offers three doors and focuses the first", () => {
     const { onStartBig, onStartTest } = setup();
     const big = screen.getByRole("button", { name: /Start with the big ones/ });

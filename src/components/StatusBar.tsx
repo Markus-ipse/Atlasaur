@@ -50,7 +50,7 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
   return (
     <header
       className={
-        "items-center justify-between gap-3 border-b border-ink-faded/30 pb-1 " +
+        "flex-wrap items-center justify-between gap-x-3 border-b border-ink-faded/30 pb-1 " +
         (className ?? "")
       }
     >
@@ -82,7 +82,7 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
                 className="shrink-0 text-xs text-ink-mid tabular-nums px-1.5 py-0.5 rounded hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink-deep"
               >
                 <span className="font-semibold text-ink-deep">{game.dueCount}</span>{" "}
-                to review
+                coming back
               </button>
             )}
           </>
@@ -119,6 +119,12 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
         onSetThemePref={onSetThemePref}
       />
       </div>
+      {isStudy && state.spotlightSubregion && (
+        <FocusChip
+          spotlight={state.spotlightSubregion}
+          onClear={game.clearSpotlight}
+        />
+      )}
     </header>
   );
 }
@@ -166,7 +172,7 @@ function StudyChips({
   fact: Fact;
 }) {
   return (
-    <div className="flex items-baseline gap-2 text-xs text-ink-mid tabular-nums">
+    <div className="flex flex-wrap items-baseline gap-x-2 text-xs text-ink-mid tabular-nums">
       {/* These count the learner's fact, which is not always what the prompt
           beside them is asking. Name it, so the numbers can't be read as the
           other fact's. */}
@@ -177,7 +183,7 @@ function StudyChips({
         </>
       )}
       <span>
-        <span className="font-semibold text-ink-deep">{due}</span> to review
+        <span className="font-semibold text-ink-deep">{due}</span> coming back
       </span>
       {newAvailable > 0 && (
         <>
@@ -192,3 +198,27 @@ function StudyChips({
   );
 }
 
+// The way out of "Focus on …": until this, nothing but a change of continents
+// ended one. Clearing keeps the card and the round; the next pick reads the
+// whole scope again, and the chip going away is the only feedback needed. Its
+// own row, only while a focus is on: squeezed in beside the counts it wrapped
+// them onto three lines on a phone and was too small to tap.
+function FocusChip({
+  spotlight,
+  onClear,
+}: {
+  spotlight: string;
+  onClear: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClear}
+      aria-label={`Focus: ${spotlight}, stop`}
+      className="basis-full min-h-11 -mx-1.5 px-1.5 rounded text-left text-xs text-ink-mid hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink-deep"
+    >
+      Focus: <span className="text-ink-deep">{spotlight}</span>{" "}
+      <span aria-hidden>×</span>
+    </button>
+  );
+}

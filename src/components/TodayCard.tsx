@@ -3,9 +3,12 @@ import type { ExpeditionStatus } from "../game/expedition";
 import type { CapitalOffer } from "../game/offer";
 import { ExpeditionDoor } from "./ExpeditionDoor";
 import { CapitalsDoor } from "./CapitalsDoor";
+import { nextBackOrNothing } from "../game/nextBack";
 
 type Props = {
   dueCount: number;
+  // When the next card comes back (nextBackLine), or null.
+  nextBack: string | null;
   // New cards available to introduce today (already capped).
   newToday: number;
   day: number;
@@ -23,6 +26,7 @@ type Props = {
 // the same on day 40 as on day 1.
 export function TodayCard({
   dueCount,
+  nextBack,
   newToday,
   day,
   expedition,
@@ -47,7 +51,7 @@ export function TodayCard({
 
   const nothingWaiting = dueCount === 0 && newToday === 0;
   const parts: string[] = [];
-  if (dueCount > 0) parts.push(`${dueCount} to review`);
+  if (dueCount > 0) parts.push(`${dueCount} coming back`);
   if (newToday > 0) parts.push(`${newToday} new`);
   parts.push(`Day ${day}`);
 
@@ -75,7 +79,8 @@ export function TodayCard({
           {parts.join(" · ")}
           {nothingWaiting && (
             <span className="block mt-1">
-              Nothing is due. A round anyway keeps the hand in.
+              {`${nextBackOrNothing(nextBack)}.`} A round
+              anyway keeps the hand in.
             </span>
           )}
         </p>

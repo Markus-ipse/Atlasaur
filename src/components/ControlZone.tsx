@@ -7,7 +7,8 @@ import { StatusBar } from "./StatusBar";
 import { StudyIntro } from "./StudyIntro";
 import { CaughtUp } from "./CaughtUp";
 import { isTypedMode } from "../game/questionModes";
-import type { GameApi } from "../game/useGame";
+import { hidesIntroduced } from "../game/srs";
+import { cardIsReturning, type GameApi } from "../game/useGame";
 import type { ThemePref } from "../theme";
 
 type Props = {
@@ -59,6 +60,15 @@ export function ControlZone({
   const isTest = state.practiceMode === "quiz";
   const skipLabel = isTest ? "Skip" : "Don't know";
   const roundBreak = state.roundDone && !state.sessionDone;
+  // A card that has come back says so. In Name → Click it says so with the
+  // answer, not the prompt: before the answer, "met before" narrows "find X"
+  // to the known gold and the few learning cards the map's collapsed wash
+  // hides, which is the leak that collapse exists to prevent. The retry pass
+  // keeps it on the prompt, where every card is a retry and it tells nothing.
+  const returning = cardIsReturning(state);
+  const pillWithAnswer = returning && hidesIntroduced(state.mode);
+  const pillOnPrompt =
+    state.phase === "review" || (returning && !pillWithAnswer);
   const paused =
     roundBreak ||
     ((game.showTodayCard || game.showWelcome) && !state.sessionDone);
@@ -78,6 +88,8 @@ export function ControlZone({
             onKeepGoing={onAckCaughtUp}
             capitalOffer={game.capitalOffer}
             onTryCapitals={() => game.setMode("country-to-capital")}
+            nextBack={game.nextBack}
+            newLeft={game.newAvailableCount > 0}
           />
         ) : heroFeedback ? (
           <RevealHero
@@ -85,6 +97,7 @@ export function ControlZone({
             feedback={heroFeedback}
             mode={state.mode}
             nameFromIso3={game.nameFromIso3}
+            returning={pillWithAnswer}
           />
         ) : correctFeedback ? (
           <CorrectHero
@@ -92,9 +105,14 @@ export function ControlZone({
             mode={state.mode}
             streak={state.streak}
             milestone={state.milestone}
+            returning={pillWithAnswer}
           />
         ) : (
-          <Prompt mode={state.mode} current={state.current} phase={state.phase} />
+          <Prompt
+            mode={state.mode}
+            current={state.current}
+            returning={pillOnPrompt}
+          />
         )}
       </div>
 

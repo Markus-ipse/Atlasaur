@@ -1,5 +1,6 @@
 import { isClickMode } from "../game/questionModes";
 import type { Country, Feedback, QuestionMode } from "../types";
+import { BackAgain } from "./Prompt";
 
 // Narrow out the "correct" case — the hero never renders for correct
 // answers (those auto-dismiss without a reveal). Caller is ControlZone,
@@ -11,6 +12,9 @@ type Props = {
   feedback: NonCorrectFeedback;
   mode: QuestionMode;
   nameFromIso3: (iso3: string) => string;
+  // The card had come back, marked here rather than on the prompt in
+  // Name → Click (see ControlZone).
+  returning?: boolean;
 };
 
 // Every capital the country has, in the order the reveal names them. Empty
@@ -20,7 +24,13 @@ function capitals(current: Country): string[] {
   return [current.capital, ...(current.capitalAlternates ?? [])];
 }
 
-export function RevealHero({ current, feedback, mode, nameFromIso3 }: Props) {
+export function RevealHero({
+  current,
+  feedback,
+  mode,
+  nameFromIso3,
+  returning = false,
+}: Props) {
   const skipped = feedback.kind === "skipped";
   const wrong = feedback.kind === "wrong";
   // The reveal leads with the ANSWER, not the fact. Only country-to-capital
@@ -32,6 +42,7 @@ export function RevealHero({ current, feedback, mode, nameFromIso3 }: Props) {
   const names = capitals(current);
   return (
     <div role="status" className="flex flex-col gap-2">
+      {returning && <BackAgain />}
       <p className="leading-tight">
         <span className="block text-xs">
           <span

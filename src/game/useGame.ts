@@ -11,6 +11,7 @@ import {
   loadStore,
   masteryTierOf,
   newAvailableCount as srsNewAvailableCount,
+  nextDueAt as srsNextDueAt,
   saveSeenIntro,
   saveSeenWelcome,
   saveStore,
@@ -19,6 +20,7 @@ import {
   withGrade,
 } from "./srs";
 import { factOf, isClickMode } from "./questionModes";
+import { nextBackLine } from "./nextBack";
 import { capitalOffer, type CapitalOffer } from "./offer";
 import { milestoneFor, streakNote, type Milestone } from "./milestones";
 import {
@@ -314,6 +316,12 @@ export type State = {
   phase: Phase;
   feedback: Feedback | null;
   sessionDone: boolean;
+  // Study: Done was pressed with no answer given to the card on screen, so
+  // closing the summary resumes on it rather than picking past it. The
+  // summary's counts include that card, so Keep going's promise ("1 coming
+  // back first") holds only if it comes back. Every endSession rewrites it,
+  // and Study reaches its summary only through endSession.
+  resumeCurrent: boolean;
   srsStore: SrsStore;
   newIntroducedThisStretch: number;
   // Study-only in-session resurface: missed cards come back a few cards
@@ -335,7 +343,7 @@ export type State = {
   // setContinents, setPracticeMode("quiz"), clearSpotlight, and the
   // depletion fallback.
   spotlightSubregion: Subregion | null;
-  // One-shot toast message (e.g. "Spotlight cleared"). Auto-dismissed by a
+  // One-shot toast message (e.g. a focus running out). Auto-dismissed by a
   // timer in the useGame hook; null when nothing is showing.
   transientMessage: string | null;
   // Round accounting (both practice modes). A card counts when its feedback
@@ -500,6 +508,7 @@ export function initialState(
     phase: "normal",
     feedback: null,
     sessionDone: false,
+    resumeCurrent: false,
     srsStore,
     newIntroducedThisStretch: 0,
     studyResurfaceQueue: [],
@@ -544,6 +553,29 @@ function cardIsNew(state: State): boolean {
     state.practiceMode === "study" &&
     state.autoGradePending !== null &&
     !recordsFor(state)[state.current.iso3]
+  );
+}
+
+// Whether the Study card being asked has come back: it already has a record
+// for the fact being asked. Derived, never stored, so it cannot drift from
+// the counts — pickNextStudy's resurface, due and most-overdue branches all
+// require a record and its new-introduction branch requires none, and a
+// grade commits in the same step that replaces `current`, so while the
+// prompt shows "has a record" is exactly "came back".
+//
+// Two paths put it on the card just answered: a scope change or a same-fact
+// question-mode switch made mid-reveal commits the grade and keeps the card.
+// That card is being asked again, which is a return; don't "fix" it with a
+// state field.
+//
+// The pill it drives is one bit about the card and none about any country,
+// unlike the tier-1 map wash, which name-to-click collapses because a small
+// painted set narrows the answer. A test round and an expedition never show
+// it (the retry pass has its own reason, read in ControlZone).
+export function cardIsReturning(state: State): boolean {
+  return (
+    state.practiceMode === "study" &&
+    recordsFor(state)[state.current.iso3] !== undefined
   );
 }
 
@@ -669,7 +701,11 @@ function nextCurrent(state: State, now: Date = new Date()): Country {
   });
 }
 
-const SPOTLIGHT_CLEARED_MESSAGE = "Spotlight cleared — back to full scope";
+// Said when a focus runs out. The learner pressed "Focus on …"; "spotlight"
+// and "scope" are words they never saw.
+function spotlightClearedMessage(subregion: Subregion): string {
+  return `Nothing left to focus on in ${subregion} — back to all your regions.`;
+}
 
 // Pick the next Study country, falling back to the full continent pool when
 // a spotlight has been exhausted. Returns the next `current`, the resulting
@@ -692,7 +728,7 @@ function pickStudyWithSpotlightFallback(
     return {
       current: nextCurrent(widened, now),
       spotlightSubregion: null,
-      transientMessage: SPOTLIGHT_CLEARED_MESSAGE,
+      transientMessage: spotlightClearedMessage(state.spotlightSubregion),
     };
   }
   return {
@@ -1434,7 +1470,7 @@ export function reducer(state: State, action: Action): State {
       // waiting on dismiss), commit it before bowing out — otherwise the
       // user's last interaction silently produces no SRS record. No card
       // is advanced here, so a re-queued miss schedules against the
-      // current studyStep — it resurfaces ~gap cards after "Keep studying".
+      // current studyStep — it resurfaces ~gap cards after "Keep going".
       if (state.practiceMode === "study" && state.autoGradePending) {
         return {
           ...closed,
@@ -1447,6 +1483,7 @@ export function reducer(state: State, action: Action): State {
           autoGradePending: null,
           milestone: null,
           sessionDone: true,
+          resumeCurrent: false,
           feedback: null,
           roundDone: false,
         };
@@ -1455,6 +1492,7 @@ export function reducer(state: State, action: Action): State {
       return {
         ...closed,
         sessionDone: true,
+        resumeCurrent: state.practiceMode === "study" && !state.feedback,
         feedback: null,
         milestone: null,
         roundDone: false,
@@ -1519,6 +1557,7 @@ export function reducer(state: State, action: Action): State {
         ...FRESH_STRETCH,
       };
       if (state.practiceMode === "study") {
+        if (state.resumeCurrent) return { ...next, resumeCurrent: false };
         const { current, spotlightSubregion, transientMessage } =
           pickStudyWithSpotlightFallback(next, now);
         return { ...next, current, spotlightSubregion, transientMessage };
@@ -1590,6 +1629,10 @@ export type GameApi = {
   totalInScope: number;
   completedInScopeCount: number;
   dueCount: number;
+  // When the next in-scope card comes back, as the line every surface says
+  // (nextBackLine); null when none is scheduled. Never one dueCount counts
+  // (see srs.nextDueAt).
+  nextBack: string | null;
   newAvailableCount: number;
   seenSrsIntro: boolean;
   markSrsIntroSeen: () => void;
@@ -1972,6 +2015,14 @@ export function useGame(): GameApi {
     [learnerRecords, scopeSet, nowBucket],
   );
 
+  const nextBack = useMemo(() => {
+    const now = new Date();
+    return nextBackLine(srsNextDueAt(learnerRecords, scopeSet, now), now);
+  },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [learnerRecords, scopeSet, nowBucket],
+  );
+
   const newAvailableCount = useMemo(
     () => srsNewAvailableCount(learnerRecords, scopeSet),
     [learnerRecords, scopeSet],
@@ -2019,6 +2070,7 @@ export function useGame(): GameApi {
     returns,
     totalInScope,
     dueCount,
+    nextBack,
     newAvailableCount,
     seenSrsIntro,
     markSrsIntroSeen,

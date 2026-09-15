@@ -17,10 +17,10 @@ type Props = {
 // rather than Capital → Click, because the country is the thing they just
 // proved they know — the new question is asked about familiar ground.
 export function CapitalsDoor({ offer, onClick, className, subClassName }: Props) {
-  const reviewing = offer.due > 0;
-  const label = reviewing ? "Review capitals" : "Try capitals";
-  const sub = reviewing
-    ? `${offer.due} to review`
+  const back = offer.due > 0;
+  const label = back ? "Capitals are back" : "Try capitals";
+  const sub = back
+    ? `${offer.due} coming back`
     : `${offer.ready} ${offer.ready === 1 ? "country" : "countries"} you already know`;
   return (
     <button

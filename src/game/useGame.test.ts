@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   answerFact,
+  cardIsReturning,
   filterPool,
   initialState,
   learnerFact,
@@ -795,11 +796,33 @@ describe("reducer — resetSrs / closeSummary", () => {
     expect(next.sessionDone).toBe(false);
     expect(next.score).toBe(7);
   });
+
+  // The summary counts the card on screen, so Keep going must not pick past
+  // an unanswered one: if it was the only card coming back, "1 coming back
+  // first" would be false.
+  it("closeSummary resumes on a Study card left unanswered by Done", () => {
+    const s0 = initialState({ practiceMode: "study" });
+    const ended = reducer(s0, { type: "endSession" });
+    expect(ended.resumeCurrent).toBe(true);
+    const back = reducer(ended, { type: "closeSummary", now: NOW });
+    expect(back.current.iso3).toBe(s0.current.iso3);
+    expect(back.resumeCurrent).toBe(false);
+  });
+
+  it("closeSummary moves on from a Study card answered before Done", () => {
+    const s0 = initialState({ practiceMode: "study" });
+    const answered = reducer(s0, { type: "answer", iso3: s0.current.iso3, now: NOW });
+    const ended = reducer(answered, { type: "endSession" });
+    expect(ended.resumeCurrent).toBe(false);
+    const back = reducer(ended, { type: "closeSummary", now: NOW });
+    expect(back.current.iso3).not.toBe(s0.current.iso3);
+  });
 });
 
 describe("reducer — spotlight subregion", () => {
   const NOW = new Date("2026-05-16T12:00:00Z");
-  const SPOTLIGHT_CLEARED = "Spotlight cleared — back to full scope";
+  const SPOTLIGHT_CLEARED =
+    "Nothing left to focus on in Southern Africa — back to all your regions.";
 
   function africaStudy(): State {
     return initialState({
@@ -838,7 +861,14 @@ describe("reducer — spotlight subregion", () => {
       now: NOW,
     });
     expect(s.spotlightSubregion).toBe("Western Africa");
-    expect(reducer(s, { type: "clearSpotlight" }).spotlightSubregion).toBeNull();
+    // Mid-round, with a miss reveal's grade still staged: clearing is only
+    // a lens change, so the card, the round and the grade all stay.
+    const mid: State = { ...s, roundCards: 4, autoGradePending: "Again" };
+    const cleared = reducer(mid, { type: "clearSpotlight" });
+    expect(cleared.spotlightSubregion).toBeNull();
+    expect(cleared.current).toBe(mid.current);
+    expect(cleared.roundCards).toBe(4);
+    expect(cleared.autoGradePending).toBe("Again");
   });
 
   it("setContinents clears the spotlight", () => {
@@ -2304,5 +2334,36 @@ describe("reducer — the capitals offer is what the scheduler serves (R3.2)", (
         a.iso3.localeCompare(b.iso3),
     )[0].iso3;
     expect(serve(learnerKnowing([]), 1)[0]).toBe(expected);
+  });
+});
+
+describe("cardIsReturning", () => {
+  const NOW = new Date("2026-09-13T12:00:00Z");
+
+  function studyWithRecord(): State {
+    const s = initialState({ practiceMode: "study" });
+    return {
+      ...s,
+      srsStore: storeWith({ [s.current.iso3]: srsGrade(null, "Good", NOW) }),
+    };
+  }
+
+  it("is false for a Study card with no record", () => {
+    expect(cardIsReturning(initialState({ practiceMode: "study" }))).toBe(false);
+  });
+
+  it("is true for a Study card that has a record for the fact asked", () => {
+    expect(cardIsReturning(studyWithRecord())).toBe(true);
+  });
+
+  it("reads the fact being asked, not another fact's record", () => {
+    const s = studyWithRecord();
+    expect(cardIsReturning({ ...s, mode: "country-to-capital" })).toBe(false);
+  });
+
+  it("is false outside Study, whatever the store holds", () => {
+    const s = studyWithRecord();
+    expect(cardIsReturning({ ...s, practiceMode: "quiz" })).toBe(false);
+    expect(cardIsReturning({ ...s, practiceMode: "expedition" })).toBe(false);
   });
 });

@@ -1,6 +1,7 @@
 import type { Country, QuestionMode } from "../types";
 import type { Milestone } from "../game/milestones";
 import { streakNote } from "../game/milestones";
+import { BackAgain } from "./Prompt";
 
 // Shown for a correct answer, in the same hero slot RevealHero uses for
 // misses. RevealHero excludes `kind: "correct"` by type, so the correct
@@ -21,9 +22,18 @@ type Props = {
   // Set when this answer carried the country into "known". Null otherwise,
   // which is almost always.
   milestone: Milestone | null;
+  // The card had come back, marked here rather than on the prompt in
+  // Name → Click (see ControlZone).
+  returning?: boolean;
 };
 
-export function CorrectHero({ current, mode, streak, milestone }: Props) {
+export function CorrectHero({
+  current,
+  mode,
+  streak,
+  milestone,
+  returning = false,
+}: Props) {
   const note = streakNote(streak);
   const sealed = milestone?.continentComplete ?? null;
   // Lead with the ANSWER, as the miss reveal does. Only country-to-capital
@@ -39,6 +49,7 @@ export function CorrectHero({ current, mode, streak, milestone }: Props) {
       : [current.capital, ...(current.capitalAlternates ?? [])];
   return (
     <div role="status" className="correct-pop flex flex-col gap-2">
+      {returning && <BackAgain />}
       <p className="leading-tight">
         <span className="block text-xs">
           <span className="font-display uppercase tracking-wide text-sap-green">
