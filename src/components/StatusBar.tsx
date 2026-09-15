@@ -50,7 +50,7 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
   return (
     <header
       className={
-        "items-center justify-between gap-3 border-b border-ink-faded/30 pb-1 " +
+        "flex-wrap items-center justify-between gap-x-3 border-b border-ink-faded/30 pb-1 " +
         (className ?? "")
       }
     >
@@ -66,8 +66,6 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
             newAvailable={game.newAvailableCount}
             newIntroduced={state.newIntroducedThisStretch}
             fact={game.fact}
-            spotlight={state.spotlightSubregion}
-            onClearSpotlight={game.clearSpotlight}
           />
         ) : isExpedition ? null : (
           <>
@@ -121,6 +119,12 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
         onSetThemePref={onSetThemePref}
       />
       </div>
+      {isStudy && state.spotlightSubregion && (
+        <FocusChip
+          spotlight={state.spotlightSubregion}
+          onClear={game.clearSpotlight}
+        />
+      )}
     </header>
   );
 }
@@ -161,16 +165,11 @@ function StudyChips({
   newAvailable,
   newIntroduced,
   fact,
-  spotlight,
-  onClearSpotlight,
 }: {
   due: number;
   newAvailable: number;
   newIntroduced: number;
   fact: Fact;
-  // The subregion the learner chose to focus on from the summary, if any.
-  spotlight: string | null;
-  onClearSpotlight: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-baseline gap-x-2 text-xs text-ink-mid tabular-nums">
@@ -195,25 +194,31 @@ function StudyChips({
           </span>
         </>
       )}
-      {/* The way out of "Focus on …": until this, nothing but a change of
-          continents ended one. Clearing keeps the card and the round; the
-          next pick reads the whole scope again, and the chip going away is
-          the only feedback needed. */}
-      {spotlight && (
-        <>
-          <span aria-hidden>·</span>
-          <button
-            type="button"
-            onClick={onClearSpotlight}
-            aria-label={`Focus: ${spotlight}, stop`}
-            className="shrink-0 px-1.5 py-0.5 rounded hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink-deep"
-          >
-            Focus: <span className="text-ink-deep">{spotlight}</span>{" "}
-            <span aria-hidden>×</span>
-          </button>
-        </>
-      )}
     </div>
   );
 }
 
+// The way out of "Focus on …": until this, nothing but a change of continents
+// ended one. Clearing keeps the card and the round; the next pick reads the
+// whole scope again, and the chip going away is the only feedback needed. Its
+// own row, only while a focus is on: squeezed in beside the counts it wrapped
+// them onto three lines on a phone and was too small to tap.
+function FocusChip({
+  spotlight,
+  onClear,
+}: {
+  spotlight: string;
+  onClear: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClear}
+      aria-label={`Focus: ${spotlight}, stop`}
+      className="basis-full min-h-11 -mx-1.5 px-1.5 rounded text-left text-xs text-ink-mid hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink-deep"
+    >
+      Focus: <span className="text-ink-deep">{spotlight}</span>{" "}
+      <span aria-hidden>×</span>
+    </button>
+  );
+}
