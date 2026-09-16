@@ -94,7 +94,12 @@ function TestSummary({
   onPlayAgain,
   onBackToStudy,
 }: Props) {
-  const accuracy = total === 0 ? 0 : Math.round((score / total) * 100);
+  // No answer, no accuracy: a test ended before its first card is not 0%
+  // right, and it is certainly not a clean run.
+  const accuracy = total === 0 ? null : Math.round((score / total) * 100);
+  // Countries neither answered right nor waiting in the retry queue, so never
+  // asked. A test ended early says how much of it was left.
+  const notAsked = Math.max(0, totalInScope - completedCount - unlearnedCount);
   const reviewRef = useRef<HTMLButtonElement>(null);
   const playAgainRef = useRef<HTMLButtonElement>(null);
   const showReview = unlearnedCount > 0;
@@ -123,7 +128,10 @@ function TestSummary({
         </h2>
         <div className="grid grid-cols-3 gap-4 text-center">
           <Tile label="Done" value={`${completedCount}/${totalInScope}`} />
-          <Tile label="Right" value={`${accuracy}%`} />
+          <Tile
+            label="Right"
+            value={accuracy === null ? "—" : `${accuracy}%`}
+          />
           <Tile label="Missed" value={String(missed.length)} />
         </div>
         {dueCount > 0 && (
@@ -131,7 +139,22 @@ function TestSummary({
             {dueCount} coming back — first up when you go back to studying.
           </p>
         )}
-        {missed.length > 0 ? (
+        {/* Countries, not answers, so the parts add up to the Done tile's
+            denominator: right, waiting to be tried again, never asked. */}
+        {total > 0 && notAsked > 0 && (
+          <p className="text-sm text-ink-mid tabular-nums">
+            {[
+              `${completedCount} right`,
+              unlearnedCount > 0 && `${unlearnedCount} to try again`,
+              `${notAsked} not yet asked`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        )}
+        {total === 0 ? (
+          <p className="text-sm text-ink-mid">No questions answered.</p>
+        ) : missed.length > 0 ? (
           <div>
             <p className="text-sm font-medium text-ink-deep mb-2">
               Missed ({missed.length}):
@@ -150,7 +173,9 @@ function TestSummary({
             </ul>
           </div>
         ) : (
-          <p className="text-sm text-ink-mid">No misses — clean run!</p>
+          <p className="text-sm text-ink-mid">
+            {notAsked > 0 ? "No misses." : "No misses — clean run!"}
+          </p>
         )}
         <div className="flex flex-col gap-2">
           {showReview && (

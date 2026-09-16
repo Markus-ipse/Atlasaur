@@ -83,6 +83,10 @@ describe("ExpeditionResult", () => {
     expect(share).toHaveBeenCalledWith({
       text: "Atlasaur · 6 September 2026\n■■□■■■□■■■ 8/10",
     });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Shared" })).toBeTruthy(),
+    );
+    expect(screen.getByRole("status").textContent).toBe("Shared");
   });
 
   it("copies to the clipboard otherwise and says so", async () => {
@@ -100,6 +104,40 @@ describe("ExpeditionResult", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Copied" })).toBeTruthy(),
     );
+  });
+
+  it("falls back to the clipboard when the share sheet fails", async () => {
+    const share = vi.fn().mockRejectedValue(new Error("not allowed"));
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", { value: share, configurable: true });
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    renderCard();
+    fireEvent.click(screen.getByRole("button", { name: "Share" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Copied" })).toBeTruthy(),
+    );
+  });
+
+  it("treats a dismissed share sheet as a change of mind", async () => {
+    const share = vi
+      .fn()
+      .mockRejectedValue(Object.assign(new Error("cancelled"), { name: "AbortError" }));
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", { value: share, configurable: true });
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    renderCard();
+    fireEvent.click(screen.getByRole("button", { name: "Share" }));
+    await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+    expect(writeText).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Share" })).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("points at the selectable text when neither works", async () => {
