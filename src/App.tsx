@@ -210,11 +210,10 @@ export default function App() {
       {state.sessionDone && !isExpedition && (
         <SessionSummary
           practiceMode={state.practiceMode}
-          score={state.score}
-          total={state.total}
+          test={game.testTally}
           missed={state.missed}
+          foundIso3s={state.completedSet}
           unlearnedCount={game.unlearnedCount}
-          completedCount={game.completedInScopeCount}
           totalInScope={game.totalInScope}
           dueCount={game.dueCount}
           nextBack={game.nextBack}
@@ -308,6 +307,8 @@ export default function App() {
           roundCards={state.roundCards}
           roundRight={state.roundRight}
           roundNew={state.roundNew}
+          test={game.testTally}
+          phase={state.phase}
           caughtUp={(caughtUp || state.roundEndedEarly) && !game.newCapReached}
           newCapReached={game.newCapReached}
           // Not in a focus: the offer counts the whole scope's countries, and

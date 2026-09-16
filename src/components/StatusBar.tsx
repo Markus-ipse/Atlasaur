@@ -69,11 +69,7 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
           />
         ) : isExpedition ? null : (
           <>
-            <ScorePanel
-              completedCount={game.completedInScopeCount}
-              totalInScope={game.totalInScope}
-              missedCount={state.missed.length}
-            />
+            <ScorePanel tally={game.testTally} />
             {game.dueCount > 0 && (
               <button
                 type="button"

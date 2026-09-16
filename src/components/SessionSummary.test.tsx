@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { SessionSummary } from "./SessionSummary";
 import { emptyStore } from "../game/srs";
+import { testTally } from "../game/testTally";
 import countriesJson from "../data/countries.json";
 import type { Country, Fact, SrsRecord, Subregion } from "../types";
 
@@ -53,11 +54,10 @@ function renderStudy(
   render(
     <SessionSummary
       practiceMode="study"
-      score={0}
-      total={0}
+      test={testTally(new Set(), new Set(), new Set())}
       missed={[]}
+      foundIso3s={new Set()}
       unlearnedCount={0}
-      completedCount={0}
       totalInScope={2}
       dueCount={figures.dueCount ?? 0}
       nextBack={figures.nextBack ?? null}
@@ -90,23 +90,29 @@ function tile(group: HTMLElement, label: string): string | null {
   return within(group).getByText(label).nextElementSibling?.textContent ?? null;
 }
 
+// A twelve-country test, built the way the hook builds it: the tally from
+// the scope, the countries found and the countries missed at first.
+const TEST_SCOPE = [
+  "ARG", "BOL", "BRA", "CHL", "COL", "ECU",
+  "GUY", "PER", "PRY", "SUR", "URY", "VEN",
+];
+
 function renderTest(figures: {
-  score: number;
-  total: number;
-  missed?: Country[];
-  unlearnedCount?: number;
-  completedCount: number;
-  totalInScope?: number;
+  found: string[];
+  missed?: string[];
+  scope?: ReadonlySet<string>;
 }) {
+  const found = new Set(figures.found);
+  const missedIso3s = figures.missed ?? [];
+  const tally = testTally(figures.scope ?? new Set(TEST_SCOPE), found, new Set(missedIso3s));
   render(
     <SessionSummary
       practiceMode="quiz"
-      score={figures.score}
-      total={figures.total}
-      missed={figures.missed ?? []}
-      unlearnedCount={figures.unlearnedCount ?? 0}
-      completedCount={figures.completedCount}
-      totalInScope={figures.totalInScope ?? 12}
+      test={tally}
+      missed={missedIso3s.map((iso3) => COUNTRIES.find((c) => c.iso3 === iso3)!)}
+      foundIso3s={found}
+      unlearnedCount={tally.stillMissed}
+      totalInScope={TEST_SCOPE.length}
       dueCount={0}
       nextBack={null}
       caughtUp={false}
@@ -120,7 +126,7 @@ function renderTest(figures: {
       missQueued={false}
       progressSaved={false}
       fact="location"
-      scopeIso3s={new Set()}
+      scopeIso3s={figures.scope ?? new Set(TEST_SCOPE)}
       countries={COUNTRIES}
       onReview={vi.fn()}
       onPlayAgain={vi.fn()}
@@ -135,38 +141,58 @@ function renderTest(figures: {
 }
 
 describe("TestSummary", () => {
-  it("does not grade or praise a test ended before any answer", () => {
-    renderTest({ score: 0, total: 0, completedCount: 0 });
+  it("does not score or praise a test ended before any answer", () => {
+    renderTest({ found: [] });
     expect(screen.getByText("No questions answered.")).toBeTruthy();
     expect(screen.queryByText(/clean run/)).toBeNull();
-    expect(screen.queryByText("0%")).toBeNull();
-    expect(screen.getByText("Right").nextElementSibling?.textContent).toBe("—");
+    expect(screen.queryByText("First try")).toBeNull();
   });
 
-  it("says how much of a test ended early was right and left", () => {
-    const peru = COUNTRIES.find((c) => c.iso3 === "PER")!;
+  it("scores the review's test on first tries and marks the recovery", () => {
+    // Eleven right first time, Chile skipped and found on its retry. This
+    // once read "12/12 done", "92% Right" with Chile still listed as missed.
+    renderTest({ found: TEST_SCOPE, missed: ["CHL"] });
+    expect(screen.getByRole("heading", { name: "Complete!" })).toBeTruthy();
+    expect(screen.getByText("First try").nextElementSibling?.textContent).toBe("11/12");
+    expect(screen.getByText("Recovered").nextElementSibling?.textContent).toBe("1");
+    expect(screen.getByText("Still missed").nextElementSibling?.textContent).toBe("0");
+    expect(screen.getByText(/Scored on first tries/)).toBeTruthy();
+    const chile = screen.getByText(/Chile/);
+    expect(chile.textContent).toBe("Chile — recovered");
+    expect(screen.queryByText("Review 1 missed")).toBeNull();
+  });
+
+  it("lists what is still missed ahead of what was recovered", () => {
     renderTest({
-      score: 3,
-      total: 4,
-      missed: [peru],
-      unlearnedCount: 1,
-      completedCount: 3,
+      found: ["ARG", "BRA", "CHL", "PER"],
+      missed: ["CHL", "BOL"],
     });
-    // Counted in countries, adding up to the twelve: three right, Peru
-    // waiting to be tried again, eight never asked.
-    expect(screen.getByText("3 right · 1 to try again · 8 not yet asked")).toBeTruthy();
-    expect(screen.queryByText(/clean run/)).toBeNull();
+    expect(screen.getByText("First try").nextElementSibling?.textContent).toBe("3/12");
+    expect(screen.getByText("Still missed").nextElementSibling?.textContent).toBe("1");
+    expect(screen.getByText("7 not yet asked.")).toBeTruthy();
+    const items = screen.getAllByRole("listitem").map((li) => li.textContent);
+    expect(items).toEqual(["Bolivia", "Chile — recovered"]);
+    expect(screen.getByRole("button", { name: "Review 1 missed" })).toBeTruthy();
+  });
+
+  it("leaves a region switched off mid-test out of the list, as the tiles do", () => {
+    // Chile missed, then South America deselected: only Europe is left.
+    const europe = new Set(["FRA", "DEU"]);
+    renderTest({ found: ["FRA", "DEU"], missed: ["CHL"], scope: europe });
+    expect(screen.getByText("Still missed").nextElementSibling?.textContent).toBe("0");
+    expect(screen.queryByText(/Missed at first/)).toBeNull();
+    expect(screen.queryByText(/Chile/)).toBeNull();
   });
 
   it("keeps the praise for a clean run through the whole test", () => {
-    renderTest({ score: 12, total: 12, completedCount: 12 });
+    renderTest({ found: TEST_SCOPE });
     expect(screen.getByText("No misses — clean run!")).toBeTruthy();
     expect(screen.queryByText(/not yet asked/)).toBeNull();
   });
 
   it("keeps the praise out of a partial test without misses", () => {
-    renderTest({ score: 2, total: 2, completedCount: 2 });
-    expect(screen.getByText("2 right · 10 not yet asked")).toBeTruthy();
+    renderTest({ found: ["ARG", "BRA"] });
+    expect(screen.getByText("10 not yet asked.")).toBeTruthy();
     expect(screen.getByText("No misses.")).toBeTruthy();
     expect(screen.queryByText(/clean run/)).toBeNull();
   });
