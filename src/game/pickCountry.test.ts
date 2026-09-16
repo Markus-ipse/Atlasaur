@@ -244,6 +244,57 @@ describe("pickNextStudy", () => {
     expect(picked?.iso3).toBe("SEEN");
   });
 
+  it("brings a pending miss forward before falling back to filler", () => {
+    const seen = tierCountry("SEEN", 2, 3);
+    const missed = tierCountry("MISS", 0, 0);
+    const pool = [seen, missed];
+    const byIso3 = new Map(pool.map((c) => [c.iso3, c]));
+    const future = new Date(NOW.getTime() + 86_400_000).toISOString();
+    const rec = grade(null, "Good", new Date(NOW.getTime() - 200_000));
+    const records: SrsRecords = {
+      // SEEN is the most overdue, so filler would pick it.
+      SEEN: { ...rec, due: new Date(NOW.getTime() + 60_000).toISOString() },
+      MISS: { ...rec, due: future },
+    };
+    const args = {
+      pool,
+      byIso3,
+      records,
+      now: NOW,
+      newIntroducedThisStretch: STUDY_NEW_CAP,
+      resurfaceQueue: [{ iso3: "MISS", dueAt: 10 }],
+      step: 0,
+    };
+    expect(pickNextStudy({ ...args, excludeIso3: "" })?.iso3).toBe("MISS");
+    // Never the card being left, and never one outside the pool.
+    expect(pickNextStudy({ ...args, excludeIso3: "MISS" })?.iso3).toBe("SEEN");
+    expect(
+      pickNextStudy({ ...args, pool: [seen], excludeIso3: "" })?.iso3,
+    ).toBe("SEEN");
+  });
+
+  it("introduces a new card before bringing a pending miss forward", () => {
+    const fresh = tierCountry("NEW", 2, 0);
+    const missed = tierCountry("MISS", 0, 0);
+    const pool = [fresh, missed];
+    const byIso3 = new Map(pool.map((c) => [c.iso3, c]));
+    const rec = grade(null, "Again", new Date(NOW.getTime() - 200_000));
+    const records: SrsRecords = {
+      MISS: { ...rec, due: new Date(NOW.getTime() + 60_000).toISOString() },
+    };
+    const picked = pickNextStudy({
+      pool,
+      byIso3,
+      excludeIso3: "",
+      records,
+      now: NOW,
+      newIntroducedThisStretch: 0,
+      resurfaceQueue: [{ iso3: "MISS", dueAt: 10 }],
+      step: 0,
+    });
+    expect(picked?.iso3).toBe("NEW");
+  });
+
   it("returns null when nothing is due and pool is empty after exclusions", () => {
     const fra = tierCountry("FRA", 0, 0);
     const pool = [fra];

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import { useGame } from "./game/useGame";
 import { WorldMap } from "./components/WorldMap";
 import { ControlZone } from "./components/ControlZone";
@@ -122,35 +122,37 @@ export default function App() {
   const hatchIso3 =
     state.feedback?.kind === "correct" ? (state.milestone?.iso3 ?? null) : null;
 
-  // Nothing due and today's new cards introduced: the scheduler has no
-  // more work. Surfaced two ways — the RoundBreak's "That's everything for
-  // now" variant at a round boundary, and the CaughtUp banner when a
-  // fresh round starts in that state (e.g. after closing the summary). The
-  // banner never interrupts a round in progress: the picker's most-overdue
-  // fallback fills the remaining cards instead.
+  // Nothing due and no new card can be asked: the scheduler has no more
+  // work. Not when unseen cards wait only on the new-card allowance, which
+  // Keep going refills (game.newCapReached). Drives the summary's Keep going
+  // copy and, with a round that ended early, the RoundBreak's "That's
+  // everything for now" variant.
   const caughtUp =
     state.practiceMode === "study" &&
     game.dueCount === 0 &&
-    state.newIntroducedThisStretch >= STUDY_NEW_CAP;
-  const caughtUpEligible =
-    caughtUp && !state.feedback && state.roundCards === 0 && !state.roundDone;
-  const [caughtUpAck, setCaughtUpAck] = useState(false);
-  useEffect(() => {
-    if (!caughtUpEligible) setCaughtUpAck(false);
-  }, [caughtUpEligible]);
-  const showCaughtUp = caughtUpEligible && !caughtUpAck;
+    state.newIntroducedThisStretch >= STUDY_NEW_CAP &&
+    !game.newCapReached &&
+    // A queued miss is the next card, so there is something to go on to.
+    !game.missQueued;
+  // The CaughtUp banner asks before a fresh round opens on a filler card,
+  // where no earlier screen has asked already (the round break, the rest card
+  // and the Today card each count as the choice). Inside a round the reducer
+  // ends the round instead, so the banner never interrupts one. Keep going anyway
+  // — here or on an early break — accepts filler for the rest of the sitting,
+  // which is also what stops the banner asking twice.
+  const showCaughtUp =
+    game.onlyFiller &&
+    !state.fillerAccepted &&
+    !state.feedback &&
+    state.roundCards === 0 &&
+    !state.roundDone &&
+    !state.sessionDone;
   const showRoundBreak = state.roundDone && !state.sessionDone;
   const showTodayCard =
     game.showTodayCard && !state.sessionDone && !showRoundBreak;
   const showWelcome = game.showWelcome && !state.sessionDone;
   const modalOpen =
     state.sessionDone || showRoundBreak || showTodayCard || showWelcome;
-  const keepGoing = () => {
-    // "Keep going anyway" from a caught-up break already answered the
-    // question the banner would ask; don't ask twice.
-    if (caughtUp) setCaughtUpAck(true);
-    game.continueRound();
-  };
 
   return (
     <div className="h-dvh w-full flex overflow-hidden bg-parchment-base text-ink-deep portrait:flex-col landscape:flex-row pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
@@ -192,7 +194,7 @@ export default function App() {
       <ControlZone
         game={game}
         showCaughtUp={showCaughtUp}
-        onAckCaughtUp={() => setCaughtUpAck(true)}
+        onAckCaughtUp={game.acceptFiller}
         themePref={themePref}
         onSetThemePref={setThemePref}
       />
@@ -223,6 +225,9 @@ export default function App() {
           sittingCards={state.sittingCards}
           sittingRight={state.sittingRight}
           sittingNew={state.sittingNew}
+          sittingRecovered={state.sittingRecovered.size}
+          missQueued={game.missQueued}
+          progressSaved={game.progressSaved}
           fact={game.fact}
           scopeIso3s={game.scopeSet}
           countries={ALL_COUNTRIES}
@@ -284,7 +289,15 @@ export default function App() {
             game.dismissTodayCard();
             game.setMode("country-to-capital");
           }}
-          onBegin={game.dismissTodayCard}
+          // Escape and the backdrop close the card without choosing anything.
+          onDismiss={game.dismissTodayCard}
+          onBegin={() => {
+            // With nothing waiting the card has already said a round anyway
+            // keeps the hand in; Begin is that choice, so the CaughtUp banner
+            // must not ask it again.
+            if (game.onlyFiller) game.acceptFiller();
+            game.dismissTodayCard();
+          }}
         />
       )}
       {showRoundBreak && (
@@ -295,9 +308,28 @@ export default function App() {
           roundCards={state.roundCards}
           roundRight={state.roundRight}
           roundNew={state.roundNew}
-          caughtUp={caughtUp}
+          caughtUp={(caughtUp || state.roundEndedEarly) && !game.newCapReached}
+          newCapReached={game.newCapReached}
+          // Not in a focus: the offer counts the whole scope's countries, and
+          // picks would stay in the region.
+          capitalOffer={
+            state.spotlightSubregion === null ? game.capitalOffer : null
+          }
+          onTryCapitals={() => {
+            // Switch first, so the round carries on with capital cards rather
+            // than continuing onto the location filler picked for the break.
+            game.setMode("country-to-capital");
+            game.continueRound();
+          }}
+          spotlightSubregion={state.spotlightSubregion}
+          onLeaveFocus={() => {
+            // Leave first, so the next round starts on the whole scope's
+            // work rather than on the region filler picked for the break.
+            game.clearSpotlight();
+            game.continueRound();
+          }}
           nextBack={game.nextBack}
-          onKeepGoing={keepGoing}
+          onKeepGoing={game.continueRound}
           onDone={game.endSession}
         />
       )}

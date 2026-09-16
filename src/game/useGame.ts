@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import countriesData from "../data/countries.json";
 import { normalize } from "../data/normalize";
-import { pickRandom, pickNext, pickNextStudy } from "./pickCountry";
+import { pickRandom, pickNext, pickNextStudy, STUDY_NEW_CAP } from "./pickCountry";
 import {
   dueCount as srsDueCount,
   emptyStore,
@@ -18,6 +18,7 @@ import {
   clearStore,
   hasAnyRecord,
   withGrade,
+  isDue,
 } from "./srs";
 import { factOf, isClickMode } from "./questionModes";
 import { nextBackLine } from "./nextBack";
@@ -357,6 +358,9 @@ export type State = {
   // True while the RoundBreak interstitial is up. Never true alongside
   // sessionDone — the summary wins.
   roundDone: boolean;
+  // Study: this round stopped short of ROUND_SIZE because the next card
+  // would only have been filler (cardIsFiller). Counts as a finished round.
+  roundEndedEarly: boolean;
   // Rounds finished this session. The unit R1.3's cross-day streak counts.
   roundsCompleted: number;
   // The sitting: every card since the last summary closed (or the load), as
@@ -368,6 +372,17 @@ export type State = {
   sittingRight: number;
   // Study only, like roundNew.
   sittingNew: number;
+  // Cards missed this sitting, and those of them later answered right in the
+  // same sitting — the summary's recovery line. Keyed `${fact}:${iso3}` by
+  // the fact the answer graded, so a missed capital followed by a found
+  // country is not a recovery. Distinct cards, not answers.
+  sittingMissed: ReadonlySet<string>;
+  sittingRecovered: ReadonlySet<string>;
+  // The learner chose to keep going with nothing useful left (Keep going
+  // anyway, from an early round break or the CaughtUp banner). Rounds run to
+  // ROUND_SIZE again for the rest of the sitting, or every filler card would
+  // end its own one-card round.
+  fillerAccepted: boolean;
   // Every card whose feedback has been dismissed, across the profile's life.
   // Monotonic and never reset by a round, a session or a mode flip — the
   // counters (R2.4) read its growth as "one more card answered". `total` is
@@ -402,11 +417,14 @@ export type Action =
   | { type: "setIncludeTerritories"; value: boolean; now?: Date }
   | { type: "endSession" }
   | { type: "continueRound"; now?: Date }
+  | { type: "acceptFiller" }
   | { type: "startReview" }
   | { type: "resetSrs" }
   | { type: "closeSummary"; now?: Date }
   | { type: "setSpotlight"; subregion: Subregion; now?: Date }
-  | { type: "clearSpotlight" }
+  // Carries a time: leaving a focus can move off a filler card, which
+  // depends on what is due.
+  | { type: "clearSpotlight"; now?: Date }
   | { type: "setTransientMessage"; message: string }
   | { type: "clearTransientMessage" }
   | { type: "reset" };
@@ -532,12 +550,18 @@ const FRESH_ROUND = {
   roundRight: 0,
   roundNew: 0,
   roundDone: false,
+  roundEndedEarly: false,
 } as const;
+
+const NO_CARDS: ReadonlySet<string> = new Set();
 
 const FRESH_SITTING = {
   sittingCards: 0,
   sittingRight: 0,
   sittingNew: 0,
+  sittingMissed: NO_CARDS,
+  sittingRecovered: NO_CARDS,
+  fillerAccepted: false,
 } as const;
 
 // A fresh stretch (load, leaving a summary, a practice-mode flip, erasing
@@ -579,17 +603,152 @@ export function cardIsReturning(state: State): boolean {
   );
 }
 
-// Count one answered card into the sitting.
+// Whether the Study card being asked is filler: met before, not due, and not
+// a miss from this sitting waiting to come back. Derived, never stored, on
+// the same partition as cardIsReturning — the due branch requires isDue, the
+// resurface and early-retry branches require a queue entry, the new branch
+// requires no record, so only pickNextStudy's most-overdue fallback (or the
+// no-pick case, which keeps the card just answered) yields one. advanceCard
+// ends the round rather than serve it; the CaughtUp banner asks first when a
+// fresh round would open on one.
+export function cardIsFiller(state: State, now: Date): boolean {
+  if (state.practiceMode !== "study") return false;
+  const iso3 = state.current.iso3;
+  const rec = recordsFor(state)[iso3];
+  return (
+    rec !== undefined &&
+    !isDue(rec, now) &&
+    !state.studyResurfaceQueue.some((e) => e.iso3 === iso3)
+  );
+}
+
+// Study: the stretch's new-card allowance is what stands between the learner
+// and more new cards — STUDY_NEW_CAP is used and unseen cards are still in
+// the pool. An explicit Keep going refills it (continueRound, closeSummary),
+// so the cap limits new cards per go rather than making a newcomer's ten look
+// like "everything".
+export function newCapReached(state: State): boolean {
+  if (state.practiceMode !== "study") return false;
+  if (state.newIntroducedThisStretch < STUDY_NEW_CAP) return false;
+  return unseenInPool(state);
+}
+
+// Study: the pool still holds a card with no record for the answer fact.
+function unseenInPool(state: State): boolean {
+  const records = recordsFor(state);
+  return studyPool(state).some((c) => !records[c.iso3]);
+}
+
+// Whether an explicit Keep going starts a fresh new-card allowance: some of
+// it has been used and unseen cards remain. Per round, not only once it is
+// spent — otherwise a newcomer who met nine in round one reaches the tenth on
+// round two's first card and is cut off after one card.
+function allowanceRefills(state: State): boolean {
+  return (
+    state.practiceMode === "study" &&
+    state.newIntroducedThisStretch > 0 &&
+    unseenInPool(state)
+  );
+}
+
+// Start a fresh new-card allowance when allowanceRefills says so. For the
+// other explicit ways of carrying on over a different pool — leaving a focus
+// and changing scope — so unseen countries they bring in are not held back by
+// an allowance spent on the old pool. (Keep going refills through
+// withNewAllowance, which also moves off a filler card.)
+function withFreshAllowance(state: State): State {
+  return allowanceRefills(state)
+    ? { ...state, newIntroducedThisStretch: 0 }
+    : state;
+}
+
+// Study: a miss from this sitting is still queued for a card in the pool.
+// It holds a round open even when the card on screen is filler, since the
+// pick after it brings the miss back (pickNextStudy's early retry).
+function missWaiting(state: State): boolean {
+  if (state.studyResurfaceQueue.length === 0) return false;
+  const inPool = new Set(studyPool(state).map((c) => c.iso3));
+  return state.studyResurfaceQueue.some((e) => inPool.has(e.iso3));
+}
+
+// Study: nothing useful is left to ask — the card on screen is filler and no
+// miss is waiting to come back after it. The one test for ending a round
+// early, for the CaughtUp banner, and for a screen's Keep going counting as
+// Keep going anyway.
+export function nothingUseful(state: State, now: Date): boolean {
+  return (
+    cardIsFiller(state, now) && !missWaiting(state) && !usefulInPool(state, now)
+  );
+}
+
+// Study: something besides the card on screen is worth asking now — a card
+// due, or an unseen one while the new-card allowance lasts. Judged over the
+// pool, not the card on screen: a scope change, a focus left or time passing
+// can bring useful work in without replacing a filler card already picked.
+function usefulInPool(state: State, now: Date): boolean {
+  const records = recordsFor(state);
+  const allowNew = state.newIntroducedThisStretch < STUDY_NEW_CAP;
+  return studyPool(state).some((c) => {
+    if (c.iso3 === state.current.iso3) return false;
+    const rec = records[c.iso3];
+    return rec ? isDue(rec, now) : allowNew;
+  });
+}
+
+// Move off a filler card on screen once something useful is waiting — after
+// a scope change or leaving a focus, which keep the card they find.
+function offFiller(state: State, now: Date): State {
+  if (state.practiceMode !== "study" || state.feedback || state.sessionDone) {
+    return state;
+  }
+  if (!cardIsFiller(state, now)) return state;
+  if (!usefulInPool(state, now) && !missWaiting(state)) return state;
+  const { current, spotlightSubregion, transientMessage } =
+    pickStudyWithSpotlightFallback(state, now);
+  return { ...state, current, spotlightSubregion, transientMessage };
+}
+
+// Refill the new-card allowance on an explicit Keep going, and move off a
+// filler card that was picked while it was spent. Returns `state` itself when
+// there is nothing to refill.
+function withNewAllowance(state: State, now: Date): State {
+  if (!allowanceRefills(state)) return state;
+  const refilled: State = { ...state, newIntroducedThisStretch: 0 };
+  if (!cardIsFiller(refilled, now)) return refilled;
+  const { current, spotlightSubregion, transientMessage } =
+    pickStudyWithSpotlightFallback(refilled, now);
+  return { ...refilled, current, spotlightSubregion, transientMessage };
+}
+
+// The card whose feedback is open, as the sitting keys it. Read from the
+// state BEFORE a card advance replaces `current`.
+function sittingKey(state: State): string {
+  return `${answerFact(state)}:${state.current.iso3}`;
+}
+
+// Count one answered card into the sitting. `key` is the answered card's
+// sittingKey, taken before any advance.
 function withSittingCard(
   state: State,
   kind: FeedbackKind,
   isNew: boolean,
+  key: string,
 ): State {
+  const missed = kind !== "correct";
+  const recovered = !missed && state.sittingMissed.has(key);
   return {
     ...state,
     sittingCards: state.sittingCards + 1,
     sittingRight: state.sittingRight + (kind === "correct" ? 1 : 0),
     sittingNew: state.sittingNew + (isNew ? 1 : 0),
+    sittingMissed:
+      missed && !state.sittingMissed.has(key)
+        ? new Set(state.sittingMissed).add(key)
+        : state.sittingMissed,
+    sittingRecovered:
+      recovered && !state.sittingRecovered.has(key)
+        ? new Set(state.sittingRecovered).add(key)
+        : state.sittingRecovered,
   };
 }
 
@@ -602,11 +761,15 @@ function withRoundAdvance(
   state: State,
   kind: FeedbackKind,
   isNew: boolean,
+  key: string,
 ): State {
   const roundCards = state.roundCards + 1;
-  const filled = roundCards >= ROUND_SIZE;
+  // A round cut short by advanceCard (nothing useful left) finishes here like
+  // a full one: it credits roundsCompleted, so the streak day and the
+  // finished-rounds counter treat "you did everything there was" as done.
+  const filled = roundCards >= ROUND_SIZE || state.roundEndedEarly;
   return {
-    ...withSittingCard(state, kind, isNew),
+    ...withSittingCard(state, kind, isNew, key),
     roundCards,
     cardsAnswered: state.cardsAnswered + 1,
     roundRight: state.roundRight + (kind === "correct" ? 1 : 0),
@@ -658,19 +821,23 @@ function introduceFirst(state: State): ReadonlySet<string> {
   return out;
 }
 
+// The pool a Study pick draws from. Spotlight narrows it to one subregion
+// (the narrowing lives here, not in filterPool/pickNextStudy, so it can't
+// leak into Quiz's shared pickNext path).
+function studyPool(state: State): Country[] {
+  const pool = filterPool(
+    state.selectedContinents,
+    state.includeTerritories,
+    answerFact(state),
+  );
+  return state.spotlightSubregion === null
+    ? pool
+    : pool.filter((c) => c.subregion === state.spotlightSubregion);
+}
+
 function nextCurrent(state: State, now: Date = new Date()): Country {
   if (state.practiceMode === "study") {
-    // Spotlight narrows the Study pool to one subregion (the narrowing
-    // lives here, not in filterPool/pickNextStudy, so it can't leak into
-    // Quiz's shared pickNext path).
-    let pool = filterPool(
-      state.selectedContinents,
-      state.includeTerritories,
-      answerFact(state),
-    );
-    if (state.spotlightSubregion !== null) {
-      pool = pool.filter((c) => c.subregion === state.spotlightSubregion);
-    }
+    const pool = studyPool(state);
     const picked = pickNextStudy({
       pool,
       byIso3: COUNTRY_BY_ISO3,
@@ -774,6 +941,7 @@ function closeCardIntoRound(state: State, now: Date): State {
   if (!state.feedback || state.practiceMode === "expedition") return state;
   const kind = state.feedback.kind;
   const isNew = cardIsNew(state);
+  const key = sittingKey(state);
   const pending = state.practiceMode === "study" && state.autoGradePending;
   const committed: State = pending
     ? {
@@ -783,7 +951,7 @@ function closeCardIntoRound(state: State, now: Date): State {
       }
     : state;
   return {
-    ...withRoundAdvance(committed, kind, isNew),
+    ...withRoundAdvance(committed, kind, isNew, key),
     cardsAnswered: committed.cardsAnswered,
   };
 }
@@ -802,7 +970,26 @@ function poolComplete(
 // end a review or a completed Quiz pool that the narrowing finished off.
 // SRS records are never touched — out-of-scope due cards resurface when the
 // learner widens scope again.
+// A scope change also clears Keep going anyway — the learner agreed to
+// repeats from the pool as it was — starts a fresh new-card allowance while
+// unseen cards remain, and moves off a filler card when the new pool has
+// something useful waiting.
 function applyScope(
+  state: State,
+  continents: readonly Continent[],
+  includeTerritories: boolean,
+  now: Date,
+): State {
+  return offFiller(
+    withFreshAllowance({
+      ...applyScopeKeepingCard(state, continents, includeTerritories, now),
+      fillerAccepted: false,
+    }),
+    now,
+  );
+}
+
+function applyScopeKeepingCard(
   state: State,
   continents: readonly Continent[],
   includeTerritories: boolean,
@@ -1128,7 +1315,12 @@ function dismissFeedback(state: State, now: Date): State {
     return atExpeditionCard(state, state.expedition);
   }
   const kind = state.feedback?.kind ?? "correct";
-  return withRoundAdvance(advanceCard(state, now), kind, cardIsNew(state));
+  return withRoundAdvance(
+    advanceCard(state, now),
+    kind,
+    cardIsNew(state),
+    sittingKey(state),
+  );
 }
 
 // Record an expedition answer: the glyph, the answer count (now, while the
@@ -1197,7 +1389,21 @@ function advanceCard(state: State, now: Date): State {
     // auto-clears here and surfaces a toast.
     const { current, spotlightSubregion, transientMessage } =
       pickStudyWithSpotlightFallback(updated, now);
-    return { ...updated, current, spotlightSubregion, transientMessage };
+    const next: State = { ...updated, current, spotlightSubregion, transientMessage };
+    // Nothing useful left: end the round here instead of padding it to
+    // ROUND_SIZE with cards that are not due. withRoundAdvance opens the
+    // break and credits the round. The filler card stays picked, so Keep
+    // going anyway starts on it. A queued miss holds the round open: the
+    // card after this filler one is that miss, and its recovery is the most
+    // useful card the round has left. Keep going anyway does not hold a round
+    // open against unseen cards: a spent new-card allowance still ends it, so
+    // Keep going can refill (a wider scope can bring unseen cards back in).
+    return {
+      ...next,
+      roundEndedEarly:
+        nothingUseful(next, now) &&
+        (!next.fillerAccepted || newCapReached(next)),
+    };
   }
   if (state.phase === "review" && state.retryQueue.length === 0) {
     return { ...state, feedback: null, milestone: null, phase: "normal", sessionDone: true };
@@ -1462,7 +1668,12 @@ export function reducer(state: State, action: Action): State {
       // where it stopped.
       const closed: State = state.feedback
         ? {
-            ...withSittingCard(state, state.feedback.kind, cardIsNew(state)),
+            ...withSittingCard(
+              state,
+              state.feedback.kind,
+              cardIsNew(state),
+              sittingKey(state),
+            ),
             cardsAnswered: state.cardsAnswered + 1,
           }
         : state;
@@ -1500,7 +1711,25 @@ export function reducer(state: State, action: Action): State {
     }
     case "continueRound": {
       if (!state.roundDone) return state;
-      return { ...state, ...FRESH_ROUND };
+      const next: State = { ...state, ...FRESH_ROUND };
+      // Unseen cards remain: each round starts with a fresh new-card
+      // allowance, so the next one meets new countries.
+      const refilled = withNewAllowance(next, now);
+      if (refilled !== next) return refilled;
+      // Otherwise Keep going from a break that came early is Keep going
+      // anyway: the learner has seen there is nothing useful left and chosen
+      // more. Only when it really continues onto filler — the break's
+      // capitals door switches the question mode first and lands on new work.
+      return {
+        ...next,
+        fillerAccepted:
+          state.fillerAccepted ||
+          (state.roundEndedEarly && nothingUseful(next, now)),
+      };
+    }
+    case "acceptFiller": {
+      if (state.fillerAccepted) return state;
+      return { ...state, fillerAccepted: true };
     }
     case "startReview": {
       if (state.retryQueue.length === 0) return state;
@@ -1557,10 +1786,36 @@ export function reducer(state: State, action: Action): State {
         ...FRESH_STRETCH,
       };
       if (state.practiceMode === "study") {
-        if (state.resumeCurrent) return { ...next, resumeCurrent: false };
-        const { current, spotlightSubregion, transientMessage } =
-          pickStudyWithSpotlightFallback(next, now);
-        return { ...next, current, spotlightSubregion, transientMessage };
+        // Keep going starts a fresh new-card allowance while unseen cards
+        // remain, as it does on the round break.
+        const refilled = allowanceRefills(next);
+        const allowed: State = refilled
+          ? { ...next, newIntroducedThisStretch: 0 }
+          : next;
+        // Done left a card unanswered: resume it, unless it is filler the
+        // refill has just made something better available than.
+        const resume =
+          state.resumeCurrent &&
+          !(
+            cardIsFiller(allowed, now) &&
+            (refilled || usefulInPool(allowed, now) || missWaiting(allowed))
+          );
+        const landed: State = resume
+          ? { ...allowed, resumeCurrent: false }
+          : {
+              ...allowed,
+              resumeCurrent: false,
+              ...pickStudyWithSpotlightFallback(allowed, now),
+            };
+        // Keep going onto filler is Keep going anyway: the rest card has
+        // already said nothing is waiting, so the CaughtUp banner must not
+        // ask again. Not in a focus, where its label never says "anyway" —
+        // the banner's region copy asks there instead.
+        return {
+          ...landed,
+          fillerAccepted:
+            landed.spotlightSubregion === null && nothingUseful(landed, now),
+        };
       }
       return { ...next, current: nextCurrent(next, now) };
     }
@@ -1594,7 +1849,17 @@ export function reducer(state: State, action: Action): State {
       return { ...next, current, spotlightSubregion, transientMessage };
     }
     case "clearSpotlight": {
-      return { ...state, spotlightSubregion: null };
+      // Leaving a focus: Keep going anyway was agreed for the region, and the
+      // whole scope may have cards back, so the choice is cleared and a
+      // region filler card gives way when something useful is waiting.
+      return offFiller(
+        withFreshAllowance({
+          ...state,
+          spotlightSubregion: null,
+          fillerAccepted: false,
+        }),
+        now,
+      );
     }
     case "setTransientMessage": {
       return { ...state, transientMessage: action.message };
@@ -1636,6 +1901,21 @@ export type GameApi = {
   newAvailableCount: number;
   seenSrsIntro: boolean;
   markSrsIntroSeen: () => void;
+  // Whether the latest save of the learning records landed. The rest card says
+  // "kept in this browser" only when it is true.
+  progressSaved: boolean;
+  // Nothing useful is left to ask (see nothingUseful): the Study card on
+  // screen is filler and no miss is waiting behind it.
+  onlyFiller: boolean;
+  // A miss from this sitting is queued to come back (see missWaiting), so
+  // there is something useful to go on to even with nothing due or new.
+  missQueued: boolean;
+  // Unseen cards wait only on the stretch's new-card allowance, which Keep
+  // going refills (see newCapReached).
+  newCapReached: boolean;
+  // Keep going anyway from the CaughtUp banner: rounds run full again for the
+  // rest of the sitting.
+  acceptFiller: () => void;
   // Cross-day streak (days with a finished round). Derived from
   // atlasaur:streak:v1; recorded by the hook when roundsCompleted grows.
   streak: StreakInfo;
@@ -1716,6 +1996,9 @@ export function useGame(): GameApi {
     }),
   );
   const [seenSrsIntro, setSeenSrsIntro] = useState(loadSeenIntro);
+  // Whether the latest save of the learning records landed. Set by the save
+  // effect below, so "kept in this browser" follows the real write.
+  const [progressSaved, setProgressSaved] = useState(true);
   const [streakStore, setStreakStore] = useState(loadStreak);
   // Local counters (R2.4). Recorded from state transitions here rather than in
   // the reducer, the same way the streak is, so the reducer stays pure and
@@ -1786,7 +2069,7 @@ export function useGame(): GameApi {
   }, [state.mode, state.modeBeforeExpedition]);
 
   useEffect(() => {
-    saveStore(state.srsStore);
+    setProgressSaved(saveStore(state.srsStore));
   }, [state.srsStore]);
 
   useEffect(() => {
@@ -1867,10 +2150,11 @@ export function useGame(): GameApi {
     setCounters((c) => recordRoundStarted(c, practiceModeRef.current));
   }, [state.roundCards]);
 
-  // Finished means the round filled to ROUND_SIZE, which is what
-  // `roundsCompleted` counts. That includes a round whose twelfth card also
-  // ended the session, so no interstitial was shown — deliberate, and the same
-  // rounds the streak counts as a day played.
+  // Finished means the round filled to ROUND_SIZE, or ended early in Study
+  // because nothing useful was left, which is what `roundsCompleted` counts.
+  // That includes a round whose twelfth card also ended the session, so no
+  // interstitial was shown — deliberate, and the same rounds the streak counts
+  // as a day played.
   const lastRoundsCompletedRef = useRef(state.roundsCompleted);
   useEffect(() => {
     const prev = lastRoundsCompletedRef.current;
@@ -2074,6 +2358,11 @@ export function useGame(): GameApi {
     newAvailableCount,
     seenSrsIntro,
     markSrsIntroSeen,
+    progressSaved,
+    onlyFiller: nothingUseful(state, new Date()),
+    missQueued: missWaiting(state),
+    newCapReached: newCapReached(state),
+    acceptFiller: () => dispatch({ type: "acceptFiller" }),
     streak,
     capitalOffer: offer,
     expeditionToday,
@@ -2150,7 +2439,7 @@ export function useGame(): GameApi {
     closeSummary: () => dispatch({ type: "closeSummary", now: new Date() }),
     setSpotlight: (subregion) =>
       dispatch({ type: "setSpotlight", subregion, now: new Date() }),
-    clearSpotlight: () => dispatch({ type: "clearSpotlight" }),
+    clearSpotlight: () => dispatch({ type: "clearSpotlight", now: new Date() }),
     setTransientMessage: (message) =>
       dispatch({ type: "setTransientMessage", message }),
     reset: () => dispatch({ type: "reset" }),

@@ -166,9 +166,23 @@ export function pickNextStudy(args: {
     }
   }
 
-  // 3a. Soft cap hit but fresh exists: pick most-overdue regardless of
-  // dueAt — there is no work yet, but we can show an already-introduced
-  // record. Find the oldest-due record in scope.
+  // 2b. Early retry: nothing is due and no new card may be introduced, but a
+  // miss from this sitting is still waiting out its gap. Asking it now is
+  // worth more than repeating a card that is not due, so the retry comes
+  // forward (soonest first) instead of the round being padded around it.
+  const pending = resurfaceQueue
+    .filter((e) => e.iso3 !== excludeIso3 && pool.some((c) => c.iso3 === e.iso3))
+    .sort((a, b) => a.dueAt - b.dueAt);
+  for (const e of pending) {
+    const country = byIso3.get(e.iso3);
+    if (country) return country;
+  }
+
+  // 3a. Filler: nothing useful is left (no due card, no new card allowed or
+  // left, no pending retry), so pick the most-overdue record regardless of
+  // its due date. The caller ends a Study round early rather than serving
+  // these, unless the learner has chosen to keep going anyway
+  // (cardIsFiller in useGame.ts).
   const allInScope: { iso3: string; due: number }[] = [];
   for (const c of pool) {
     if (c.iso3 === excludeIso3) continue;

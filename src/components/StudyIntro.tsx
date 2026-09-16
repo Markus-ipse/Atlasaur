@@ -6,12 +6,12 @@ export function StudyIntro({ onDismiss }: Props) {
   return (
     <div className="relative rounded border border-ochre/40 bg-ochre/15 p-3 pr-8 text-xs leading-snug text-ink-deep">
       {/* Shown on the first Study miss in any question mode, so it says
-          "known", the stat word, and nothing about places or the map. */}
+          "known", the stat word, and nothing about places or the map. The
+          welcome no longer explains the scheduler; this is where the learner
+          first has a reason to care how it works. */}
       <p>
-        <span className="font-medium">Nothing to grade.</span> Atlasaur marks
-        each answer itself. Miss one and it's back in a few cards; get it
-        right and it comes back later, further out each time, until it's
-        known.
+        Miss one and it's back in a few cards. Get it right and it comes back
+        later, further out each time, until it's known.
       </p>
       <button
         type="button"

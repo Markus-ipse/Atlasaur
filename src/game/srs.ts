@@ -30,6 +30,7 @@ const SRS_V1_KEY = "atlasaur:srs:v1";
 // Versioned because the intro was rewritten to explain that every country
 // comes back: a learner who dismissed the old text sees the new one once, on
 // their next Study miss. The old key is left where it is and never read.
+// #54 only trimmed the text, which is not worth reshowing, so it stays v2.
 const SRS_SEEN_INTRO_KEY = "atlasaur:srs:seenIntro:v2";
 const SEEN_WELCOME_KEY = "atlasaur:seenWelcome";
 const STORE_VERSION = 2;
@@ -121,11 +122,16 @@ export function loadStore(): SrsStore {
   }
 }
 
-export function saveStore(store: SrsStore): void {
+// Returns whether the write landed, so "kept in this browser" can follow the
+// real save rather than a probe (a nearly full quota refuses a whole store
+// while still accepting a byte).
+export function saveStore(store: SrsStore): boolean {
   try {
     window.localStorage.setItem(SRS_STORAGE_KEY, JSON.stringify(store));
+    return true;
   } catch {
-    // localStorage may be unavailable (private mode, SSR); ignore.
+    // localStorage may be unavailable (private mode, SSR) or full.
+    return false;
   }
 }
 
@@ -327,6 +333,31 @@ export function masteryBySubregion(
     entry.total += 1;
     const rec = records[c.iso3];
     if (rec && rec.state >= 2) entry.learned += 1;
+    map.set(c.subregion, entry);
+  }
+  return map;
+}
+
+// What a focus on each subregion could ask right now, in masteryBySubregion's
+// shape so pickSpotlight can gate and rank it: `total` is every in-scope
+// country there, `learned` the ones a focus could NOT ask now (met and not yet
+// due), so total − learned is what is waiting there — unseen or due. Unlike
+// masteryBySubregion this depends on `now`: a card still in FSRS learning is
+// not known, but a focus cannot ask it until it comes back, and offering it
+// would open the focus on a "nothing more" banner.
+export function askableBySubregion(
+  records: SrsRecords,
+  countries: readonly Country[],
+  scope: ReadonlySet<string>,
+  now: Date,
+): Map<Subregion, { learned: number; total: number }> {
+  const map = new Map<Subregion, { learned: number; total: number }>();
+  for (const c of countries) {
+    if (!scope.has(c.iso3)) continue;
+    const entry = map.get(c.subregion) ?? { learned: 0, total: 0 };
+    entry.total += 1;
+    const rec = records[c.iso3];
+    if (rec && !isDue(rec, now)) entry.learned += 1;
     map.set(c.subregion, entry);
   }
   return map;

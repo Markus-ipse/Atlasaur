@@ -39,14 +39,6 @@ export function ExpeditionResult({ store, streakDay, nameFromIso3, onClose }: Pr
   }, []);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  useEffect(() => {
     if (shareState !== "copied") return;
     const id = window.setTimeout(() => setShareState("idle"), COPIED_MS);
     return () => window.clearTimeout(id);
@@ -85,12 +77,10 @@ export function ExpeditionResult({ store, streakDay, nameFromIso3, onClose }: Pr
     "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
 
   return (
-    <div
-      className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
+    // No Escape and no backdrop close: this is where an expedition's Done
+    // lands, and like the rest card it stays at rest until the learner picks
+    // Back to studying (#54).
+    <div className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4">
       <div
         role="dialog"
         aria-modal="true"
