@@ -10,17 +10,21 @@ import {
 } from "../game/srs";
 import { markerOnlySubregions, pickSpotlight } from "../game/pickCountry";
 import type { ExpeditionStatus } from "../game/expedition";
+import type { TestTally } from "../game/testTally";
 import { ExpeditionDoor } from "./ExpeditionDoor";
 import { tallyParts } from "./tallyParts";
 import { NO_MORE_NEW, nextBackOrNothing } from "../game/nextBack";
 
 type Props = {
   practiceMode: PracticeMode;
-  score: number;
-  total: number;
+  // A test round's standing, in countries (testTally.ts).
+  test: TestTally;
+  // Countries missed at first in a test round, in the order they were missed.
   missed: Country[];
+  // Countries answered right in the test so far; a missed one in here was
+  // recovered.
+  foundIso3s: ReadonlySet<string>;
   unlearnedCount: number;
-  completedCount: number;
   totalInScope: number;
   dueCount: number;
   // When the next card comes back (nextBackLine), or null.
@@ -81,30 +85,35 @@ export function SessionSummary(props: Props) {
 }
 
 // Summary for a "Test me on these" round (practiceMode "quiz" in code).
+// Scored on first tries, in countries (testTally.ts): the same four parts
+// the status bar and the round break show, so the figures reconcile.
 function TestSummary({
-  score,
-  total,
+  test,
   missed,
+  foundIso3s,
   fact,
   unlearnedCount,
-  completedCount,
-  totalInScope,
   dueCount,
+  scopeIso3s,
   onReview,
   onPlayAgain,
   onBackToStudy,
 }: Props) {
-  // No answer, no accuracy: a test ended before its first card is not 0%
-  // right, and it is certainly not a clean run.
-  const accuracy = total === 0 ? null : Math.round((score / total) * 100);
-  // Countries neither answered right nor waiting in the retry queue, so never
-  // asked. A test ended early says how much of it was left.
-  const notAsked = Math.max(0, totalInScope - completedCount - unlearnedCount);
+  const asked = test.firstTry + test.recovered + test.stillMissed;
   const reviewRef = useRef<HTMLButtonElement>(null);
   const playAgainRef = useRef<HTMLButtonElement>(null);
   const showReview = unlearnedCount > 0;
-  const cleared = unlearnedCount === 0 && completedCount === totalInScope;
+  const cleared = unlearnedCount === 0 && test.stillMissed === 0 && test.notAsked === 0;
   const title = cleared ? "Complete!" : "Test over";
+  // Only the test's current countries, as the tiles count them: a region
+  // switched off mid-test takes its misses out of the list too, or the list
+  // would name a country the tiles no longer count. Still missed first:
+  // those are what "Review N missed" is about.
+  const missedInScope = missed.filter((c) => scopeIso3s.has(c.iso3));
+  const missedInOrder = [
+    ...missedInScope.filter((c) => !foundIso3s.has(c.iso3)),
+    ...missedInScope.filter((c) => foundIso3s.has(c.iso3)),
+  ];
 
   useEffect(() => {
     (showReview ? reviewRef : playAgainRef).current?.focus();
@@ -126,56 +135,63 @@ function TestSummary({
         <h2 id="session-summary-title" className="text-2xl font-bold text-ink-deep">
           {title}
         </h2>
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <Tile label="Done" value={`${completedCount}/${totalInScope}`} />
-          <Tile
-            label="Right"
-            value={accuracy === null ? "—" : `${accuracy}%`}
-          />
-          <Tile label="Missed" value={String(missed.length)} />
-        </div>
+        {asked === 0 ? (
+          // No answer, no score: a test ended before its first card is not
+          // 0 right, and it is certainly not a clean run.
+          <p className="text-sm text-ink-mid">No questions answered.</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <Tile label="First try" value={`${test.firstTry}/${test.size}`} />
+              <Tile label="Recovered" value={String(test.recovered)} />
+              <Tile label="Still missed" value={String(test.stillMissed)} />
+            </div>
+            {/* The scoring model, said once where the score is. */}
+            <p className="text-xs text-ink-mid text-center -mt-2">
+              Scored on first tries. A country found on a later try is
+              recovered.
+            </p>
+            {test.notAsked > 0 && (
+              <p className="text-sm text-ink-mid tabular-nums">
+                {test.notAsked} not yet asked.
+              </p>
+            )}
+          </>
+        )}
         {dueCount > 0 && (
           <p className="text-xs text-ink-mid text-center">
             {dueCount} coming back — first up when you go back to studying.
           </p>
         )}
-        {/* Countries, not answers, so the parts add up to the Done tile's
-            denominator: right, waiting to be tried again, never asked. */}
-        {total > 0 && notAsked > 0 && (
-          <p className="text-sm text-ink-mid tabular-nums">
-            {[
-              `${completedCount} right`,
-              unlearnedCount > 0 && `${unlearnedCount} to try again`,
-              `${notAsked} not yet asked`,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        )}
-        {total === 0 ? (
-          <p className="text-sm text-ink-mid">No questions answered.</p>
-        ) : missed.length > 0 ? (
+        {missedInScope.length > 0 ? (
           <div>
             <p className="text-sm font-medium text-ink-deep mb-2">
-              Missed ({missed.length}):
+              Missed at first ({missedInScope.length}):
             </p>
             <ul className="max-h-[28dvh] overflow-y-auto text-sm text-ink-mid border border-ink-faded/40 rounded p-3 flex flex-wrap gap-x-4 gap-y-1">
               {/* The one screen that says what you got wrong has to show the
                   thing you got wrong: a capital round names the capital
                   beside its country. */}
-              {missed.map((c) => (
+              {missedInOrder.map((c) => (
                 <li key={c.iso3}>
                   {fact === "capital" && c.capital !== null
                     ? `${c.name} · ${c.capital}`
                     : c.name}
+                  {foundIso3s.has(c.iso3) && (
+                    <span className="italic text-ink-faded"> — recovered</span>
+                  )}
                 </li>
               ))}
             </ul>
           </div>
         ) : (
-          <p className="text-sm text-ink-mid">
-            {notAsked > 0 ? "No misses." : "No misses — clean run!"}
-          </p>
+          asked > 0 && (
+            <p className="text-sm text-ink-mid">
+              {test.firstTry === test.size
+                ? "No misses — clean run!"
+                : "No misses."}
+            </p>
+          )
         )}
         <div className="flex flex-col gap-2">
           {showReview && (
@@ -424,7 +440,7 @@ function StudySummary({
           >
             <span>Test me on these</span>
             <span className={secondarySubClass}>
-              All {scopeLabel}, scored
+              All {scopeLabel}, scored on first tries
             </span>
           </button>
           <ExpeditionDoor

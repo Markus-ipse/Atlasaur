@@ -16,6 +16,7 @@ import { STUDY_NEW_CAP } from "./pickCountry";
 import { emptyStore, grade as srsGrade, introductionOrder } from "./srs";
 import { storeWith } from "./srsFixtures";
 import { crossesIntoKnown } from "./milestones";
+import { testTally } from "./testTally";
 import {
   EXPEDITION_SIZE,
   expeditionPool,
@@ -1107,6 +1108,43 @@ describe("reducer — rounds of twelve", () => {
     });
     while (!a.sessionDone) a = playCorrect(a);
     expect(a.roundDone).toBe(false);
+  });
+
+  it("a test's break and summary reconcile, scored on first tries (#64)", () => {
+    // The review's run: twelve South American countries, the first skipped
+    // and found on its retry after the break. Once the break said "11 of 12
+    // right" and the summary "92% Right" with the skipped one still missed.
+    const scope = new Set(
+      filterPool(["South America"], false, "location").map((c) => c.iso3),
+    );
+    expect(scope.size).toBe(ROUND_SIZE);
+    const tally = (st: State) => testTally(scope, st.completedSet, st.missedSet);
+    let s = initialState({ practiceMode: "quiz", selectedContinents: ["South America"] });
+    const skipped = s.current.iso3;
+    s = playMiss(s);
+    // Hold the retry back until every fresh country has been asked.
+    s = { ...s, retryQueue: s.retryQueue.map((e) => ({ ...e, dueAt: 1000 })) };
+    while (!s.roundDone && !s.sessionDone) s = playCorrect(s);
+    expect(s.roundDone).toBe(true);
+    expect(s.sessionDone).toBe(false);
+    expect(tally(s)).toEqual({
+      size: 12,
+      firstTry: 11,
+      recovered: 0,
+      stillMissed: 1,
+      notAsked: 0,
+    });
+    s = reducer(s, { type: "continueRound", now: NOW });
+    expect(s.current.iso3).toBe(skipped);
+    s = playCorrect(s);
+    expect(s.sessionDone).toBe(true);
+    expect(tally(s)).toEqual({
+      size: 12,
+      firstTry: 11,
+      recovered: 1,
+      stillMissed: 0,
+      notAsked: 0,
+    });
   });
 
   it("counts the sitting across round breaks and resets it when the summary closes", () => {

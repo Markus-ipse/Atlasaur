@@ -54,6 +54,7 @@ import {
   type ReturnInfo,
 } from "./counters";
 import { appendOutcome, clearOutcomes } from "./outcomes";
+import { testTally as computeTestTally, type TestTally } from "./testTally";
 import {
   dayKey,
   emptyStreak,
@@ -1892,7 +1893,9 @@ export type GameApi = {
   // store rather than duplicated into the counters key.
   returns: ReturnInfo;
   totalInScope: number;
-  completedInScopeCount: number;
+  // A test round's standing in countries: right first try, recovered, still
+  // missed, not yet asked (testTally.ts). Meaningful in a test only.
+  testTally: TestTally;
   dueCount: number;
   // When the next in-scope card comes back, as the line every surface says
   // (nextBackLine); null when none is scheduled. Never one dueCount counts
@@ -2283,13 +2286,10 @@ export function useGame(): GameApi {
     [isExpedition, scopeSet],
   );
 
-  const completedInScopeCount = useMemo(() => {
-    let n = 0;
-    state.completedSet.forEach((iso3) => {
-      if (scopeSet.has(iso3)) n++;
-    });
-    return n;
-  }, [state.completedSet, scopeSet]);
+  const testTally = useMemo(
+    () => computeTestTally(scopeSet, state.completedSet, state.missedSet),
+    [scopeSet, state.completedSet, state.missedSet],
+  );
 
   const learnerRecords = state.srsStore.facts[fact];
 
@@ -2390,7 +2390,7 @@ export function useGame(): GameApi {
       setWelcomeOpen(false);
       saveSeenWelcome(true);
     },
-    completedInScopeCount,
+    testTally,
     isoFromNumeric,
     numericFromIso3,
     nameFromIso3,

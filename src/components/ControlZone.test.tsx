@@ -100,7 +100,7 @@ function makeGame(overrides: {
     counters: emptyCounters(),
     returns: { daysPlayed: 0, longestGap: null, capped: false },
     totalInScope: 0,
-    completedInScopeCount: 0,
+    testTally: { size: 0, firstTry: 0, recovered: 0, stillMissed: 0, notAsked: 0 },
     dueCount: 0,
     nextBack: null,
     newAvailableCount: 0,
