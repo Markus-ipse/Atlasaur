@@ -11,7 +11,8 @@ type Props = {
 // The one way into the Daily Expedition, shared by the Today card and the
 // Study summary so the two doors read the same. The label says what waits
 // behind it: a fresh run, one to pick up where it was left, or today's
-// result. Never a second go — that is tomorrow.
+// result. Never a second go — that is tomorrow; the result card's look at the
+// misses changes nothing on the row.
 export function ExpeditionDoor({ status, onClick, className, subClassName }: Props) {
   const label =
     status.kind === "in-progress"

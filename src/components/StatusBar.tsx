@@ -59,6 +59,7 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
           practiceMode={state.practiceMode}
           phase={state.phase}
           roundCards={state.roundCards}
+          lookLeft={state.retryQueue.length}
         />
         {isStudy ? (
           <StudyChips
@@ -128,16 +129,30 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
 // Where the learner is in the current round. A test round is a run over the
 // whole scope with its own Done count, so the round chip is Study-only; a
 // review pass (Quiz phase "review") likewise has its own badge in Prompt. An
-// expedition is a round of ten and says so.
+// expedition is a round of ten and says so, and its second look at the
+// misses (#64), which has no break to say it, counts what is left.
 function RoundChip({
   practiceMode,
   phase,
   roundCards,
+  lookLeft,
 }: {
   practiceMode: PracticeMode;
   phase: Phase;
   roundCards: number;
+  lookLeft: number;
 }) {
+  if (practiceMode === "expedition" && phase === "review") {
+    return (
+      <span
+        className="shrink-0 font-display text-xs uppercase tracking-wide text-ink-mid tabular-nums"
+        aria-label={`Second look: ${lookLeft} left`}
+      >
+        Second look<span aria-hidden> · </span>
+        {lookLeft} left
+      </span>
+    );
+  }
   if (practiceMode === "quiz" || phase === "review") return null;
   const size = practiceMode === "expedition" ? EXPEDITION_SIZE : ROUND_SIZE;
   const card = Math.min(roundCards + 1, size);

@@ -400,6 +400,10 @@ export type State = {
   // leaving it lands them back where they were. An expedition is Name → Click
   // only. null outside an expedition.
   modeBeforeExpedition: QuestionMode | null;
+  // The second look at today's misses (#64) ran to its end: every miss was
+  // found again. The result card says so and stops offering the look as the
+  // default. Volatile; cleared by starting a look and by leaving.
+  expeditionLookDone: boolean;
 };
 
 export type Action =
@@ -543,6 +547,7 @@ export function initialState(
     cardsAnswered: 0,
     expedition: options.expedition ?? null,
     modeBeforeExpedition: null,
+    expeditionLookDone: false,
   };
 }
 
@@ -908,7 +913,8 @@ function pickStudyWithSpotlightFallback(
 
 // A test round and an expedition grade at answer time (Study defers to
 // dismiss). Only in the normal phase: a review pass would double-count the
-// miss retryQueue already tracks. An expedition has no review pass.
+// miss retryQueue already tracks. An expedition's second look at its misses
+// (#64) is a review pass too, and writes nothing for the same reason.
 function applyImmediateSrsWriteThrough(
   state: State,
   iso3: string,
@@ -1022,7 +1028,9 @@ function applyScopeKeepingCard(
       ...state,
       selectedContinents: continents,
       includeTerritories,
-      retryQueue,
+      // A second look at the misses (#64) asks today's ten, which ignore
+      // scope as the expedition does, so its queue is not pruned.
+      retryQueue: state.phase === "review" ? state.retryQueue : retryQueue,
       studyResurfaceQueue,
     };
   }
@@ -1129,7 +1137,11 @@ function applyMiss(
     now,
   );
 
-  if (state.practiceMode === "expedition" && state.expedition) {
+  if (
+    state.practiceMode === "expedition" &&
+    state.expedition &&
+    state.phase === "normal"
+  ) {
     // The outcome is recorded at answer time, not at dismiss, so an
     // expedition abandoned mid-reveal keeps this answer; it resumes on the
     // next card. The answer is counted now too, while the mode it was given
@@ -1231,7 +1243,11 @@ function applyCorrect(state: State, correctIso3: string, now: Date): State {
 
   const srsStore = applyImmediateSrsWriteThrough(state, correctIso3, "Good", now);
 
-  if (state.practiceMode === "expedition" && state.expedition) {
+  if (
+    state.practiceMode === "expedition" &&
+    state.expedition &&
+    state.phase === "normal"
+  ) {
     // No milestone: like a test round, an expedition is a measurement and its
     // map is neutral. The streak note is not restricted — a run of correct
     // answers means something here too, and a line of copy cannot help you
@@ -1313,7 +1329,18 @@ function dismissFeedback(state: State, now: Date): State {
   // and its round counters are read off the store, so the twelve-card round
   // accounting does not apply: the interstitial never appears inside one.
   if (state.practiceMode === "expedition" && state.expedition) {
-    return atExpeditionCard(state, state.expedition);
+    if (state.phase === "normal") {
+      return atExpeditionCard(state, state.expedition);
+    }
+    // The second look at the misses (#64) runs on the test's review pass, but
+    // it is not a round: no break can open inside an expedition. The answer
+    // still counts. An emptied queue lands back on the result card.
+    const advanced = advanceCard(state, now);
+    return {
+      ...advanced,
+      cardsAnswered: state.cardsAnswered + 1,
+      expeditionLookDone: advanced.sessionDone,
+    };
   }
   const kind = state.feedback?.kind ?? "correct";
   return withRoundAdvance(
@@ -1364,6 +1391,30 @@ function atExpeditionCard(state: State, store: ExpeditionStore): State {
     roundRight: foundCount(store),
     roundNew: 0,
     roundDone: false,
+  };
+}
+
+// A second look at today's misses, from the result card (#64). It runs on the
+// review pass a test already has: each miss is asked in order, a miss comes
+// back until it is found, and the pass writes no grade, since the answer that
+// counted was graded when it was given. The store is untouched — the glyphs,
+// the share text and the day's one attempt stay exactly what they were.
+function startExpeditionReview(state: State): State {
+  const store = state.expedition;
+  if (!store || !expeditionFinished(store) || !state.sessionDone) return state;
+  const misses = store.iso3s.filter((_, i) => store.outcomes[i] === "missed");
+  const first = misses.length > 0 ? COUNTRY_BY_ISO3.get(misses[0]) : undefined;
+  if (!first) return state;
+  return {
+    ...state,
+    phase: "review",
+    retryQueue: misses.map((iso3) => ({ iso3, dueAt: 0 })),
+    sessionDone: false,
+    feedback: null,
+    milestone: null,
+    streak: 0,
+    current: first,
+    expeditionLookDone: false,
   };
 }
 
@@ -1449,8 +1500,10 @@ function enterPracticeMode(
         ? state.modeBeforeExpedition
         : state.mode,
     modeBeforeExpedition: null,
+    expeditionLookDone: false,
     completedSet: startingTest ? new Set() : state.completedSet,
-    retryQueue: startingTest ? [] : state.retryQueue,
+    // A second look at an expedition's misses (#64) is left with it.
+    retryQueue: startingTest || leavingExpedition ? [] : state.retryQueue,
     score: 0,
     streak: 0,
     milestone: null,
@@ -1651,6 +1704,22 @@ export function reducer(state: State, action: Action): State {
       // the Today card or the Study summary. Its summary is the result card,
       // which only a finished expedition has.
       if (state.practiceMode === "expedition") {
+        // Done during the second look at the misses goes back to the result,
+        // which is where that look was started from. An open reveal is an
+        // answer given, and counts.
+        if (state.phase === "review") {
+          return {
+            ...state,
+            phase: "normal",
+            retryQueue: [],
+            feedback: null,
+            milestone: null,
+            sessionDone: true,
+            cardsAnswered: state.feedback
+              ? state.cardsAnswered + 1
+              : state.cardsAnswered,
+          };
+        }
         // Unless the reveal that is open is the tenth's: the expedition is
         // finished, and "Done" lands on its result.
         if (
@@ -1733,6 +1802,9 @@ export function reducer(state: State, action: Action): State {
       return { ...state, fillerAccepted: true };
     }
     case "startReview": {
+      if (state.practiceMode === "expedition") {
+        return startExpeditionReview(state);
+      }
       if (state.retryQueue.length === 0) return state;
       const country = COUNTRY_BY_ISO3.get(state.retryQueue[0].iso3);
       if (!country) return state;

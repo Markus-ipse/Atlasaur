@@ -35,12 +35,21 @@ const STORE: ExpeditionStore = {
   ],
 };
 
-function renderCard(onClose = vi.fn()) {
+function renderCard(
+  onClose = vi.fn(),
+  {
+    store = STORE,
+    onReview = vi.fn(),
+    lookDone = false,
+  }: { store?: ExpeditionStore; onReview?: () => void; lookDone?: boolean } = {},
+) {
   render(
     <ExpeditionResult
-      store={STORE}
+      store={store}
       streakDay={3}
       nameFromIso3={(iso3) => NAMES[iso3] ?? iso3}
+      onReview={onReview}
+      lookDone={lookDone}
       onClose={onClose}
     />,
   );
@@ -63,7 +72,57 @@ describe("ExpeditionResult", () => {
     expect(
       document.getElementById("expedition-result-outcomes")?.textContent,
     ).toContain("Japan missed");
-    expect(screen.getByRole("heading", { name: "A good day out." })).toBeTruthy();
+    // Leads with the count, then the acknowledgement (#64).
+    expect(screen.getByRole("heading", { name: "8 of 10 found." })).toBeTruthy();
+    expect(screen.getByText("A good day out.")).toBeTruthy();
+  });
+
+  it("says what the squares mean", () => {
+    renderCard();
+    expect(screen.getByText("■ found · □ missed")).toBeTruthy();
+  });
+
+  it("offers the misses as the next step, with Share secondary (#64)", () => {
+    const onReview = vi.fn();
+    renderCard(vi.fn(), { onReview });
+    const review = screen.getByRole("button", { name: "Review 2 missed" });
+    expect(document.activeElement).toBe(review);
+    expect(screen.getByText(/Today's result stays as it is\./)).toBeTruthy();
+    const buttons = screen.getAllByRole("button").map((b) => b.textContent);
+    expect(buttons).toEqual(["Review 2 missed", "Share", "Back to studying"]);
+    fireEvent.click(review);
+    expect(onReview).toHaveBeenCalledTimes(1);
+  });
+
+  it("with all ten found, offers no review and defaults to Back to studying", () => {
+    const store: ExpeditionStore = {
+      ...STORE,
+      outcomes: STORE.outcomes.map(() => "found"),
+    };
+    renderCard(vi.fn(), { store });
+    expect(screen.getByRole("heading", { name: "All 10 found." })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Review/ })).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Back to studying" }),
+    );
+    const buttons = screen.getAllByRole("button").map((b) => b.textContent);
+    expect(buttons).toEqual(["Back to studying", "Share"]);
+  });
+
+  it("after a finished look, says so and defaults to Back to studying", () => {
+    const onReview = vi.fn();
+    renderCard(vi.fn(), { onReview, lookDone: true });
+    expect(
+      screen.getByText("A good day out. Found again on a second look."),
+    ).toBeTruthy();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Back to studying" }),
+    );
+    const buttons = screen.getAllByRole("button").map((b) => b.textContent);
+    expect(buttons).toEqual(["Back to studying", "Share", "Review 2 missed"]);
+    expect(screen.queryByText(/Today's result stays as it is/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Review 2 missed" }));
+    expect(onReview).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the spoken row out of the selectable text", () => {

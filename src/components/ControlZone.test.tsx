@@ -94,6 +94,7 @@ function makeGame(overrides: {
       roundEndedEarly: false,
       expedition: null,
       modeBeforeExpedition: null,
+      expeditionLookDone: false,
       resumeCurrent: false,
     },
     unlearnedCount: 0,
