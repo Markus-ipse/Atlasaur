@@ -643,11 +643,31 @@ tabs cannot ping-pong. The other stores (SRS, streak, counters) still save
 last-write-wins per tab; only the expedition carries a one-attempt promise
 that divergence would break.
 
-`ExpeditionResult` is the expedition's summary and its round break: the row
-and the caption exactly as they leave the app (selectable, so they can be
-copied by hand), the ten by name, and one Share button — `navigator.share`
-where it exists (a dismissed sheet is not a failure and gets no fallback),
-`navigator.clipboard` otherwise, a pointer at the text when neither works.
+`ExpeditionResult` is the expedition's summary and its round break: "N of 10
+found." with a one-line acknowledgement, the row and the caption exactly as
+they leave the app (selectable, so they can be copied by hand) with what the
+squares mean under them, the ten by name, and a Share button —
+`navigator.share` where it exists (a dismissed sheet is not a failure and gets
+no fallback), `navigator.clipboard` otherwise, a pointer at the text when
+neither works. With any misses the default is **Review N missed** (#64) and
+Share is secondary; with all ten found, or once the misses have been looked
+at, it is Back to studying.
+
+**Review N missed** is a second look, not a second go. `startReview` in an
+expedition (`startExpeditionReview`) runs the test's review pass over the
+store's misses in order — each comes back until found, and as in a test's
+review pass nothing is written to the SRS store (the answer that counted was
+graded when it was given). The store is never touched, so the glyphs, the
+share text and `roundsCompleted` stay exactly what the day's attempt made
+them. `dismissFeedback` advances it with `advanceCard` alone, counting
+`cardsAnswered` but never `withRoundAdvance`, so no round break opens inside an
+expedition — the status bar's round chip reads "Second look · N left"
+instead. The emptied queue lands back on the result card with
+`expeditionLookDone` set, so the card adds "Found again on a second look." and
+makes Back to studying the default (a new look and leaving clear it); Done
+lands there too, without the flag.
+A scope change leaves its queue alone (today's ten ignore scope), and leaving
+the expedition clears `retryQueue`.
 The text is plain: `Atlasaur · 6 September 2026` over `■■□■■■□■■■ 8/10`,
 formatted by `formatDay` in fixed English so two phones read the same.
 `ExpeditionDoor` is the shared button on the Today card and the Study summary;

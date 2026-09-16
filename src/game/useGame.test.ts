@@ -2167,6 +2167,89 @@ describe("reducer — the Daily Expedition (R3.1)", () => {
     // other in-flight commit counts it.
     expect(s.cardsAnswered).toBe(missed.cardsAnswered + 1);
   });
+
+  describe("a second look at the misses (#64)", () => {
+    // JPN and IND missed; the rest found.
+    const OUTCOMES: ExpeditionStore["outcomes"] = [
+      "found", "found", "missed", "found", "found",
+      "found", "missed", "found", "found", "found",
+    ];
+    function reviewing(): State {
+      return reducer(start(store(OUTCOMES)), { type: "startReview" });
+    }
+
+    it("asks the misses in order, from the result card", () => {
+      const result = start(store(OUTCOMES));
+      expect(result.sessionDone).toBe(true);
+      const s = reducer(result, { type: "startReview" });
+      expect(s.phase).toBe("review");
+      expect(s.sessionDone).toBe(false);
+      expect(s.current.iso3).toBe("JPN");
+      expect(s.retryQueue.map((e) => e.iso3)).toEqual(["JPN", "IND"]);
+      expect(s.practiceMode).toBe("expedition");
+    });
+
+    it("is not offered by an unfinished or a clean expedition", () => {
+      const midway = start(store(["found"]));
+      expect(reducer(midway, { type: "startReview" })).toBe(midway);
+      const clean = start(store(OUTCOMES.map(() => "found")));
+      expect(reducer(clean, { type: "startReview" })).toBe(clean);
+    });
+
+    it("never changes the result, writes no grade and counts the answers", () => {
+      const s0 = reviewing();
+      let s = reducer(s0, { type: "answer", iso3: "FRA", now: NOW });
+      expect(s.feedback?.kind).toBe("wrong");
+      expect(s.srsStore).toBe(s0.srsStore);
+      s = reducer(s, { type: "dismiss", now: NOW });
+      expect(s.cardsAnswered).toBe(s0.cardsAnswered + 1);
+      // A miss comes back after the others, until it is found.
+      expect(s.current.iso3).toBe("IND");
+      s = answerAndDismiss(s, "IND");
+      expect(s.current.iso3).toBe("JPN");
+      expect(s.roundDone).toBe(false);
+      s = answerAndDismiss(s, "JPN");
+      // Back on the result card, exactly as it was.
+      expect(s.sessionDone).toBe(true);
+      expect(s.phase).toBe("normal");
+      expect(s.expedition).toBe(s0.expedition);
+      expect(s.srsStore).toBe(s0.srsStore);
+      expect(s.roundsCompleted).toBe(s0.roundsCompleted);
+      expect(s.cardsAnswered).toBe(s0.cardsAnswered + 3);
+      // The card knows the look ran to its end, until a new look or leaving.
+      expect(s.expeditionLookDone).toBe(true);
+      expect(reducer(s, { type: "startReview" }).expeditionLookDone).toBe(false);
+      expect(
+        reducer(s, { type: "setPracticeMode", mode: "study", now: NOW })
+          .expeditionLookDone,
+      ).toBe(false);
+    });
+
+    it("Done goes back to the result, counting an open reveal", () => {
+      const s0 = reviewing();
+      const answered = reducer(s0, { type: "answer", iso3: "JPN", now: NOW });
+      const s = reducer(answered, { type: "endSession" });
+      expect(s.practiceMode).toBe("expedition");
+      expect(s.sessionDone).toBe(true);
+      expect(s.phase).toBe("normal");
+      expect(s.retryQueue).toEqual([]);
+      expect(s.feedback).toBeNull();
+      expect(s.cardsAnswered).toBe(s0.cardsAnswered + 1);
+      // Left part-way, so the look is not done.
+      expect(s.expeditionLookDone).toBe(false);
+    });
+
+    it("keeps its queue across a scope change, and leaves it behind on the way out", () => {
+      const s = reducer(reviewing(), {
+        type: "setContinents",
+        continents: ["Europe"],
+      });
+      expect(s.retryQueue.map((e) => e.iso3)).toEqual(["JPN", "IND"]);
+      const left = reducer(s, { type: "setPracticeMode", mode: "study", now: NOW });
+      expect(left.retryQueue).toEqual([]);
+      expect(left.phase).toBe("normal");
+    });
+  });
 });
 
 // ── R3.2: a record per fact, and the capital modes ───────────────────────────

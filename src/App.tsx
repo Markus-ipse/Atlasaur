@@ -204,6 +204,8 @@ export default function App() {
           store={state.expedition}
           streakDay={game.streak.day}
           nameFromIso3={game.nameFromIso3}
+          lookDone={state.expeditionLookDone}
+          onReview={game.startReview}
           onClose={() => game.setPracticeMode("study")}
         />
       )}
