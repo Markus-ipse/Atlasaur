@@ -90,6 +90,88 @@ function tile(group: HTMLElement, label: string): string | null {
   return within(group).getByText(label).nextElementSibling?.textContent ?? null;
 }
 
+function renderTest(figures: {
+  score: number;
+  total: number;
+  missed?: Country[];
+  unlearnedCount?: number;
+  completedCount: number;
+  totalInScope?: number;
+}) {
+  render(
+    <SessionSummary
+      practiceMode="quiz"
+      score={figures.score}
+      total={figures.total}
+      missed={figures.missed ?? []}
+      unlearnedCount={figures.unlearnedCount ?? 0}
+      completedCount={figures.completedCount}
+      totalInScope={figures.totalInScope ?? 12}
+      dueCount={0}
+      nextBack={null}
+      caughtUp={false}
+      spotlightSubregion={null}
+      newAvailableCount={0}
+      srsStore={emptyStore()}
+      sittingCards={0}
+      sittingRight={0}
+      sittingNew={0}
+      sittingRecovered={0}
+      missQueued={false}
+      progressSaved={false}
+      fact="location"
+      scopeIso3s={new Set()}
+      countries={COUNTRIES}
+      onReview={vi.fn()}
+      onPlayAgain={vi.fn()}
+      onStartTest={vi.fn()}
+      onBackToStudy={vi.fn()}
+      onKeepStudying={vi.fn()}
+      onSetSpotlight={vi.fn()}
+      expedition={{ kind: "fresh" }}
+      onExpedition={vi.fn()}
+    />,
+  );
+}
+
+describe("TestSummary", () => {
+  it("does not grade or praise a test ended before any answer", () => {
+    renderTest({ score: 0, total: 0, completedCount: 0 });
+    expect(screen.getByText("No questions answered.")).toBeTruthy();
+    expect(screen.queryByText(/clean run/)).toBeNull();
+    expect(screen.queryByText("0%")).toBeNull();
+    expect(screen.getByText("Right").nextElementSibling?.textContent).toBe("—");
+  });
+
+  it("says how much of a test ended early was right and left", () => {
+    const peru = COUNTRIES.find((c) => c.iso3 === "PER")!;
+    renderTest({
+      score: 3,
+      total: 4,
+      missed: [peru],
+      unlearnedCount: 1,
+      completedCount: 3,
+    });
+    // Counted in countries, adding up to the twelve: three right, Peru
+    // waiting to be tried again, eight never asked.
+    expect(screen.getByText("3 right · 1 to try again · 8 not yet asked")).toBeTruthy();
+    expect(screen.queryByText(/clean run/)).toBeNull();
+  });
+
+  it("keeps the praise for a clean run through the whole test", () => {
+    renderTest({ score: 12, total: 12, completedCount: 12 });
+    expect(screen.getByText("No misses — clean run!")).toBeTruthy();
+    expect(screen.queryByText(/not yet asked/)).toBeNull();
+  });
+
+  it("keeps the praise out of a partial test without misses", () => {
+    renderTest({ score: 2, total: 2, completedCount: 2 });
+    expect(screen.getByText("2 right · 10 not yet asked")).toBeTruthy();
+    expect(screen.getByText("No misses.")).toBeTruthy();
+    expect(screen.queryByText(/clean run/)).toBeNull();
+  });
+});
+
 describe("StudySummary figures", () => {
   it("heads the scoped four with the fact and the lifetime two separately", () => {
     renderStudy("location");

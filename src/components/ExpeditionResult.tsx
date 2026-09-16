@@ -20,8 +20,8 @@ type Props = {
   onClose: () => void;
 };
 
-type ShareState = "idle" | "copied" | "failed";
-const COPIED_MS = 2000;
+type ShareState = "idle" | "shared" | "copied" | "failed";
+const DONE_MS = 2000;
 
 // The expedition's result card, which is also its summary and its round
 // break. Shows the row and the caption exactly as they leave the app, the
@@ -39,8 +39,8 @@ export function ExpeditionResult({ store, streakDay, nameFromIso3, onClose }: Pr
   }, []);
 
   useEffect(() => {
-    if (shareState !== "copied") return;
-    const id = window.setTimeout(() => setShareState("idle"), COPIED_MS);
+    if (shareState !== "shared" && shareState !== "copied") return;
+    const id = window.setTimeout(() => setShareState("idle"), DONE_MS);
     return () => window.clearTimeout(id);
   }, [shareState]);
 
@@ -51,6 +51,9 @@ export function ExpeditionResult({ store, streakDay, nameFromIso3, onClose }: Pr
     if (typeof navigator.share === "function") {
       try {
         await navigator.share({ text });
+        // Acknowledged like a copy: a sheet that closed on its own after a
+        // share left the button looking as if nothing had happened.
+        setShareState("shared");
         return;
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
@@ -143,8 +146,19 @@ export function ExpeditionResult({ store, streakDay, nameFromIso3, onClose }: Pr
             onClick={share}
             className={primaryClass}
           >
-            {shareState === "copied" ? "Copied" : "Share"}
+            {shareState === "shared"
+              ? "Shared"
+              : shareState === "copied"
+                ? "Copied"
+                : "Share"}
           </button>
+          {/* The button's label changes, which a screen reader does not
+              announce; the failure line below already is. */}
+          {(shareState === "shared" || shareState === "copied") && (
+            <p className="sr-only" role="status">
+              {shareState === "shared" ? "Shared" : "Copied"}
+            </p>
+          )}
           {shareState === "failed" && (
             <p className="text-xs text-ink-mid text-center" role="status">
               Couldn't copy — select the text above to copy it by hand.

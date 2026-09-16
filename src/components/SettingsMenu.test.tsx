@@ -16,6 +16,7 @@ function open(overrides: {
   includeTerritories?: boolean;
   onSetMode?: (mode: QuestionMode) => void;
   modeLocked?: boolean;
+  onSetContinents?: (continents: readonly Continent[]) => void;
 }) {
   render(
     <SettingsMenu
@@ -29,7 +30,7 @@ function open(overrides: {
       onSetMode={overrides.onSetMode ?? (() => {})}
       modeLocked={overrides.modeLocked}
       selectedContinents={overrides.selectedContinents ?? ALL_CONTINENTS}
-      onSetContinents={() => {}}
+      onSetContinents={overrides.onSetContinents ?? (() => {})}
       includeTerritories={overrides.includeTerritories ?? false}
       onSetIncludeTerritories={() => {}}
       dueCount={0}
@@ -117,6 +118,85 @@ describe("SettingsMenu — continent chips", () => {
     cleanup();
     open({ mode: "country-to-capital", includeTerritories: true });
     expect(screen.queryByRole("checkbox", { name: "Antarctica" })).toBeNull();
+  });
+});
+
+describe("SettingsMenu — editing the selection", () => {
+  it("drops a hidden continent when a visible chip is edited", () => {
+    // South America picked alone from the world while territories were off
+    // left Antarctica selected out of sight; turning territories on then
+    // asked about it.
+    const onSetContinents = vi.fn();
+    open({
+      selectedContinents: ["South America", "Europe", "Antarctica"],
+      onSetContinents,
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Europe" }));
+    expect(onSetContinents).toHaveBeenCalledWith(["South America"]);
+  });
+
+  it("keeps a visible Antarctica when another chip is edited", () => {
+    const onSetContinents = vi.fn();
+    open({
+      selectedContinents: ["South America", "Europe", "Antarctica"],
+      includeTerritories: true,
+      onSetContinents,
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Europe" }));
+    expect(onSetContinents).toHaveBeenCalledWith(["Antarctica", "South America"]);
+  });
+});
+
+describe("SettingsMenu — the popup", () => {
+  const innerWidth = window.innerWidth;
+  afterEach(() => {
+    vi.restoreAllMocks();
+    Object.defineProperty(window, "innerWidth", { value: innerWidth, configurable: true });
+  });
+
+  function gearAt(left: number, viewport: number) {
+    Object.defineProperty(window, "innerWidth", { value: viewport, configurable: true });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      left,
+      right: left + 44,
+      top: 60,
+      bottom: 104,
+      width: 44,
+      height: 44,
+      x: left,
+      y: 60,
+      toJSON: () => ({}),
+    });
+  }
+
+  it("has an accessible name", () => {
+    open({});
+    expect(screen.getByRole("dialog", { name: "Settings" })).toBeDefined();
+  });
+
+  it("stays inside a narrow viewport when the gear wraps to the left", () => {
+    // 320px phone, header wrapped: the gear sits at the left of a second line.
+    gearAt(16, 320);
+    open({});
+    const popup = screen.getByRole("dialog", { name: "Settings" });
+    expect(popup.style.width).toBe("288px");
+    // left edge = 320 - 24 - 288 = 8
+    expect(popup.style.right).toBe("24px");
+  });
+
+  it("spans the viewport less its gutters where the popup cannot fit", () => {
+    gearAt(200, 280);
+    open({});
+    const popup = screen.getByRole("dialog", { name: "Settings" });
+    expect(popup.style.width).toBe("264px");
+    expect(popup.style.right).toBe("8px");
+  });
+
+  it("still anchors to the gear's right edge where there is room", () => {
+    gearAt(1200, 1280);
+    open({});
+    const popup = screen.getByRole("dialog", { name: "Settings" });
+    expect(popup.style.right).toBe("36px");
   });
 });
 

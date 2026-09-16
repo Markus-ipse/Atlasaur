@@ -14,8 +14,14 @@ import { ContinentChip } from "./ContinentChip";
 type PopupCoords = {
   top: number;
   right: number;
+  width: number;
   maxHeight: number;
 };
+
+// The popup's width where there is room for it, and the gap it keeps from
+// either edge of the viewport where there is not.
+const POPUP_WIDTH_PX = 288;
+const POPUP_GUTTER_PX = 8;
 
 type Props = {
   mode: QuestionMode;
@@ -111,7 +117,17 @@ export function SettingsMenu({
       const trigger = triggerRef.current;
       if (!trigger) return;
       const rect = trigger.getBoundingClientRect();
-      const right = Math.max(8, window.innerWidth - rect.right);
+      const vw = window.innerWidth;
+      // Anchored to the gear's right edge, but never past either side of the
+      // viewport: when the header wraps on a narrow phone the gear lands on
+      // the left of a second line, and a right-anchored 288px popup opened
+      // off the left edge. On a viewport narrower than the popup plus its
+      // gutters it spans the width instead.
+      const width = Math.min(POPUP_WIDTH_PX, vw - 2 * POPUP_GUTTER_PX);
+      const right = Math.min(
+        Math.max(POPUP_GUTTER_PX, vw - rect.right),
+        vw - POPUP_GUTTER_PX - width,
+      );
       // Always open downward — the gear is now at the top of the viewport in
       // portrait (under the status bar) and at the top of the sidebar in
       // landscape, so down has space in both cases. Constrain max-height so
@@ -119,7 +135,7 @@ export function SettingsMenu({
       // if its content doesn't fit (e.g. short landscape phones).
       const top = rect.bottom + 8;
       const maxHeight = Math.max(160, window.innerHeight - top - 8);
-      setCoords({ top, right, maxHeight });
+      setCoords({ top, right, width, maxHeight });
     };
     update();
     window.addEventListener("resize", update);
@@ -140,8 +156,9 @@ export function SettingsMenu({
   // the current setting and fact has no chip. That hides Antarctica while
   // territories are off (it holds only territories) and in a capital mode
   // whether they are on or not (its two rows have no capital). A hidden
-  // continent can still be SELECTED — the selection survives the toggle — so
-  // the "keep at least one" lock counts visible chips only, and the last
+  // continent can still be SELECTED — the selection survives the territories
+  // toggle until the next chip edit drops it — so the "keep at least one"
+  // lock counts visible chips only, and the last
   // visible one can't be switched off to leave an empty pool.
   //
   // The LEARNER's fact, not the mode's: those differ during an expedition,
@@ -161,7 +178,13 @@ export function SettingsMenu({
   const handleToggleContinent = (continent: Continent) => {
     const isSelected = selectedSet.has(continent);
     if (isSelected && visibleSelectedCount === 1) return;
-    const next = new Set(selectedSet);
+    // The edit is made against the chips the learner can see, so a hidden
+    // continent leaves the selection with it. Otherwise picking South America
+    // alone kept Antarctica selected out of sight, and turning territories on
+    // then asked about a region the learner never chose. Switching
+    // territories off and on again without touching a chip still restores
+    // the old scope.
+    const next = new Set(selectedContinents.filter(askable));
     if (isSelected) next.delete(continent);
     else next.add(continent);
     onSetContinents(ALL_CONTINENTS.filter((c) => next.has(c)));
@@ -185,13 +208,15 @@ export function SettingsMenu({
           <div
             ref={popupRef}
             role="dialog"
+            aria-label="Settings"
             style={{
               position: "fixed",
               top: coords.top,
               right: coords.right,
+              width: coords.width,
               maxHeight: coords.maxHeight,
             }}
-            className="z-50 w-72 rounded-lg border border-ink-faded/40 bg-parchment-base shadow-lg p-3 flex flex-col gap-3 overflow-y-auto"
+            className="z-50 rounded-lg border border-ink-faded/40 bg-parchment-base shadow-lg p-3 flex flex-col gap-3 overflow-y-auto"
           >
             <div>
               <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Question</p>
