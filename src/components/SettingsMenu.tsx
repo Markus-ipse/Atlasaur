@@ -10,12 +10,21 @@ import { continentAskable } from "../game/useGame";
 import type { ThemePref } from "../theme";
 import { knownGain, type Counters, type ReturnInfo } from "../game/counters";
 import { ContinentChip } from "./ContinentChip";
+import { scopeLine } from "./scopeSummary";
 
 type PopupCoords = {
   top: number;
   right: number;
   width: number;
   maxHeight: number;
+};
+
+// One plain example per question, under the picker.
+const MODE_EXAMPLE: Record<QuestionMode, string> = {
+  "name-to-click": "Find Peru on the map.",
+  "shape-to-name": "Type the name of the highlighted country.",
+  "capital-to-click": "Given Lima, find Peru on the map.",
+  "country-to-capital": "Given Peru, type its capital, Lima.",
 };
 
 // The popup's width where there is room for it, and the gap it keeps from
@@ -32,6 +41,8 @@ type Props = {
   // An expedition is Name → Click only; the picker is shown but inert.
   modeLocked?: boolean;
   selectedContinents: readonly Continent[];
+  // How many the selection holds, for the scope line under the chips.
+  totalInScope: number;
   onSetContinents: (continents: readonly Continent[]) => void;
   includeTerritories: boolean;
   onSetIncludeTerritories: (value: boolean) => void;
@@ -57,6 +68,7 @@ export function SettingsMenu({
   onSetMode,
   modeLocked = false,
   selectedContinents,
+  totalInScope,
   onSetContinents,
   includeTerritories,
   onSetIncludeTerritories,
@@ -235,15 +247,19 @@ export function SettingsMenu({
                     active={mode === "name-to-click"}
                     disabled={modeLocked}
                     onClick={() => handleSetMode("name-to-click")}
+                    example={MODE_EXAMPLE["name-to-click"]}
+                    ariaLabel="Countries, on the map"
                   >
-                    Name → Click
+                    On the map
                   </ModeButton>
                   <ModeButton
                     active={mode === "shape-to-name"}
                     disabled={modeLocked}
                     onClick={() => handleSetMode("shape-to-name")}
+                    example={MODE_EXAMPLE["shape-to-name"]}
+                    ariaLabel="Countries, by typing"
                   >
-                    Shape → Name
+                    By typing
                   </ModeButton>
                 </ModeRow>
                 <ModeRow label="Capitals">
@@ -252,31 +268,42 @@ export function SettingsMenu({
                     describedBy={pickerNoteId}
                     disabled={modeLocked || !capitalsAskable}
                     onClick={() => handleSetMode("capital-to-click")}
+                    example={MODE_EXAMPLE["capital-to-click"]}
+                    ariaLabel="Capitals, on the map"
                   >
-                    Capital → Click
+                    On the map
                   </ModeButton>
                   <ModeButton
                     active={mode === "country-to-capital"}
                     describedBy={pickerNoteId}
                     disabled={modeLocked || !capitalsAskable}
                     onClick={() => handleSetMode("country-to-capital")}
+                    example={MODE_EXAMPLE["country-to-capital"]}
+                    ariaLabel="Capitals, by typing"
                   >
-                    Country → Capital
+                    By typing
                   </ModeButton>
                 </ModeRow>
               </div>
               {/* The reason an option is unavailable, tied to the options it
-                  explains so a screen reader reaches it too. */}
+                  explains so a screen reader reaches it too. Otherwise an
+                  example of the chosen question, since "On the map" alone
+                  does not say what is asked. */}
               {modeLocked ? (
                 <p id={pickerNoteId} className="text-xs text-ink-mid mt-1">
-                  An expedition is always Name → Click.
+                  An expedition always asks you to find countries on the map, anywhere in the world.
                 </p>
               ) : (
-                !capitalsAskable && (
-                  <p id={pickerNoteId} className="text-xs text-ink-mid mt-1">
-                    Nothing in this scope has a capital.
+                <>
+                  <p className="text-xs text-ink-mid mt-1">
+                    For example: {MODE_EXAMPLE[mode]}
                   </p>
-                )
+                  {!capitalsAskable && (
+                    <p id={pickerNoteId} className="text-xs text-ink-mid mt-1">
+                      Nothing in this scope has a capital.
+                    </p>
+                  )}
+                </>
               )}
             </div>
             <div>
@@ -300,6 +327,9 @@ export function SettingsMenu({
                   );
                 })}
               </div>
+              <p className="text-xs text-ink-mid mt-1">
+                {scopeLine(selectedContinents, includeTerritories, fact, totalInScope)}
+              </p>
               <label className="mt-2 flex items-center gap-2 text-sm text-ink-deep cursor-pointer">
                 <input
                   type="checkbox"
@@ -450,13 +480,21 @@ function ModeButton({
   active,
   disabled = false,
   describedBy,
+  ariaLabel,
+  example,
   onClick,
   children,
 }: {
   active: boolean;
   disabled?: boolean;
+  // The visible label repeats across rows ("On the map"), so the row's name
+  // goes into the accessible one.
+  ariaLabel?: string;
   // Id of the note saying why this option is unavailable, when there is one.
   describedBy?: string;
+  // What the question asks, readable before choosing it: a tooltip, which is
+  // also the button's description, since its name comes from ariaLabel.
+  example?: string;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -465,11 +503,13 @@ function ModeButton({
       type="button"
       role="radio"
       aria-checked={active}
+      aria-label={ariaLabel}
+      title={example}
       aria-describedby={disabled ? describedBy : undefined}
       disabled={disabled}
       onClick={onClick}
       className={
-        "flex-1 min-h-9 px-3 rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep disabled:opacity-50 disabled:cursor-not-allowed " +
+        "flex-1 min-h-9 px-2 whitespace-nowrap rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep disabled:opacity-50 disabled:cursor-not-allowed " +
         (active ? "bg-ink-deep text-parchment-base" : "text-ink-mid hover:bg-parchment-base")
       }
     >

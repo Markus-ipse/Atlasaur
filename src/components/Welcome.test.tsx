@@ -37,7 +37,7 @@ describe("Welcome", () => {
     fireEvent.click(big);
     expect(onStartBig).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "Pick a region" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /test me/ }));
+    fireEvent.click(screen.getByRole("button", { name: /test all \d+ countries/ }));
     expect(onStartTest).toHaveBeenCalledTimes(1);
   });
 

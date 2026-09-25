@@ -1,5 +1,12 @@
 import { useEffect, useRef } from "react";
-import type { Country, Fact, PracticeMode, SrsStore, Subregion } from "../types";
+import type {
+  Continent,
+  Country,
+  Fact,
+  PracticeMode,
+  SrsStore,
+  Subregion,
+} from "../types";
 import {
   lifetimeAccuracy as srsLifetimeAccuracy,
   learnedCount as srsLearnedCount,
@@ -13,6 +20,7 @@ import type { ExpeditionStatus } from "../game/expedition";
 import type { TestTally } from "../game/testTally";
 import { ExpeditionDoor } from "./ExpeditionDoor";
 import { tallyParts } from "./tallyParts";
+import { subject, testDoorLabel } from "./scopeSummary";
 import { NO_MORE_NEW, nextBackOrNothing } from "../game/nextBack";
 
 type Props = {
@@ -56,6 +64,9 @@ type Props = {
   // count over it; the two lifetime rows are across every fact.
   fact: Fact;
   scopeIso3s: ReadonlySet<string>;
+  // The scope in the learner's own terms, for the test door's label.
+  selectedContinents: readonly Continent[];
+  includeTerritories: boolean;
   countries: readonly Country[];
   onReview: () => void;
   onPlayAgain: () => void;
@@ -68,14 +79,6 @@ type Props = {
   onExpedition: () => void;
 };
 
-// What the figures on these cards are counting. The learner's fact changed
-// what "Known 3" means; the copy has to say so, or a capitals learner with a
-// fully inked map reads "174 countries still to meet" as lost progress.
-function subject(fact: Fact, n: number): string {
-  if (fact === "capital") return n === 1 ? "capital" : "capitals";
-  return n === 1 ? "country" : "countries";
-}
-
 export function SessionSummary(props: Props) {
   return props.practiceMode === "study" ? (
     <StudySummary {...props} />
@@ -84,7 +87,7 @@ export function SessionSummary(props: Props) {
   );
 }
 
-// Summary for a "Test me on these" round (practiceMode "quiz" in code).
+// Summary for a test round (practiceMode "quiz" in code).
 // Scored on first tries, in countries (testTally.ts): the same four parts
 // the status bar and the round break show, so the figures reconcile.
 function TestSummary({
@@ -241,6 +244,8 @@ function StudySummary({
   progressSaved,
   fact,
   scopeIso3s,
+  selectedContinents,
+  includeTerritories,
   countries,
   onStartTest,
   onKeepStudying,
@@ -273,8 +278,6 @@ function StudySummary({
 
   const secondaryClass =
     "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
-
-  const scopeLabel = `${totalInScope} ${subject(fact, totalInScope)}`;
 
   // What Keep going picks next, in the scheduler's own order: what has come
   // back, then new cards while the stretch's cap allows them. With neither it
@@ -438,10 +441,15 @@ function StudySummary({
             onClick={onStartTest}
             className={stackedSecondaryClass}
           >
-            <span>Test me on these</span>
-            <span className={secondarySubClass}>
-              All {scopeLabel}, scored on first tries
+            <span>
+              {testDoorLabel(
+                selectedContinents,
+                includeTerritories,
+                fact,
+                totalInScope,
+              )}
             </span>
+            <span className={secondarySubClass}>Scored on first tries</span>
           </button>
           <ExpeditionDoor
             status={expedition}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ALL_CONTINENTS, type Continent } from "../types";
-import { continentAskable } from "../game/useGame";
+import { continentAskable, filterPool } from "../game/useGame";
+import { scopeLine } from "./scopeSummary";
 import { ContinentChip } from "./ContinentChip";
 
 type Props = {
@@ -12,7 +13,7 @@ type Props = {
   onStartBig: () => void;
   // Study, narrowed to the chosen continents.
   onStartRegion: (continents: readonly Continent[]) => void;
-  // A "Test me on these" round over everything.
+  // A test round over everything.
   onStartTest: () => void;
 };
 
@@ -116,6 +117,16 @@ export function Welcome({
                   </ContinentChip>
                 ))}
               </div>
+              {picked.size > 0 && (
+                <p className="text-xs text-ink-mid mt-1">
+                  {scopeLine(
+                    [...picked],
+                    includeTerritories,
+                    "location",
+                    filterPool([...picked], includeTerritories, "location").length,
+                  )}
+                </p>
+              )}
             </div>
             <div className="flex flex-col gap-2">
               <button
@@ -160,7 +171,9 @@ export function Welcome({
                 Pick a region
               </button>
               <button type="button" onClick={onStartTest} className={quietClass}>
-                I know my way around — test me
+                I know my way around — test all{" "}
+                {filterPool(ALL_CONTINENTS, includeTerritories, "location").length}{" "}
+                countries
               </button>
             </div>
           </div>

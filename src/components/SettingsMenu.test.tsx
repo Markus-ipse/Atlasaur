@@ -17,6 +17,7 @@ function open(overrides: {
   onSetMode?: (mode: QuestionMode) => void;
   modeLocked?: boolean;
   onSetContinents?: (continents: readonly Continent[]) => void;
+  totalInScope?: number;
 }) {
   render(
     <SettingsMenu
@@ -30,6 +31,7 @@ function open(overrides: {
       onSetMode={overrides.onSetMode ?? (() => {})}
       modeLocked={overrides.modeLocked}
       selectedContinents={overrides.selectedContinents ?? ALL_CONTINENTS}
+      totalInScope={overrides.totalInScope ?? 199}
       onSetContinents={overrides.onSetContinents ?? (() => {})}
       includeTerritories={overrides.includeTerritories ?? false}
       onSetIncludeTerritories={() => {}}
@@ -59,22 +61,50 @@ describe("SettingsMenu — the question picker", () => {
     expect(screen.getByText("Countries")).toBeDefined();
     expect(screen.getByText("Capitals")).toBeDefined();
     for (const label of [
-      "Name → Click",
-      "Shape → Name",
-      "Capital → Click",
-      "Country → Capital",
+      "Countries, on the map",
+      "Countries, by typing",
+      "Capitals, on the map",
+      "Capitals, by typing",
     ]) {
       expect(option(label)).toBeDefined();
     }
   });
 
+  it("names the answer, not the mechanism, and gives one example", () => {
+    open({ mode: "capital-to-click" });
+    expect(screen.getAllByText("On the map")).toHaveLength(2);
+    expect(screen.getAllByText("By typing")).toHaveLength(2);
+    expect(screen.queryByText(/→/)).toBeNull();
+    expect(
+      screen.getByText("For example: Given Lima, find Peru on the map."),
+    ).toBeDefined();
+  });
+
+  it("says what each option asks before it is chosen", () => {
+    open({ mode: "name-to-click" });
+    expect(option("Capitals, on the map").title).toBe(
+      "Given Lima, find Peru on the map.",
+    );
+  });
+
+  it("keeps the example beside the no-capital note", () => {
+    open({ selectedContinents: ["Antarctica"], includeTerritories: true });
+    expect(screen.getByText("For example: Find Peru on the map.")).toBeDefined();
+    expect(screen.getByText("Nothing in this scope has a capital.")).toBeDefined();
+  });
+
+  it("says what the chosen scope holds", () => {
+    open({ selectedContinents: ["South America"], totalInScope: 12 });
+    expect(screen.getByText("South America · 12 countries")).toBeDefined();
+  });
+
   it("marks the active question and picks a new one", () => {
     const onSetMode = vi.fn();
     open({ mode: "country-to-capital", onSetMode });
-    expect(option("Country → Capital").getAttribute("aria-checked")).toBe("true");
-    expect(option("Name → Click").getAttribute("aria-checked")).toBe("false");
+    expect(option("Capitals, by typing").getAttribute("aria-checked")).toBe("true");
+    expect(option("Countries, on the map").getAttribute("aria-checked")).toBe("false");
 
-    fireEvent.click(option("Capital → Click"));
+    fireEvent.click(option("Capitals, on the map"));
     expect(onSetMode).toHaveBeenCalledWith("capital-to-click");
   });
 
@@ -82,29 +112,31 @@ describe("SettingsMenu — the question picker", () => {
     // Antarctica's two rows have none, so a capital mode would have nothing
     // to ask. The selection is never rewritten to make room for one.
     open({ selectedContinents: ["Antarctica"], includeTerritories: true });
-    expect(option("Capital → Click").disabled).toBe(true);
-    expect(option("Country → Capital").disabled).toBe(true);
-    expect(option("Name → Click").disabled).toBe(false);
+    expect(option("Capitals, on the map").disabled).toBe(true);
+    expect(option("Capitals, by typing").disabled).toBe(true);
+    expect(option("Countries, on the map").disabled).toBe(false);
     expect(screen.getByText("Nothing in this scope has a capital.")).toBeDefined();
   });
 
   it("enables them again as soon as one continent can be asked", () => {
     open({ selectedContinents: ["Antarctica", "Europe"], includeTerritories: true });
-    expect(option("Capital → Click").disabled).toBe(false);
+    expect(option("Capitals, on the map").disabled).toBe(false);
     expect(screen.queryByText("Nothing in this scope has a capital.")).toBeNull();
   });
 
   it("locks every option during an expedition", () => {
     open({ modeLocked: true });
     for (const label of [
-      "Name → Click",
-      "Shape → Name",
-      "Capital → Click",
-      "Country → Capital",
+      "Countries, on the map",
+      "Countries, by typing",
+      "Capitals, on the map",
+      "Capitals, by typing",
     ]) {
       expect(option(label).disabled).toBe(true);
     }
-    expect(screen.getByText("An expedition is always Name → Click.")).toBeDefined();
+    expect(
+      screen.getByText("An expedition always asks you to find countries on the map, anywhere in the world."),
+    ).toBeDefined();
   });
 });
 
