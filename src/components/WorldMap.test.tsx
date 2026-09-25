@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from "vitest";
-import { render, cleanup, fireEvent } from "@testing-library/react";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { render, cleanup, fireEvent, act } from "@testing-library/react";
 import { WorldMap } from "./WorldMap";
 import type { Palette } from "./fillFor";
-import { ALL_CONTINENTS, type Continent, type Feedback } from "../types";
+import { ALL_CONTINENTS, type Continent, type Country, type Feedback } from "../types";
+import countriesData from "../data/countries.json";
 import type { MasteryTier } from "../game/srs";
 import { LABELS_BY_NUMERIC, polygonsFor } from "./mapGeometry";
 import { pointInPolygon } from "./polygon";
@@ -723,5 +724,270 @@ describe("WorldMap — markers (R3.4)", () => {
     );
     expect(dot(container)?.getAttribute("fill")).toBe(PALETTE.skipped);
     expect(capitalDotCircles(container)).toHaveLength(0);
+  });
+});
+
+describe("WorldMap — map controls (#62)", () => {
+  afterEach(cleanup);
+
+  // The real table's ids, so the region frames fit real shapes.
+  const TABLE = countriesData as Country[];
+  const NUM = new Map(TABLE.map((c) => [c.iso3, c.numeric]));
+  const ISO = new Map(TABLE.map((c) => [c.numeric, c.iso3]));
+  const props = {
+    ...BASE_PROPS,
+    isoFromNumeric: (n: string) => ISO.get(n),
+    numericFromIso3: (iso3: string) => NUM.get(iso3),
+    feedback: null,
+    revealCapitalLonLat: null,
+  };
+  const inSubregion = (s: string) =>
+    new Set(TABLE.filter((c) => c.subregion === s).map((c) => c.iso3));
+
+  // Under reduced motion every zoom applies at once, so a press can be read
+  // back in the same tick.
+  let restoreMatchMedia: (() => void) | null = null;
+  afterEach(() => {
+    restoreMatchMedia?.();
+    restoreMatchMedia = null;
+  });
+  function withReducedMotion() {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: query === "(prefers-reduced-motion: reduce)",
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+    restoreMatchMedia = () => {
+      window.matchMedia = original;
+    };
+  }
+
+  const zoomGroup = (c: HTMLElement) => c.querySelector("svg > g[transform]")!;
+  // d3's ZoomTransform prints as "translate(x,y) scale(k)".
+  function viewOf(c: HTMLElement) {
+    const m = /translate\(([-\d.e]+),([-\d.e]+)\) scale\(([-\d.e]+)\)/.exec(
+      zoomGroup(c).getAttribute("transform")!,
+    )!;
+    return { x: Number(m[1]), y: Number(m[2]), k: Number(m[3]) };
+  }
+  const button = (c: HTMLElement, name: string) =>
+    c.querySelector<HTMLButtonElement>(`button[aria-label="${name}"]`);
+
+  it("offers Zoom in and Zoom out, with Zoom out disabled at the whole world", () => {
+    const { container } = render(<WorldMap {...props} />);
+    expect(button(container, "Zoom in")!.disabled).toBe(false);
+    expect(button(container, "Zoom out")!.disabled).toBe(true);
+  });
+
+  it("doubles the scale on Zoom in, which enables Zoom out and Reset", () => {
+    withReducedMotion();
+    const { container } = render(<WorldMap {...props} />);
+    fireEvent.click(button(container, "Zoom in")!);
+    expect(viewOf(container).k).toBe(2);
+    expect(button(container, "Zoom out")!.disabled).toBe(false);
+    expect(button(container, "Reset map view")).not.toBeNull();
+    fireEvent.click(button(container, "Zoom out")!);
+    expect(viewOf(container).k).toBe(1);
+    // Back where it rests, so there is nothing to reset.
+    expect(button(container, "Reset map view")).toBeNull();
+  });
+
+  it("offers no World button when the map already rests on the whole world", () => {
+    withReducedMotion();
+    const { container } = render(<WorldMap {...props} />);
+    expect(button(container, "Show the whole world")).toBeNull();
+    fireEvent.click(button(container, "Zoom in")!);
+    // Reset is the way back here; World would be the same action twice.
+    expect(button(container, "Show the whole world")).toBeNull();
+  });
+
+  it("frames a focus's subregion, and World and Reset go out and back", () => {
+    withReducedMotion();
+    const { container } = render(
+      <WorldMap {...props} spotlightIso3Set={inSubregion("Eastern Africa")} />,
+    );
+    const rest = viewOf(container);
+    expect(rest.k).toBeGreaterThan(1.5);
+    // Kenya's anchor is on screen, Canada's is not.
+    const onScreen = (iso3: string) => {
+      const l = LABELS_BY_NUMERIC.get(NUM.get(iso3)!)!;
+      const sx = rest.x + l.cx * rest.k;
+      const sy = rest.y + l.cy * rest.k;
+      return sx >= 0 && sx <= 800 && sy >= 0 && sy <= 400;
+    };
+    expect(onScreen("KEN")).toBe(true);
+    expect(onScreen("CAN")).toBe(false);
+
+    fireEvent.click(button(container, "Show the whole world")!);
+    expect(viewOf(container)).toEqual({ x: 0, y: 0, k: 1 });
+    expect(button(container, "Show the whole world")).toBeNull();
+    fireEvent.click(button(container, "Reset map view")!);
+    expect(viewOf(container)).toEqual(rest);
+    expect(button(container, "Reset map view")).toBeNull();
+  });
+
+  it("keeps the continent filter's frame for a focus with no shapes to fit", () => {
+    const filtered = { ...props, selectedContinents: ["Oceania"] as Continent[] };
+    const { container: plain } = render(<WorldMap {...filtered} />);
+    const filterFrame = viewOf(plain);
+    cleanup();
+    const { container } = render(
+      <WorldMap {...filtered} spotlightIso3Set={inSubregion("Micronesia")} />,
+    );
+    expect(viewOf(container)).toEqual(filterFrame);
+  });
+
+  it("fits a filter to a portrait phone's whole map in a click mode, and to the 2:1 box when typing", () => {
+    const original = globalThis.ResizeObserver;
+    class PortraitObserver {
+      constructor(private cb: ResizeObserverCallback) {}
+      observe(target: Element) {
+        this.cb(
+          [{ target, contentRect: { width: 390, height: 560 } as DOMRectReadOnly } as ResizeObserverEntry],
+          this as unknown as ResizeObserver,
+        );
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = PortraitObserver as unknown as typeof ResizeObserver;
+    try {
+      const southAmerica = { ...props, selectedContinents: ["South America"] as Continent[] };
+      const { container: clicking } = render(<WorldMap {...southAmerica} />);
+      const clickK = viewOf(clicking).k;
+      cleanup();
+      const { container: typing } = render(
+        <WorldMap {...southAmerica} mode="country-to-capital" />,
+      );
+      const typedK = viewOf(typing).k;
+      // South America is tall: the 2:1 band holds it by height, a portrait
+      // map by width, and so much closer.
+      expect(clickK).toBeGreaterThan(typedK * 1.5);
+    } finally {
+      globalThis.ResizeObserver = original;
+    }
+  });
+
+  it("tells a mouse user how to zoom, once, when the card is a speck", () => {
+    // A desktop-sized map, a fine pointer (jsdom has no matchMedia), and
+    // Vatican City, a dot a few pixels across at the world view.
+    const original = globalThis.ResizeObserver;
+    class DesktopObserver {
+      constructor(private cb: ResizeObserverCallback) {}
+      observe(target: Element) {
+        this.cb(
+          [{ target, contentRect: { width: 1600, height: 800 } as DOMRectReadOnly } as ResizeObserverEntry],
+          this as unknown as ResizeObserver,
+        );
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = DesktopObserver as unknown as typeof ResizeObserver;
+    vi.useFakeTimers();
+    localStorage.removeItem("atlasaur:seenPinchHint");
+    try {
+      const { container } = render(<WorldMap {...props} targetIso3="VAT" />);
+      const hint = () => container.querySelector('[role="status"]')?.textContent ?? null;
+      expect(hint()).toBeNull();
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(hint()).toBe("Scroll, or use the + button, to zoom in");
+      expect(localStorage.getItem("atlasaur:seenPinchHint")).toBe("true");
+    } finally {
+      vi.useRealTimers();
+      localStorage.removeItem("atlasaur:seenPinchHint");
+      globalThis.ResizeObserver = original;
+    }
+  });
+
+  it("keeps the learner's zoom through a resize, even after a card that kept the frame", async () => {
+    withReducedMotion();
+    const original = globalThis.ResizeObserver;
+    let report: ((w: number, h: number) => void) | null = null;
+    class ControlledObserver {
+      constructor(private cb: ResizeObserverCallback) {}
+      observe(target: Element) {
+        report = (width, height) =>
+          this.cb(
+            [{ target, contentRect: { width, height } as DOMRectReadOnly } as ResizeObserverEntry],
+            this as unknown as ResizeObserver,
+          );
+        report(390, 560);
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = ControlledObserver as unknown as typeof ResizeObserver;
+    try {
+      const southAmerica = { ...props, selectedContinents: ["South America"] as Continent[] };
+      const { container, rerender } = render(<WorldMap {...southAmerica} targetIso3="ARG" />);
+      // A new card whose resting frame is the same filter frame.
+      rerender(<WorldMap {...southAmerica} targetIso3="BRA" />);
+      fireEvent.click(button(container, "Zoom in")!);
+      const zoomed = viewOf(container);
+      act(() => report!(390, 640));
+      // A settle is a d3 transition, zero-length under reduced motion but
+      // still run on d3's timer; give it a tick to land if it was started.
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 50));
+      });
+      expect(viewOf(container)).toEqual(zoomed);
+      // Reset takes the learner to the frame refitted for the new size.
+      fireEvent.click(button(container, "Reset map view")!);
+      expect(viewOf(container).k).toBeLessThan(zoomed.k);
+      expect(button(container, "Reset map view")).toBeNull();
+    } finally {
+      globalThis.ResizeObserver = original;
+    }
+  });
+
+  it("lines the controls up in a row when a phone keyboard leaves the map short", () => {
+    const original = globalThis.ResizeObserver;
+    let report: ((w: number, h: number) => void) | null = null;
+    class ControlledObserver {
+      constructor(private cb: ResizeObserverCallback) {}
+      observe(target: Element) {
+        report = (width, height) =>
+          this.cb(
+            [{ target, contentRect: { width, height } as DOMRectReadOnly } as ResizeObserverEntry],
+            this as unknown as ResizeObserver,
+          );
+        report(390, 560);
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = ControlledObserver as unknown as typeof ResizeObserver;
+    try {
+      const { container } = render(<WorldMap {...props} mode="country-to-capital" />);
+      const layout = () =>
+        container.querySelector("[data-map-controls]")!.getAttribute("data-map-controls");
+      expect(layout()).toBe("column");
+      act(() => report!(390, 220));
+      expect(layout()).toBe("row");
+    } finally {
+      globalThis.ResizeObserver = original;
+    }
+  });
+
+  it("rests an edge region's frame inside the pan limits, so the first zoom does not jump", () => {
+    const { container } = render(
+      <WorldMap {...props} selectedContinents={["Oceania"] as Continent[]} />,
+    );
+    const { x, y, k } = viewOf(container);
+    expect(k).toBeGreaterThan(1);
+    // The 800 x 400 box, seen through the frame, lies within the map.
+    expect(-x / k).toBeGreaterThanOrEqual(-1e-9);
+    expect((800 - x) / k).toBeLessThanOrEqual(800 + 1e-9);
+    expect(-y / k).toBeGreaterThanOrEqual(-1e-9);
+    expect((400 - y) / k).toBeLessThanOrEqual(400 + 1e-9);
   });
 });

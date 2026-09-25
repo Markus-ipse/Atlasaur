@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  VIEWBOX,
   computeRevealTarget,
+  fitViewport,
+  measuredViewport,
   tryFitUnion,
   widenForContext,
   type Bounds,
 } from "./revealZoom";
+import { isClickMode } from "../game/questionModes";
+import { QUESTION_MODES } from "../types";
 
 const W = 800;
 const H = 400;
@@ -284,5 +289,58 @@ describe("widenForContext (R2.3)", () => {
     const target = fit(medium);
     const widened = widenForContext(target, medium);
     expect(W / widened.k).toBeCloseTo((W / target.k) * PULLBACK, 8);
+  });
+});
+
+describe("fitting to the rendered map", () => {
+  // A portrait phone's map: 390 x 560 CSS px is 800 x ~1149 viewBox units.
+  const TALL = { width: 800, height: 1150 };
+  // Tall bounds, like South America: height binds in the 2:1 box.
+  const tall: Bounds = { x0: 300, y0: 150, x1: 340, y1: 250 };
+
+  it("fits tall bounds closer in a tall viewport", () => {
+    const band = tryFitUnion([tall])!;
+    const portrait = tryFitUnion([tall], TALL)!;
+    expect(band.k).toBeCloseTo(REVEAL_FIT_RATIO * (H / 100));
+    expect(portrait.k).toBeCloseTo(REVEAL_FIT_RATIO * (TALL.height / 100));
+    expect(portrait.k).toBeGreaterThan(band.k);
+    expect([portrait.cx, portrait.cy]).toEqual([band.cx, band.cy]);
+  });
+
+  it("fits exactly as before in the 2:1 box", () => {
+    expect(tryFitUnion([tall], VIEWBOX)).toEqual(tryFitUnion([tall]));
+    expect(computeRevealTarget(tall, null, [], VIEWBOX)).toEqual(
+      computeRevealTarget(tall, null),
+    );
+  });
+
+  it("chooses which neighbours to frame in the 2:1 box, whatever the viewport", () => {
+    // Wide answer-plus-neighbour union beside a compact answer: kept in the
+    // band, and it would be dropped if judged in the tall view, where the
+    // answer alone fits far closer (Papua New Guinea beside Indonesia).
+    const answer: Bounds = { x0: 614, y0: 187, x1: 636, y1: 212 };
+    const neighbour: Bounds = { x0: 683, y0: 208, x1: 704, y1: 231 };
+    const band = computeRevealTarget(answer, null, [neighbour]);
+    const portrait = computeRevealTarget(answer, null, [neighbour], TALL);
+    expect(portrait.cx).toBeCloseTo(band.cx, 10);
+    expect(portrait.cx).toBeGreaterThan((answer.x0 + answer.x1) / 2);
+  });
+
+  it("measures the rendered map in viewBox units, centred either way", () => {
+    expect(measuredViewport({ width: 0, height: 0 })).toBeNull();
+    expect(measuredViewport({ width: 1600, height: 800 })).toEqual(VIEWBOX);
+    const portrait = measuredViewport({ width: 390, height: 560 })!;
+    expect(portrait.width).toBeCloseTo(W);
+    expect(portrait.height).toBeCloseTo((560 / 390) * W);
+    const wide = measuredViewport({ width: 1800, height: 600 })!;
+    expect(wide.height).toBeCloseTo(H);
+    expect(wide.width).toBeCloseTo(3 * H);
+  });
+
+  it.each(QUESTION_MODES)("fits %s to the right box", (mode) => {
+    const portrait = measuredViewport({ width: 390, height: 560 })!;
+    expect(fitViewport(mode, null)).toEqual(VIEWBOX);
+    // Typed modes keep the 2:1 box: a phone keyboard resizes the map there.
+    expect(fitViewport(mode, portrait)).toEqual(isClickMode(mode) ? portrait : VIEWBOX);
   });
 });

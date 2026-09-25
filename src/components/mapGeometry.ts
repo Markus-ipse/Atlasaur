@@ -13,7 +13,7 @@ import type { Topology } from "topojson-specification";
 import topologyJson from "../data/world-110m.json";
 import countriesData from "../data/countries.json";
 import type { Country } from "../types";
-import { H, W, tryFitUnion, type Bounds, type Target } from "./revealZoom";
+import { H, VIEWBOX, W, tryFitUnion, type Bounds, type Target, type Viewport } from "./revealZoom";
 import type { Label } from "./labelLayout";
 import {
   largestRing,
@@ -204,12 +204,15 @@ export const LABELS_BY_NUMERIC = new Map<string, Label>(
 // its continent's and its subregion's frame through the frame's padding
 // (mapGeometry.test.ts pins both). Null when nothing in the set has a shape
 // (the Polynesia and Micronesia subregions are all markers), which callers
-// read as "no frame worth adopting".
-export function frameFor(numerics: readonly string[]): Target | null {
+// read as "no frame worth adopting". Fitted to `viewport` (see fitViewport).
+export function frameFor(
+  numerics: readonly string[],
+  viewport: Viewport = VIEWBOX,
+): Target | null {
   const bounds: Bounds[] = [];
   for (const n of numerics) {
     const lab = LABELS_BY_NUMERIC.get(n);
     if (lab && !lab.marker) bounds.push(lab);
   }
-  return tryFitUnion(bounds);
+  return tryFitUnion(bounds, viewport);
 }
