@@ -70,27 +70,30 @@ describe("SettingsMenu — the question picker", () => {
     }
   });
 
-  it("names the answer, not the mechanism, and gives one example", () => {
+  it("names the answer, not the mechanism, with every example in view", () => {
     open({ mode: "capital-to-click" });
     expect(screen.getAllByText("On the map")).toHaveLength(2);
     expect(screen.getAllByText("By typing")).toHaveLength(2);
     expect(screen.queryByText(/→/)).toBeNull();
-    expect(
-      screen.getByText("For example: Given Lima, find Peru on the map."),
-    ).toBeDefined();
-  });
-
-  it("says what each option asks before it is chosen", () => {
-    open({ mode: "name-to-click" });
-    expect(option("Capitals, on the map").title).toBe(
-      "Given Lima, find Peru on the map.",
+    // Readable before choosing, on touch too: printed, not a tooltip.
+    for (const example of [
+      "Find Peru",
+      "Name the country shown",
+      "Given Lima, find Peru",
+      "Given Peru, type Lima",
+    ]) {
+      expect(screen.getByText(example)).toBeDefined();
+    }
+    expect(option("Capitals, on the map").getAttribute("aria-describedby")).toBe(
+      "settings-example-capital-to-click",
     );
   });
 
-  it("keeps the example beside the no-capital note", () => {
+  it("describes a disabled option by its example and the reason", () => {
     open({ selectedContinents: ["Antarctica"], includeTerritories: true });
-    expect(screen.getByText("For example: Find Peru on the map.")).toBeDefined();
-    expect(screen.getByText("Nothing in this scope has a capital.")).toBeDefined();
+    expect(option("Capitals, by typing").getAttribute("aria-describedby")).toBe(
+      "settings-example-country-to-capital settings-question-note",
+    );
   });
 
   it("says what the chosen scope holds", () => {

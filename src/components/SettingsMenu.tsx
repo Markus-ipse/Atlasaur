@@ -19,13 +19,19 @@ type PopupCoords = {
   maxHeight: number;
 };
 
-// One plain example per question, under the picker.
+// One plain example per question, printed under its option so every one can
+// be read before choosing: choosing mid-round ends the card, and a tooltip is
+// out of reach on a touch screen.
 const MODE_EXAMPLE: Record<QuestionMode, string> = {
-  "name-to-click": "Find Peru on the map.",
-  "shape-to-name": "Type the name of the highlighted country.",
-  "capital-to-click": "Given Lima, find Peru on the map.",
-  "country-to-capital": "Given Peru, type its capital, Lima.",
+  "name-to-click": "Find Peru",
+  "shape-to-name": "Name the country shown",
+  "capital-to-click": "Given Lima, find Peru",
+  "country-to-capital": "Given Peru, type Lima",
 };
+
+function exampleId(mode: QuestionMode): string {
+  return `settings-example-${mode}`;
+}
 
 // The popup's width where there is room for it, and the gap it keeps from
 // either edge of the viewport where there is not.
@@ -242,12 +248,12 @@ export function SettingsMenu({
                   "flex flex-col gap-1" + (modeLocked ? " opacity-60" : "")
                 }
               >
-                <ModeRow label="Countries">
+                <ModeRow label="Countries" pair={["name-to-click", "shape-to-name"]} mode={mode}>
                   <ModeButton
                     active={mode === "name-to-click"}
                     disabled={modeLocked}
                     onClick={() => handleSetMode("name-to-click")}
-                    example={MODE_EXAMPLE["name-to-click"]}
+                    exampleOf="name-to-click"
                     ariaLabel="Countries, on the map"
                   >
                     On the map
@@ -256,19 +262,19 @@ export function SettingsMenu({
                     active={mode === "shape-to-name"}
                     disabled={modeLocked}
                     onClick={() => handleSetMode("shape-to-name")}
-                    example={MODE_EXAMPLE["shape-to-name"]}
+                    exampleOf="shape-to-name"
                     ariaLabel="Countries, by typing"
                   >
                     By typing
                   </ModeButton>
                 </ModeRow>
-                <ModeRow label="Capitals">
+                <ModeRow label="Capitals" pair={["capital-to-click", "country-to-capital"]} mode={mode}>
                   <ModeButton
                     active={mode === "capital-to-click"}
                     describedBy={pickerNoteId}
                     disabled={modeLocked || !capitalsAskable}
                     onClick={() => handleSetMode("capital-to-click")}
-                    example={MODE_EXAMPLE["capital-to-click"]}
+                    exampleOf="capital-to-click"
                     ariaLabel="Capitals, on the map"
                   >
                     On the map
@@ -278,7 +284,7 @@ export function SettingsMenu({
                     describedBy={pickerNoteId}
                     disabled={modeLocked || !capitalsAskable}
                     onClick={() => handleSetMode("country-to-capital")}
-                    example={MODE_EXAMPLE["country-to-capital"]}
+                    exampleOf="country-to-capital"
                     ariaLabel="Capitals, by typing"
                   >
                     By typing
@@ -286,24 +292,17 @@ export function SettingsMenu({
                 </ModeRow>
               </div>
               {/* The reason an option is unavailable, tied to the options it
-                  explains so a screen reader reaches it too. Otherwise an
-                  example of the chosen question, since "On the map" alone
-                  does not say what is asked. */}
+                  explains so a screen reader reaches it too. */}
               {modeLocked ? (
                 <p id={pickerNoteId} className="text-xs text-ink-mid mt-1">
                   An expedition always asks you to find countries on the map, anywhere in the world.
                 </p>
               ) : (
-                <>
-                  <p className="text-xs text-ink-mid mt-1">
-                    For example: {MODE_EXAMPLE[mode]}
+                !capitalsAskable && (
+                  <p id={pickerNoteId} className="text-xs text-ink-mid mt-1">
+                    Nothing in this scope has a capital.
                   </p>
-                  {!capitalsAskable && (
-                    <p id={pickerNoteId} className="text-xs text-ink-mid mt-1">
-                      Nothing in this scope has a capital.
-                    </p>
-                  )}
-                </>
+                )
               )}
             </div>
             <div>
@@ -461,17 +460,43 @@ export function SettingsMenu({
 // names. The pill sits inside the row, so the two rows read as one control.
 function ModeRow({
   label,
+  pair,
+  mode,
   children,
 }: {
   label: string;
+  // The two questions in this row, whose examples sit under their options.
+  pair?: readonly [QuestionMode, QuestionMode];
+  mode?: QuestionMode;
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="w-16 shrink-0 text-xs text-ink-mid">{label}</span>
-      <div className="flex flex-1 gap-1 p-1 rounded-full border border-ink-faded/40 bg-parchment-shadow">
-        {children}
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-center gap-2">
+        <span className="w-16 shrink-0 text-xs text-ink-mid">{label}</span>
+        <div className="flex flex-1 gap-1 p-1 rounded-full border border-ink-faded/40 bg-parchment-shadow">
+          {children}
+        </div>
       </div>
+      {pair && (
+        <div className="flex gap-2">
+          <span className="w-16 shrink-0" />
+          <div className="flex flex-1 gap-1 px-1">
+            {pair.map((m) => (
+              <p
+                key={m}
+                id={exampleId(m)}
+                className={
+                  "flex-1 text-xs leading-tight text-center " +
+                  (m === mode ? "text-ink-deep" : "text-ink-mid")
+                }
+              >
+                {MODE_EXAMPLE[m]}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -481,7 +506,7 @@ function ModeButton({
   disabled = false,
   describedBy,
   ariaLabel,
-  example,
+  exampleOf,
   onClick,
   children,
 }: {
@@ -492,9 +517,8 @@ function ModeButton({
   ariaLabel?: string;
   // Id of the note saying why this option is unavailable, when there is one.
   describedBy?: string;
-  // What the question asks, readable before choosing it: a tooltip, which is
-  // also the button's description, since its name comes from ariaLabel.
-  example?: string;
+  // The question this option asks, whose printed example describes it.
+  exampleOf?: QuestionMode;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -504,8 +528,11 @@ function ModeButton({
       role="radio"
       aria-checked={active}
       aria-label={ariaLabel}
-      title={example}
-      aria-describedby={disabled ? describedBy : undefined}
+      aria-describedby={
+        [exampleOf && exampleId(exampleOf), disabled && describedBy]
+          .filter(Boolean)
+          .join(" ") || undefined
+      }
       disabled={disabled}
       onClick={onClick}
       className={
