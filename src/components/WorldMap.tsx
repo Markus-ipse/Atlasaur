@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { geoGraticule10 } from "d3-geo";
 import { select } from "d3-selection";
 import {
   zoom as d3zoom,
   zoomIdentity,
+  zoomTransform,
   type D3ZoomEvent,
   type ZoomBehavior,
   type ZoomTransform,
@@ -29,11 +30,15 @@ import {
   H,
   MIN_ZOOM,
   MAX_ZOOM,
+  VIEWBOX,
   computeRevealTarget,
+  fitViewport,
+  measuredViewport,
   widenForContext,
   tryFitUnion,
   visibleFrame,
   type Target,
+  type Viewport,
 } from "./revealZoom";
 import {
   COLLISION_PADDING,
@@ -59,7 +64,7 @@ import {
   shouldFrameContinent,
   worthFraming,
 } from "./smallTargets";
-import { isCoarsePointer, loadSeenPinchHint, saveSeenPinchHint } from "./pinchHint";
+import { isCoarsePointer, loadSeenPinchHint, saveSeenPinchHint, zoomHintText } from "./pinchHint";
 
 
 function prefersReducedMotion(): boolean {
@@ -82,6 +87,14 @@ const REVEAL_STAGE2_MS = 700;
 // celebration unwinds gently rather than yanking the view away.
 const RESET_MS = 450;
 const RESET_CORRECT_MS = 900;
+// One press of Zoom in or Zoom out doubles or halves the scale, over this long.
+const ZOOM_STEP_MS = 250;
+const ZOOM_STEP = 2;
+// Below this map height (CSS px) the controls line up in a row rather than a
+// column: a phone keyboard in a typed mode shrinks the map to 200 px or so,
+// where a column of four would cover the whole right edge and could hide the
+// highlighted country.
+const SHORT_MAP_PX = 320;
 
 // The "✔ Correct!" badge is centered on the click point, then lifted up a touch
 // so it clears a fingertip on touch. Clamp the click point this far in from the
@@ -95,6 +108,29 @@ const BADGE_LIFT_Y = 18;
 // stays up this long.
 const PINCH_HINT_SETTLE_MS = 800;
 const PINCH_HINT_MS = 5000;
+
+// Two views that differ by less than a hair of a pixel are the same view.
+function sameView(a: ZoomTransform, b: ZoomTransform): boolean {
+  return (
+    a === b ||
+    (Math.abs(a.k - b.k) < 1e-6 && Math.abs(a.x - b.x) < 1e-3 && Math.abs(a.y - b.y) < 1e-3)
+  );
+}
+
+// Shared by every map control: a 44 px parchment chip over the map.
+const MAP_BUTTON =
+  "flex min-h-11 min-w-11 items-center justify-center rounded-full border border-ink-faded bg-parchment-base/90 backdrop-blur text-sm text-ink-deep shadow-sm hover:bg-parchment-base disabled:cursor-default disabled:text-ink-faded disabled:hover:bg-parchment-base/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
+
+// Drawn rather than typed: IM Fell English is not relied on for a minus
+// sign or a matching plus, and the two must read as a pair.
+function ZoomIcon({ plus }: { plus: boolean }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round">
+      <path d="M3 8h10" />
+      {plus && <path d="M8 3v10" />}
+    </svg>
+  );
+}
 
 type HitDisc = { numericId: string; iso3: string; cx: number; cy: number; r: number };
 
@@ -240,29 +276,73 @@ for (const c of countriesData as Country[]) {
   REGION_BY_NUMERIC.set(c.numeric, { continent: c.continent, subregion: c.subregion });
 }
 
-// Resting-zoom frame: when the user has narrowed the pool with the
-// continent filter, fit the union of those continents' countries instead
-// of returning to the full world. Reuses `tryFitUnion` from the reveal-
-// zoom math so padding/MIN_ZOOM behaviour is identical. Pure (no hooks)
-// so the component can seed `transform` state on first render and avoid
-// a flicker of the "Reset" button before the mount effect syncs d3-zoom.
+// d3-zoom's own constraint, used to keep every resting frame inside the pan
+// limits it enforces on a gesture. zoom.transform applies a transform as
+// given, so an unconstrained frame near the map's edge (the Oceania filter)
+// would sit happily until the first wheel, pinch or Zoom in press, which
+// constrains, and then jump sideways.
+const PAN_LIMITS: [[number, number], [number, number]] = [
+  [0, 0],
+  [W, H],
+];
+const CONSTRAIN = d3zoom<SVGSVGElement, unknown>().constrain();
+function withinPanLimits(t: ZoomTransform): ZoomTransform {
+  const c = CONSTRAIN(t, PAN_LIMITS, PAN_LIMITS);
+  // Hand back the same object when nothing moved, so the world frame stays
+  // the shared zoomIdentity and memos keyed on it stay stable.
+  return c.k === t.k && c.x === t.x && c.y === t.y ? t : c;
+}
+
+// Resting-zoom frame: a Study focus frames its subregion; otherwise, when the
+// user has narrowed the pool with the continent filter, fit the union of
+// those continents' countries instead of returning to the full world. Reuses
+// `tryFitUnion` from the reveal-zoom math so padding/MIN_ZOOM behaviour is
+// identical, fitted to `viewport` (see fitViewport). Both frames are the
+// learner's own choice, so neither gives a card away. Pure (no hooks) so the
+// component can seed `transform` state on first render and avoid a flicker of
+// the "Reset" button before the mount effect syncs d3-zoom.
 function computeBaseTransform(
   selectedContinents: readonly Continent[],
   isInScope: (iso3: string) => boolean,
   isoFromNumeric: (numeric: string) => string | undefined,
+  numericFromIso3: (iso3: string) => string | undefined,
+  spotlightIso3Set: ReadonlySet<string>,
+  viewport: Viewport,
 ): ZoomTransform {
+  if (spotlightIso3Set.size > 0) {
+    // Only what is askable, as for the filter. A subregion of markers alone
+    // (Micronesia, Polynesia) has no shape to fit and keeps the filter frame.
+    const numerics: string[] = [];
+    for (const iso3 of spotlightIso3Set) {
+      const n = isInScope(iso3) ? numericFromIso3(iso3) : undefined;
+      if (n) numerics.push(n);
+    }
+    const focus = frameFor(numerics, viewport);
+    if (focus) return toZoomTransform(focus);
+  }
   if (selectedContinents.length === ALL_CONTINENTS.length) return zoomIdentity;
-  return fitContinents(selectedContinents, isInScope, isoFromNumeric);
+  return fitContinents(selectedContinents, isInScope, isoFromNumeric, viewport);
 }
 
-// Region frames are computed once and reused (one object per region) so the
-// resting-frame memo hands back the same reference for consecutive tiny
-// targets in one region and the settle effect doesn't re-fire.
+// Region frames are computed once per viewport and reused (one object per
+// region) so the resting-frame memo hands back the same reference for
+// consecutive tiny targets in one region and the settle effect doesn't
+// re-fire. A new viewport (a rotated phone) starts the cache afresh.
 const REGION_FRAME = new Map<string, ZoomTransform>();
-function regionFrame(key: string, numerics: readonly string[] | undefined): ZoomTransform {
+let regionFrameViewport = "";
+function regionFrame(
+  key: string,
+  numerics: readonly string[] | undefined,
+  viewport: Viewport,
+): ZoomTransform {
+  const vp = `${viewport.width}x${viewport.height}`;
+  if (vp !== regionFrameViewport) {
+    REGION_FRAME.clear();
+    regionFrameViewport = vp;
+  }
   let t = REGION_FRAME.get(key);
   if (!t) {
-    t = fitNumerics(numerics ?? []);
+    t = fitNumerics(numerics ?? [], viewport);
     REGION_FRAME.set(key, t);
   }
   return t;
@@ -272,6 +352,7 @@ function fitContinents(
   selectedContinents: readonly Continent[],
   isInScope: (iso3: string) => boolean,
   isoFromNumeric: (numeric: string) => string | undefined,
+  viewport: Viewport,
 ): ZoomTransform {
   const numerics: string[] = [];
   for (const cont of selectedContinents) {
@@ -282,14 +363,21 @@ function fitContinents(
       if (iso3 && isInScope(iso3)) numerics.push(n);
     }
   }
-  return fitNumerics(numerics);
+  return fitNumerics(numerics, viewport);
 }
 
-function fitNumerics(numerics: readonly string[]): ZoomTransform {
-  const fit = frameFor(numerics);
-  if (!fit) return zoomIdentity;
+function fitNumerics(numerics: readonly string[], viewport: Viewport): ZoomTransform {
+  const fit = frameFor(numerics, viewport);
+  return fit ? toZoomTransform(fit) : zoomIdentity;
+}
+
+// A fitted frame as a resting transform. The viewBox centre is the screen
+// centre under preserveAspectRatio "xMidYMid meet", whatever the viewport.
+function toZoomTransform(fit: Target): ZoomTransform {
   const k = Math.min(MAX_ZOOM, fit.k);
-  return zoomIdentity.translate(W / 2 - fit.cx * k, H / 2 - fit.cy * k).scale(k);
+  return withinPanLimits(
+    zoomIdentity.translate(W / 2 - fit.cx * k, H / 2 - fit.cy * k).scale(k),
+  );
 }
 
 type Props = {
@@ -301,7 +389,8 @@ type Props = {
   // country has no land neighbors (islands).
   correctNeighborIso3s: readonly string[];
   // Countries inside the active Study spotlight subregion, tinted with an
-  // ambient ochre wash. Empty when no spotlight is active.
+  // ambient ochre wash and framed as the resting view. Empty when no
+  // spotlight is active.
   spotlightIso3Set: ReadonlySet<string>;
   // Ceremony (R2.2): the country that just crossed into "known", hatched for
   // a beat before its pigment lands on the next commit. Null almost always.
@@ -366,6 +455,10 @@ export function WorldMap({
     [correctNeighborIso3s],
   );
   const svgRef = useRef<SVGSVGElement>(null);
+  // Whether the learner has moved the map away from the frame the app last
+  // put it on — a gesture or a map control. A resize leaves such a view
+  // alone; a frame still gliding in is not the learner's and is re-aimed.
+  const learnerMovedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   // The on-map "✔ Correct!" badge appears at the click point. Captured in
@@ -379,7 +472,14 @@ export function WorldMap({
   // briefly be true and flash the Reset button on load with a filtered
   // continent set.
   const [transform, setTransform] = useState<ZoomTransform>(() =>
-    computeBaseTransform(selectedContinents, isInScope, isoFromNumeric),
+    computeBaseTransform(
+      selectedContinents,
+      isInScope,
+      isoFromNumeric,
+      numericFromIso3,
+      spotlightIso3Set,
+      VIEWBOX,
+    ),
   );
   // Rendered SVG dimensions in CSS pixels — used to scale label em so
   // the on-screen label size stays readable on mobile (~375px) without
@@ -395,17 +495,34 @@ export function WorldMap({
     svgSize.width > 0 && svgSize.height > 0
       ? Math.min(svgSize.width / W, svgSize.height / H)
       : 0;
+  // The whole rendered map in viewBox units, or null until measured.
+  const measured = measuredViewport(svgSize);
+  // What every frame is fitted to (see fitViewport). Memoised on its two
+  // numbers, not on svgSize, so a typed mode, which always fits the 2:1 box,
+  // keeps the same frames while a phone keyboard resizes the map.
+  const fitted = fitViewport(mode, measured);
+  const viewport = useMemo<Viewport>(
+    () => ({ width: fitted.width, height: fitted.height }),
+    [fitted.width, fitted.height],
+  );
+  // Read by the reveal effect, which must not restart when the map resizes.
+  const viewportRef = useRef(viewport);
+  viewportRef.current = viewport;
 
   useEffect(() => {
     if (!svgRef.current) return;
     const svg = select(svgRef.current);
+    // The extent is set rather than read from the SVG's viewBox (d3-zoom's
+    // default, which jsdom lacks). It is the viewBox itself, so it is also
+    // the box a Zoom in / Zoom out press scales about the centre of.
     const z = d3zoom<SVGSVGElement, unknown>()
       .scaleExtent([MIN_ZOOM, MAX_ZOOM])
-      .translateExtent([
-        [0, 0],
-        [W, H],
-      ])
+      .extent(PAN_LIMITS)
+      .translateExtent(PAN_LIMITS)
       .on("zoom", (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
+        // A wheel, drag or pinch carries its DOM event; a frame the app
+        // applies does not.
+        if (event.sourceEvent) learnerMovedRef.current = true;
         setTransform(event.transform);
       });
     zoomRef.current = z;
@@ -415,9 +532,17 @@ export function WorldMap({
     };
   }, []);
 
-  useEffect(() => {
+  // A layout effect that also measures once up front, so the first paint is
+  // already fitted to the map's real size rather than to the 2:1 box the
+  // resize observer's first report (after paint) would correct.
+  useLayoutEffect(() => {
     const el = svgRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      setSvgSize({ width: rect.width, height: rect.height });
+    }
+    if (typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) return;
@@ -480,12 +605,15 @@ export function WorldMap({
     // countries fit together at a meaningful zoom (tryFitUnion returns null
     // when the union would need k < MIN_ZOOM). The final frame is always the
     // correct country + its neighbors.
-    const stage1Candidate = wrongLabel ? tryFitUnion([label, wrongLabel]) : null;
+    // Fitted to the same viewport as the resting frame, so on a portrait
+    // phone the reveal never zooms out past the region it was resting on.
+    const fit = viewportRef.current;
+    const stage1Candidate = wrongLabel ? tryFitUnion([label, wrongLabel], fit) : null;
     // R2.3: pull the frame back from the tight fit so the answer is shown in
     // a world rather than alone, which is also what keeps a neighbour's label
     // inside the frame.
     const finalFit = widenForContext(
-      computeRevealTarget(label, null, neighborBounds),
+      computeRevealTarget(label, null, neighborBounds, fit),
       label,
       restingTransformRef.current.k,
     );
@@ -528,8 +656,16 @@ export function WorldMap({
   }, [revealCorrectIso3, revealWrongIso3, correctNeighborIso3s, numericFromIso3]);
 
   const baseTransform = useMemo<ZoomTransform>(
-    () => computeBaseTransform(selectedContinents, isInScope, isoFromNumeric),
-    [selectedContinents, isInScope, isoFromNumeric],
+    () =>
+      computeBaseTransform(
+        selectedContinents,
+        isInScope,
+        isoFromNumeric,
+        numericFromIso3,
+        spotlightIso3Set,
+        viewport,
+      ),
+    [selectedContinents, isInScope, isoFromNumeric, numericFromIso3, spotlightIso3Set, viewport],
   );
 
   // Resting frame: the continent filter's frame, or, on a phone-width map
@@ -560,17 +696,19 @@ export function WorldMap({
     let frame = regionFrame(
       `c:${region.continent}`,
       NUMERICS_BY_CONTINENT.get(region.continent),
+      viewport,
     );
     if (screenSizePx(label, effectiveScale, frame.k) < TAP_TARGET_PX) {
       frame = regionFrame(
         `s:${region.subregion}`,
         NUMERICS_BY_SUBREGION.get(region.subregion),
+        viewport,
       );
     }
     // Only when it earns it: a filter already about as tight stays, and a
     // frame that barely zooms is noise rather than help.
     return worthFraming(frame.k, baseTransform.k) ? frame : baseTransform;
-  }, [mode, baseTransform, targetIso3, effectiveScale, numericFromIso3]);
+  }, [mode, baseTransform, targetIso3, effectiveScale, numericFromIso3, viewport]);
 
   // Read by the reveal effect, which must not re-run when the resting frame
   // changes — that would restart the two-stage zoom mid-reveal. Written during
@@ -601,6 +739,7 @@ export function WorldMap({
     // which frame is already in flight, so it doesn't supersede this
     // transition with its own and lose the correct-answer easing.
     settledByFeedbackRef.current = restingTransform;
+    learnerMovedRef.current = false;
     select(svgRef.current)
       .transition()
       .duration(duration)
@@ -611,19 +750,45 @@ export function WorldMap({
   }, [hasFeedback, restingTransform]);
 
   // Apply the resting frame on first mount (instant, so the map appears
-  // already framed instead of gliding in — a tiny first card on a phone
-  // still glides to its region once the resize observer reports a size)
-  // and whenever it changes after that (continent filter, or a tiny card
-  // on a narrow map) — animated. Defers to the reveal-zoom effect while
-  // feedback is showing, and to the return-from-feedback effect above when
-  // that has just started the same settle.
+  // already framed instead of gliding in) and whenever it changes after that
+  // (continent filter, focus, or a tiny card on a narrow map) — animated.
+  // Defers to the reveal-zoom effect while feedback is showing, and to the
+  // return-from-feedback effect above when that has just started the same
+  // settle. The first frame fitted to a measured map is the layout effect's
+  // below, which lands it before paint.
   const didMountRef = useRef(false);
+  const settledMeasuredRef = useRef(false);
+  // Everything the resting frame depends on except the map's size. When only
+  // the size moved (a rotated phone, a resized window), a learner who has
+  // panned keeps their view; a scope, focus or card change still settles.
+  const frameInputs = [
+    selectedContinents,
+    isInScope,
+    isoFromNumeric,
+    numericFromIso3,
+    spotlightIso3Set,
+    mode,
+    targetIso3,
+  ] as const;
+  const frameInputsRef = useRef(frameInputs);
   useEffect(() => {
+    // The inputs as of the previous commit (the effect after this one keeps
+    // them current on every commit), so "only the size changed" means in this
+    // commit — a card change that left the frame alone is long past.
+    const prevInputs = frameInputsRef.current;
     if (!svgRef.current || !zoomRef.current) return;
     if (hasFeedback) return;
     const inFlight = settledByFeedbackRef.current;
     settledByFeedbackRef.current = null;
     if (inFlight === restingTransform) return;
+    const sizeOnly = frameInputs.every((v, i) => v === prevInputs[i]);
+    if (didMountRef.current && sizeOnly && learnerMovedRef.current) return;
+    // Already there: the measured layout effect below applied it.
+    if (sameView(zoomTransform(svgRef.current), restingTransform)) {
+      didMountRef.current = true;
+      return;
+    }
+    learnerMovedRef.current = false;
     const sel = select(svgRef.current);
     if (!didMountRef.current) {
       didMountRef.current = true;
@@ -633,17 +798,67 @@ export function WorldMap({
     const duration = prefersReducedMotion() ? 0 : 450;
     sel.transition().duration(duration).call(zoomRef.current.transform, restingTransform);
     // hasFeedback intentionally excluded — when feedback clears the
-    // dedicated effect above handles the return-to-base animation.
+    // dedicated effect above handles the return-to-base animation. The frame
+    // inputs are compared by hand above rather than listed: any change to them
+    // that matters changes restingTransform.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restingTransform]);
+  useEffect(() => {
+    frameInputsRef.current = frameInputs;
+  });
+  // The first frame fitted to a measured map, applied instantly and before
+  // paint. Until the resize observer reports, every frame is the 2:1 fit;
+  // gliding from that to the real one would play on every load, and a
+  // passive effect would leave a frame painted with Reset showing between
+  // the two.
+  useLayoutEffect(() => {
+    if (effectiveScale === 0 || settledMeasuredRef.current) return;
+    settledMeasuredRef.current = true;
+    if (!didMountRef.current || hasFeedback || learnerMovedRef.current) return;
+    if (!svgRef.current || !zoomRef.current) return;
+    select(svgRef.current).call(zoomRef.current.transform, restingTransform);
+    // Once, on the first measured size; later sizes go through the effect
+    // above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveScale]);
 
   const resetView = () => {
     if (!svgRef.current || !zoomRef.current) return;
+    learnerMovedRef.current = false;
     select(svgRef.current).call(zoomRef.current.transform, restingTransform);
   };
 
+  // Map controls. Plain buttons, so Tab, Enter and Space reach them; there are
+  // deliberately no + / - key shortcuts, which a typed answer ("Guinea-Bissau")
+  // would trigger. Each press interrupts a reveal in flight the way a pinch
+  // does, since the reveal's transitions are unnamed.
+  const zoomBy = (factor: number) => {
+    if (!svgRef.current || !zoomRef.current) return;
+    learnerMovedRef.current = true;
+    const sel = select(svgRef.current);
+    if (prefersReducedMotion()) zoomRef.current.scaleBy(sel, factor);
+    else zoomRef.current.scaleBy(sel.transition().duration(ZOOM_STEP_MS), factor);
+  };
+  const showWorld = () => {
+    if (!svgRef.current || !zoomRef.current) return;
+    learnerMovedRef.current = true;
+    const sel = select(svgRef.current);
+    if (prefersReducedMotion()) sel.call(zoomRef.current.transform, zoomIdentity);
+    else sel.transition().duration(RESET_MS).call(zoomRef.current.transform, zoomIdentity);
+  };
+
   const mapClickable = interactive && isClickMode(mode) && !feedback;
-  const isPanned = transform !== restingTransform;
+  // By value, not identity: Zoom in then Zoom out lands back on the resting
+  // frame as a new object, and Reset would then offer to go where you are.
+  const isPanned = !sameView(transform, restingTransform);
+  // World is offered only where it differs from Reset: when the map rests on
+  // a region (a filter, a focus, a tiny card's frame) and is not already
+  // showing the whole world. At a world rest only Reset can appear.
+  const isWorld = (t: ZoomTransform) => sameView(t, zoomIdentity);
+  const offerWorld = !isWorld(restingTransform) && !isWorld(transform);
+  const shortMap = svgSize.height > 0 && svgSize.height < SHORT_MAP_PX;
+  const canZoomIn = transform.k < MAX_ZOOM;
+  const canZoomOut = transform.k > MIN_ZOOM;
 
   // Record where the user clicked (container-pixel space, clamped to keep
   // the centered badge on-screen) before dispatching the answer. Shared by
@@ -921,7 +1136,8 @@ export function WorldMap({
     return out;
   }, [mapClickable, effectiveScale, transform.k, isoFromNumeric, isInScope]);
 
-  // One-time pinch hint: the card's country is a speck on a touch screen.
+  // One-time zoom hint: the card's country is a speck. A touch screen is told
+  // to pinch, a pointer to scroll or press Zoom in.
   const targetSizePx = useMemo(() => {
     if (!targetIso3 || effectiveScale === 0) return Infinity;
     const numeric = numericFromIso3(targetIso3);
@@ -942,7 +1158,7 @@ export function WorldMap({
     // tiny" is itself a hint worth withholding.
     if (seenPinchHintRef.current || !mapClickable) return;
     if (mode !== "name-to-click") return;
-    if (targetSizePx >= HINT_TARGET_PX || !isCoarsePointer()) return;
+    if (targetSizePx >= HINT_TARGET_PX) return;
     const show = window.setTimeout(() => {
       seenPinchHintRef.current = true;
       saveSeenPinchHint();
@@ -1310,20 +1526,56 @@ export function WorldMap({
             role="status"
             className="toast-fade rounded-full border border-ink-faded bg-parchment-base/95 px-3 py-1 font-display text-xs uppercase tracking-wide text-ink-mid shadow-sm"
           >
-            Pinch to zoom in
+            {zoomHintText(coarsePointer)}
           </span>
         </div>
       )}
-      {isPanned && (
+      {/* Map controls. Zoom in and out stay put; World and Reset come and go
+          beneath them (or, on a short map, to their left), so the buttons a
+          learner reaches for never move. */}
+      <div
+        data-map-controls={shortMap ? "row" : "column"}
+        className={`absolute top-2 right-2 flex gap-2 ${shortMap ? "flex-row-reverse items-start" : "flex-col items-end"}`}
+      >
         <button
           type="button"
-          onClick={resetView}
-          aria-label="Reset map view"
-          className="absolute top-2 right-2 min-h-11 min-w-11 px-3 rounded-full border border-ink-faded bg-parchment-base/90 backdrop-blur text-sm text-ink-deep shadow-sm hover:bg-parchment-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
+          onClick={() => zoomBy(ZOOM_STEP)}
+          disabled={!canZoomIn}
+          aria-label="Zoom in"
+          className={`${MAP_BUTTON} w-11`}
         >
-          Reset
+          <ZoomIcon plus />
         </button>
-      )}
+        <button
+          type="button"
+          onClick={() => zoomBy(1 / ZOOM_STEP)}
+          disabled={!canZoomOut}
+          aria-label="Zoom out"
+          className={`${MAP_BUTTON} w-11`}
+        >
+          <ZoomIcon plus={false} />
+        </button>
+        {offerWorld && (
+          <button
+            type="button"
+            onClick={showWorld}
+            aria-label="Show the whole world"
+            className={`${MAP_BUTTON} px-3`}
+          >
+            World
+          </button>
+        )}
+        {isPanned && (
+          <button
+            type="button"
+            onClick={resetView}
+            aria-label="Reset map view"
+            className={`${MAP_BUTTON} px-3`}
+          >
+            Reset
+          </button>
+        )}
+      </div>
       {/* On-map "✔ Correct!" flourish at the click point (click modes only;
           a typed mode has no click). Outer owns positioning/centering; inner
           runs the scale keyframe so the two don't fight. The key remounts it

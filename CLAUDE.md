@@ -182,8 +182,9 @@ Three floors stop it going too far, and all three bind in practice:
   no-op, which is the right answer — there is no more world to show.
 - **`minLegibleK`**, the answer's longer axis covering at least
   `REVEAL_ANSWER_MIN_H_RATIO` of the map's short axis. Expressed against the
-  projection rather than the screen, so the reveal frames identically at every
-  viewport size. Whether it binds depends on the *fitted* frame, not the
+  projection rather than the screen or the fitted viewport, so the answer is
+  framed at the same legible size at every viewport size — only the context
+  around it grows on a taller map (see Framing to the rendered map). Whether it binds depends on the *fitted* frame, not the
   country's own size: a small country with large neighbours is already framed
   wide, so the pull-back would take it under. Ecuador, Uganda and Kosovo hit it
   today.
@@ -233,13 +234,81 @@ label can hop between pieces while the reveal animates, which is accepted.
 `revealSurvey.test.ts` pins the 26 by name against the real table, at
 desktop and phone label sizes, and that every one is placed inside the
 frame and on its own land with none dropped — for the world resting frame;
-a continent filter floors the pull-back higher and is not surveyed. The
+a continent filter floors the pull-back higher and is not surveyed. Since
+#62 it runs a third pass, a 390 × 560 portrait phone map fitted to its whole
+height, with its own pinned list (22, the same giant-neighbour kind) and the
+same no-drop, no-escape, on-its-own-land assertions. The
 geometry it needs lives in `mapGeometry.ts` (the projection, `LABELS`, and
 `polygonsFor`, every projected polygon of a country, streamed on first use
 and cached rather than built for all at load) with the planar primitives in
 `polygon.ts`, so the test can import it without the component.
 
 The reveal-zoom effect auto-frames the correct country when feedback appears (kind ≠ "correct") and zooms back out when feedback clears. `computeRevealTarget` in `src/components/revealZoom.ts` takes the answer country, optionally a wrong-clicked secondary, and optionally the answer country's neighbor bounds; it cascades the union (full → drop secondary → drop neighbors → bare primary), keeping `naturalK ≥ MIN_ZOOM` at each tier. Before the cascade, a giant neighbor is filtered out (when pairing it with the answer alone would drop the fit below `REVEAL_NEIGHBOR_K_FLOOR ×` the answer-alone fit — e.g. Russia next to Estonia) so the answer country stays visible; the dropped neighbor is still highlighted and labeled, just not framed. Both transitions honor `prefers-reduced-motion`.
+
+### Framing to the rendered map, and the map controls (#62)
+
+Every frame — the continent filter's, a focus's, R1.6's tiny-card frame and
+the reveal — is fitted to a `Viewport` (`revealZoom.ts`), the map in viewBox
+units. `fitViewport(mode, measured)` decides which: in a click mode the whole
+rendered map (`measuredViewport(svgSize)`), so a portrait phone's extra height
+holds more of the region instead of more ocean; in a typed mode, or before the
+map is measured, the 800 × 400 box. Typed modes stay on the box because a phone
+keyboard resizes the map there (`interactive-widget=resizes-content`), and
+fitting to it would re-frame the map as the learner starts typing; the
+`viewport` memo is keyed on its two numbers so that resize keeps every frame's
+identity. The resting frame and the reveal fit the same viewport, so on a
+phone a miss never zooms out past the region the map rests on (`widenForContext`'s
+resting floor is then like for like). Two things deliberately do **not** use
+the viewport: `minLegibleK` (see above), and `computeRevealTarget`'s giant-
+neighbour filter, which judges in the 2:1 box so which neighbours are framed
+is the same on every screen — judged in a tall view the answer-alone fit is
+no longer held back by height and the filter dropped Papua New Guinea from an
+Indonesia reveal, cut at the frame's edge with no room for its label.
+`visibleFrame` takes the same `Viewport`, so label pinning and the survey agree
+with the framing on what is on screen.
+
+**A focus frames its subregion.** `computeBaseTransform` fits the in-scope
+countries of `spotlightIso3Set` when there is one, and the continent filter's
+frame otherwise; a subregion of markers alone (Micronesia, Polynesia) has no
+shape to fit and keeps the filter's frame. Both frames are the learner's own
+choice, so neither gives a card away.
+
+**Resting frames sit inside the pan limits.** `zoom.transform` applies a
+transform as given, but a wheel, pinch or `scaleBy` constrains to
+`translateExtent`, so an edge frame (the Oceania filter) used to jump sideways
+on the first zoom. `toZoomTransform` passes every resting frame through d3's
+own `constrain()` once when it is computed, handing back the same object when
+nothing moved so the world frame stays `zoomIdentity`. Reveal targets are left
+centred, unconstrained, as before.
+
+**Settling.** The SVG is measured in a layout effect, so the first paint is
+already fitted; the first frame fitted to a measured size is applied instantly
+(a layout effect again), never glided into. After that a new resting frame
+glides in, except when only the map's size changed and the learner has moved
+the map (`learnerMovedRef`: a gesture, whose zoom event carries a
+`sourceEvent`, or a map control) — their view is kept and Reset takes them to
+the refitted frame. "Only the size" is judged against the inputs as of the
+previous commit (`frameInputsRef`, refreshed every commit), so a card change
+that left the frame alone does not count. A frame still gliding in is not the
+learner's and is re-aimed. `isPanned` compares by value (`sameView`), so zooming in and back out
+does not leave Reset offering to go where you already are.
+
+**The controls** sit top-right: Zoom in and Zoom out (drawn SVG icons —
+IM Fell is not relied on for a matching plus and minus), each a 250 ms `scaleBy`
+×2 or ×½ about the centre, applied directly under reduced motion and disabled at
+`MAX_ZOOM` / `MIN_ZOOM`; then **World** ("Show the whole world"), offered only
+when the map rests on a region and is not already showing the world, so it is
+never the same action as **Reset**, which is unchanged. A column, except on a
+map shorter than `SHORT_MAP_PX` (a phone keyboard open in a typed mode), where
+they line up in a row so they cannot cover the right edge and the highlighted
+country with it; either way Zoom in and Zoom out stay put and World and Reset
+come and go beside them. World only moves the view: in a focus the cards still
+come from the subregion, and the status-bar chip is the way out. They are plain buttons
+(Tab, Enter, Space) and there are deliberately no `+` / `-` shortcuts, which a
+typed answer would trigger; keyboard access to the map itself is #65. The zoom
+behaviour's `extent` is set to the viewBox rather than read from it, which is
+what `scaleBy` centres on and what lets jsdom run it. A press interrupts a
+reveal in flight as a pinch does.
 
 ### Ambient mastery paint (R2.1)
 
@@ -411,7 +480,7 @@ fresh decision to match.
 
 ### Small countries on a phone (R1.6)
 
-Three affordances, all in `WorldMap.tsx` with the pure thresholds in `src/components/smallTargets.ts` (unit-tested): **(1) Resting frame follows a tiny card.** `WorldMap` receives `targetIso3` (the current card, passed through feedback too so the resting frame stays stable across a correct flash) and applies the affordances in click mode only. `restingTransform` is the continent filter's frame, except when the rendered map is narrower than `NARROW_MAP_PX` and the card's largest ring would be under `TAP_TARGET_PX` on screen at that frame — then it is the card's continent frame, or its UN subregion frame when even the continent leaves it under the threshold (Europe's frame barely zooms because Russia is in it). Frames are cached per region in `regionFrame` so the memo returns stable references; a frame is adopted only if it magnifies at least `FRAME_MIN_GAIN`× over the filter's frame, so a barely-zooming region (all of South America for the Falklands) is skipped and the hit disc and hint carry that case. Every place that used `baseTransform` for settling, Reset and `isPanned` now uses `restingTransform`. This is a deliberate, bounded hint: it fires only when the alternative is an un-tappable speck, never for big countries, never on desktop widths. **(2) Hit discs.** In click mode, every in-scope country whose on-screen size is under `TAP_TARGET_PX` at the current zoom gets an invisible `<circle data-hit>` of `HIT_DISC_PX` diameter at its label anchor, drawn **beneath** the paths (land always wins where it exists, so a disc never steals a tap from a bigger neighbour; the ocean around an island catches the fingertip) and wired to the same click handler. All tiny countries get one, not just the answer, so the map gives nothing away. **(3) Pinch hint.** Once per browser (`atlasaur:seenPinchHint`, `src/components/pinchHint.ts`), on a coarse pointer, when the card's country is under `HINT_TARGET_PX` on screen after the view has settled: a small "Pinch to zoom in" pill for five seconds, taken down early if the zoom changes. `targetIso3` must never influence `fillFor`.
+Three affordances, all in `WorldMap.tsx` with the pure thresholds in `src/components/smallTargets.ts` (unit-tested): **(1) Resting frame follows a tiny card.** `WorldMap` receives `targetIso3` (the current card, passed through feedback too so the resting frame stays stable across a correct flash) and applies the affordances in click mode only. `restingTransform` is the continent filter's frame, except when the rendered map is narrower than `NARROW_MAP_PX` and the card's largest ring would be under `TAP_TARGET_PX` on screen at that frame — then it is the card's continent frame, or its UN subregion frame when even the continent leaves it under the threshold (Europe's frame barely zooms because Russia is in it). Frames are cached per region in `regionFrame` (per viewport — a new one clears the cache) so the memo returns stable references; a frame is adopted only if it magnifies at least `FRAME_MIN_GAIN`× over the filter's frame, so a barely-zooming region (all of South America for the Falklands) is skipped and the hit disc and hint carry that case. Every place that used `baseTransform` for settling, Reset and `isPanned` now uses `restingTransform`. This is a deliberate, bounded hint: it fires only when the alternative is an un-tappable speck, never for big countries, never on desktop widths. **(2) Hit discs.** In click mode, every in-scope country whose on-screen size is under `TAP_TARGET_PX` at the current zoom gets an invisible `<circle data-hit>` of `HIT_DISC_PX` diameter at its label anchor, drawn **beneath** the paths (land always wins where it exists, so a disc never steals a tap from a bigger neighbour; the ocean around an island catches the fingertip) and wired to the same click handler. All tiny countries get one, not just the answer, so the map gives nothing away. **(3) Zoom hint.** Once per browser (`atlasaur:seenPinchHint`, `src/components/pinchHint.ts`, name kept so nobody sees it twice), when the card's country is under `HINT_TARGET_PX` on screen after the view has settled: a small pill for five seconds, taken down early if the zoom changes. Since #62 it shows on any pointer; `zoomHintText` says "Pinch to zoom in" on a coarse pointer and "Scroll, or use the + button, to zoom in" otherwise. `targetIso3` must never influence `fillFor`.
 
 ### Miss-reveal elaborative encoding (M2)
 

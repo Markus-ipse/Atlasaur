@@ -2,6 +2,9 @@
 // so it can be exported (and unit-tested) without breaking React Fast
 // Refresh, which expects component files to export only components.
 
+import { isClickMode } from "../game/questionModes";
+import type { QuestionMode } from "../types";
+
 export const W = 800;
 export const H = 400;
 
@@ -35,8 +38,9 @@ const REVEAL_NEIGHBOR_K_FLOOR = 0.3;
 const REVEAL_CONTEXT_PULLBACK = 1.8;
 // ...except where pulling back that far would leave the answer unfindable. The
 // answer country's longer axis must still cover this fraction of the map's
-// short axis. Expressed against the projection rather than the screen so the
-// reveal frames identically at every viewport size.
+// short axis. Expressed against the projection rather than the screen, and
+// never against the fitted viewport, so the answer is framed at the same
+// legible size at every viewport size — only the context around it grows.
 //
 // Whether it binds depends on the *fitted* frame, not on the country's own
 // size: a small country with large neighbours is already framed wide, so the
@@ -47,6 +51,28 @@ const REVEAL_ANSWER_MIN_H_RATIO = 0.07;
 
 export type Bounds = { x0: number; y0: number; x1: number; y1: number };
 export type Target = { k: number; cx: number; cy: number };
+// The rendered map in viewBox units. W x H exactly when the container is 2:1;
+// with preserveAspectRatio "meet" a portrait phone shows land above and below
+// the band and a wide desktop beside it, centred on the viewBox either way.
+export type Viewport = { width: number; height: number };
+export const VIEWBOX: Viewport = { width: W, height: H };
+
+// The measured SVG box (CSS pixels) in viewBox units, or null before the
+// resize observer has reported one.
+export function measuredViewport(size: Viewport): Viewport | null {
+  if (size.width <= 0 || size.height <= 0) return null;
+  const s = Math.min(size.width / W, size.height / H);
+  return { width: size.width / s, height: size.height / s };
+}
+
+// The view frames are fitted to. In a click mode that is the whole rendered
+// map, so a portrait phone's extra height holds more of the region rather
+// than more ocean. A typed mode keeps the 2:1 box: a phone keyboard resizes
+// the map there (index.html's interactive-widget=resizes-content), and fitting
+// to it would re-frame the map every time the learner starts typing.
+export function fitViewport(mode: QuestionMode, measured: Viewport | null): Viewport {
+  return isClickMode(mode) && measured ? measured : VIEWBOX;
+}
 
 // Merge a non-empty list of bounds into their union bounding box.
 function unionBounds(bounds: readonly Bounds[]): Bounds {
@@ -61,24 +87,28 @@ function unionBounds(bounds: readonly Bounds[]): Bounds {
   return { x0, y0, x1, y1 };
 }
 
-// Raw fit zoom for a bounding box — REVEAL_FIT_RATIO * min(W/w, H/h) with
+// Raw fit zoom for a bounding box in a viewport —
+// REVEAL_FIT_RATIO * min(viewport.width/w, viewport.height/h) with
 // NO MIN_ZOOM gate and NO MAX_ZOOM clamp. The neighbor filter compares raw
 // ratios, so clamping would distort the comparison for tiny primaries whose
 // solo fit already exceeds MAX_ZOOM. Takes a pre-merged box so callers union
 // once (e.g. tryFitUnion below) rather than re-merging here.
-function naturalK(b: Bounds): number {
+function naturalK(b: Bounds, viewport: Viewport = VIEWBOX): number {
   const w = Math.max(1, b.x1 - b.x0);
   const h = Math.max(1, b.y1 - b.y0);
-  return REVEAL_FIT_RATIO * Math.min(W / w, H / h);
+  return REVEAL_FIT_RATIO * Math.min(viewport.width / w, viewport.height / h);
 }
 
 // Try to fit a union of bounds within the viewport at a meaningful zoom.
 // Returns null if the union is too wide (naturalK < MIN_ZOOM) so the caller
 // can fall back to a tighter frame.
-export function tryFitUnion(bounds: readonly Bounds[]): Target | null {
+export function tryFitUnion(
+  bounds: readonly Bounds[],
+  viewport: Viewport = VIEWBOX,
+): Target | null {
   if (bounds.length === 0) return null;
   const u = unionBounds(bounds);
-  const k = naturalK(u);
+  const k = naturalK(u, viewport);
   if (k < MIN_ZOOM) return null;
   return {
     k: Math.min(MAX_ZOOM, k),
@@ -139,26 +169,37 @@ export function widenForContext(
 //
 // The caller then passes the result through widenForContext, which pulls the
 // frame back out so the answer is not shown alone.
+//
+// `viewport` is what the frame is fitted to (see fitViewport). The neighbour
+// filter deliberately is not: it judges in the 2:1 box, so which neighbours
+// are framed is a fact about the projection, the same on every screen. Judged
+// in a portrait phone's tall view the answer-alone fit is no longer held back
+// by height, so the ratio tightens and drops neighbours the landscape frame
+// keeps — Papua New Guinea from an Indonesia reveal, cut at the frame edge
+// with no room left for its label (revealSurvey.test.ts). The cascade does fit
+// in `viewport`, since it asks whether a union fits on this screen.
 export function computeRevealTarget(
   primary: Bounds,
   secondary: Bounds | null,
   neighbors: readonly Bounds[] = [],
+  viewport: Viewport = VIEWBOX,
 ): Target {
   // Each neighbor is judged independently against the answer-alone fit; the
   // combined survivors still go through the cascade (and its MIN_ZOOM backstop).
+  // Both fits in the 2:1 box; see above.
   const soloK = naturalK(primary);
   const kept = neighbors.filter(
     (n) => naturalK(unionBounds([primary, n])) >= REVEAL_NEIGHBOR_K_FLOOR * soloK,
   );
   const withSecondary = secondary ? [primary, secondary, ...kept] : [primary, ...kept];
-  const fitAll = tryFitUnion(withSecondary);
+  const fitAll = tryFitUnion(withSecondary, viewport);
   if (fitAll) return fitAll;
   if (secondary) {
-    const fitWithoutSecondary = tryFitUnion([primary, ...kept]);
+    const fitWithoutSecondary = tryFitUnion([primary, ...kept], viewport);
     if (fitWithoutSecondary) return fitWithoutSecondary;
   }
   if (kept.length > 0) {
-    const fitPrimaryOnly = tryFitUnion([primary]);
+    const fitPrimaryOnly = tryFitUnion([primary], viewport);
     if (fitPrimaryOnly) return fitPrimaryOnly;
   }
   // Degenerate primary (shouldn't happen — every country has positive area
@@ -172,15 +213,12 @@ export function computeRevealTarget(
 }
 
 // The part of the projection on screen under a zoom transform, in projection
-// units. `viewport` is the rendered SVG in viewBox units — W × H exactly when
-// the container is 2:1; with preserveAspectRatio "meet" a taller container
-// shows land above and below the band and a wider one beside it, and the
-// extra is centred on the viewBox. Shared by WorldMap (which measures the
-// container) and the reveal survey (which assumes 2:1), so the two agree on
-// what "on screen" means.
+// units. `viewport` is the rendered SVG in viewBox units (see Viewport).
+// Shared by WorldMap (which measures the container) and the reveal survey,
+// so the two agree on what "on screen" means.
 export function visibleFrame(
   t: { x: number; y: number; k: number },
-  viewport: { width: number; height: number } = { width: W, height: H },
+  viewport: Viewport = VIEWBOX,
 ): Bounds {
   const sx0 = W / 2 - viewport.width / 2;
   const sy0 = H / 2 - viewport.height / 2;
