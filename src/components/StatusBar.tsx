@@ -100,6 +100,7 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
         onSetMode={game.setMode}
         modeLocked={isExpedition}
         selectedContinents={state.selectedContinents}
+        totalInScope={game.totalInScope}
         onSetContinents={game.setContinents}
         includeTerritories={state.includeTerritories}
         onSetIncludeTerritories={game.setIncludeTerritories}

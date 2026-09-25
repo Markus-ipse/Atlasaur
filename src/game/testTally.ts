@@ -1,4 +1,4 @@
-// How a test round ("Test me on these") stands, counted in countries.
+// How a test round ("Test all N …") stands, counted in countries.
 //
 // The scoring model: a test is scored on FIRST attempts. A country answered
 // right the first time it was asked counts; one missed first and found later

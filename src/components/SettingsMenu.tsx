@@ -10,6 +10,7 @@ import { continentAskable } from "../game/useGame";
 import type { ThemePref } from "../theme";
 import { knownGain, type Counters, type ReturnInfo } from "../game/counters";
 import { ContinentChip } from "./ContinentChip";
+import { scopeLine } from "./scopeSummary";
 
 type PopupCoords = {
   top: number;
@@ -17,6 +18,20 @@ type PopupCoords = {
   width: number;
   maxHeight: number;
 };
+
+// One plain example per question, printed under its option so every one can
+// be read before choosing: choosing mid-round ends the card, and a tooltip is
+// out of reach on a touch screen.
+const MODE_EXAMPLE: Record<QuestionMode, string> = {
+  "name-to-click": "Find Peru",
+  "shape-to-name": "Name the country shown",
+  "capital-to-click": "Given Lima, find Peru",
+  "country-to-capital": "Given Peru, type Lima",
+};
+
+function exampleId(mode: QuestionMode): string {
+  return `settings-example-${mode}`;
+}
 
 // The popup's width where there is room for it, and the gap it keeps from
 // either edge of the viewport where there is not.
@@ -32,6 +47,8 @@ type Props = {
   // An expedition is Name → Click only; the picker is shown but inert.
   modeLocked?: boolean;
   selectedContinents: readonly Continent[];
+  // How many the selection holds, for the scope line under the chips.
+  totalInScope: number;
   onSetContinents: (continents: readonly Continent[]) => void;
   includeTerritories: boolean;
   onSetIncludeTerritories: (value: boolean) => void;
@@ -57,6 +74,7 @@ export function SettingsMenu({
   onSetMode,
   modeLocked = false,
   selectedContinents,
+  totalInScope,
   onSetContinents,
   includeTerritories,
   onSetIncludeTerritories,
@@ -230,38 +248,46 @@ export function SettingsMenu({
                   "flex flex-col gap-1" + (modeLocked ? " opacity-60" : "")
                 }
               >
-                <ModeRow label="Countries">
+                <ModeRow label="Countries" pair={["name-to-click", "shape-to-name"]} mode={mode}>
                   <ModeButton
                     active={mode === "name-to-click"}
                     disabled={modeLocked}
                     onClick={() => handleSetMode("name-to-click")}
+                    exampleOf="name-to-click"
+                    ariaLabel="Countries, on the map"
                   >
-                    Name → Click
+                    On the map
                   </ModeButton>
                   <ModeButton
                     active={mode === "shape-to-name"}
                     disabled={modeLocked}
                     onClick={() => handleSetMode("shape-to-name")}
+                    exampleOf="shape-to-name"
+                    ariaLabel="Countries, by typing"
                   >
-                    Shape → Name
+                    By typing
                   </ModeButton>
                 </ModeRow>
-                <ModeRow label="Capitals">
+                <ModeRow label="Capitals" pair={["capital-to-click", "country-to-capital"]} mode={mode}>
                   <ModeButton
                     active={mode === "capital-to-click"}
                     describedBy={pickerNoteId}
                     disabled={modeLocked || !capitalsAskable}
                     onClick={() => handleSetMode("capital-to-click")}
+                    exampleOf="capital-to-click"
+                    ariaLabel="Capitals, on the map"
                   >
-                    Capital → Click
+                    On the map
                   </ModeButton>
                   <ModeButton
                     active={mode === "country-to-capital"}
                     describedBy={pickerNoteId}
                     disabled={modeLocked || !capitalsAskable}
                     onClick={() => handleSetMode("country-to-capital")}
+                    exampleOf="country-to-capital"
+                    ariaLabel="Capitals, by typing"
                   >
-                    Country → Capital
+                    By typing
                   </ModeButton>
                 </ModeRow>
               </div>
@@ -269,7 +295,7 @@ export function SettingsMenu({
                   explains so a screen reader reaches it too. */}
               {modeLocked ? (
                 <p id={pickerNoteId} className="text-xs text-ink-mid mt-1">
-                  An expedition is always Name → Click.
+                  An expedition always asks you to find countries on the map, anywhere in the world.
                 </p>
               ) : (
                 !capitalsAskable && (
@@ -300,6 +326,9 @@ export function SettingsMenu({
                   );
                 })}
               </div>
+              <p className="text-xs text-ink-mid mt-1">
+                {scopeLine(selectedContinents, includeTerritories, fact, totalInScope)}
+              </p>
               <label className="mt-2 flex items-center gap-2 text-sm text-ink-deep cursor-pointer">
                 <input
                   type="checkbox"
@@ -431,17 +460,43 @@ export function SettingsMenu({
 // names. The pill sits inside the row, so the two rows read as one control.
 function ModeRow({
   label,
+  pair,
+  mode,
   children,
 }: {
   label: string;
+  // The two questions in this row, whose examples sit under their options.
+  pair?: readonly [QuestionMode, QuestionMode];
+  mode?: QuestionMode;
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="w-16 shrink-0 text-xs text-ink-mid">{label}</span>
-      <div className="flex flex-1 gap-1 p-1 rounded-full border border-ink-faded/40 bg-parchment-shadow">
-        {children}
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-center gap-2">
+        <span className="w-16 shrink-0 text-xs text-ink-mid">{label}</span>
+        <div className="flex flex-1 gap-1 p-1 rounded-full border border-ink-faded/40 bg-parchment-shadow">
+          {children}
+        </div>
       </div>
+      {pair && (
+        <div className="flex gap-2">
+          <span className="w-16 shrink-0" />
+          <div className="flex flex-1 gap-1 px-1">
+            {pair.map((m) => (
+              <p
+                key={m}
+                id={exampleId(m)}
+                className={
+                  "flex-1 text-xs leading-tight text-center " +
+                  (m === mode ? "text-ink-deep" : "text-ink-mid")
+                }
+              >
+                {MODE_EXAMPLE[m]}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -450,13 +505,20 @@ function ModeButton({
   active,
   disabled = false,
   describedBy,
+  ariaLabel,
+  exampleOf,
   onClick,
   children,
 }: {
   active: boolean;
   disabled?: boolean;
+  // The visible label repeats across rows ("On the map"), so the row's name
+  // goes into the accessible one.
+  ariaLabel?: string;
   // Id of the note saying why this option is unavailable, when there is one.
   describedBy?: string;
+  // The question this option asks, whose printed example describes it.
+  exampleOf?: QuestionMode;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -465,11 +527,16 @@ function ModeButton({
       type="button"
       role="radio"
       aria-checked={active}
-      aria-describedby={disabled ? describedBy : undefined}
+      aria-label={ariaLabel}
+      aria-describedby={
+        [exampleOf && exampleId(exampleOf), disabled && describedBy]
+          .filter(Boolean)
+          .join(" ") || undefined
+      }
       disabled={disabled}
       onClick={onClick}
       className={
-        "flex-1 min-h-9 px-3 rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep disabled:opacity-50 disabled:cursor-not-allowed " +
+        "flex-1 min-h-9 px-2 whitespace-nowrap rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep disabled:opacity-50 disabled:cursor-not-allowed " +
         (active ? "bg-ink-deep text-parchment-base" : "text-ink-mid hover:bg-parchment-base")
       }
     >

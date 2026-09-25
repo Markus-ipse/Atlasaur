@@ -231,6 +231,8 @@ export default function App() {
           progressSaved={game.progressSaved}
           fact={game.fact}
           scopeIso3s={game.scopeSet}
+          selectedContinents={state.selectedContinents}
+          includeTerritories={state.includeTerritories}
           countries={ALL_COUNTRIES}
           onReview={game.startReview}
           onPlayAgain={game.reset}
@@ -263,7 +265,8 @@ export default function App() {
             game.dismissWelcome();
           }}
           onStartTest={() => {
-            // "Test me" promises everything: a scope narrowed before this
+            // The door promises "test all N countries", counted by Welcome
+            // over every continent in Name → Click: a scope narrowed before this
             // profile was wiped (or on a pre-welcome install) must not
             // silently shrink it, and a question mode carried over from
             // before the wipe must not change what is being tested.

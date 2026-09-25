@@ -5,7 +5,14 @@ import { SessionSummary } from "./SessionSummary";
 import { emptyStore } from "../game/srs";
 import { testTally } from "../game/testTally";
 import countriesJson from "../data/countries.json";
-import type { Country, Fact, SrsRecord, Subregion } from "../types";
+import {
+  ALL_CONTINENTS,
+  type Continent,
+  type Country,
+  type Fact,
+  type SrsRecord,
+  type Subregion,
+} from "../types";
 
 const COUNTRIES = countriesJson as Country[];
 
@@ -41,6 +48,7 @@ function renderStudy(
     progressSaved?: boolean;
     missQueued?: boolean;
     noRecords?: boolean;
+    continents?: readonly Continent[];
   } = {},
   handlers: { onKeepStudying?: () => void } = {},
 ) {
@@ -59,6 +67,8 @@ function renderStudy(
       foundIso3s={new Set()}
       unlearnedCount={0}
       totalInScope={2}
+      selectedContinents={figures.continents ?? ALL_CONTINENTS}
+      includeTerritories={false}
       dueCount={figures.dueCount ?? 0}
       nextBack={figures.nextBack ?? null}
       caughtUp={figures.caughtUp ?? false}
@@ -113,6 +123,8 @@ function renderTest(figures: {
       foundIso3s={found}
       unlearnedCount={tally.stillMissed}
       totalInScope={TEST_SCOPE.length}
+      selectedContinents={ALL_CONTINENTS}
+      includeTerritories={false}
       dueCount={0}
       nextBack={null}
       caughtUp={false}
@@ -318,8 +330,15 @@ describe("StudySummary rest", () => {
     expect(within(more).getByRole("region", { name: "Places" })).toBeTruthy();
     expect(within(more).getByRole("region", { name: "All time" })).toBeTruthy();
     expect(within(more).getByRole("button", { name: /^Focus on/ })).toBeTruthy();
-    expect(within(more).getByRole("button", { name: /Test me on these/ })).toBeTruthy();
+    expect(within(more).getByRole("button", { name: /^Test all 2 countries/ })).toBeTruthy();
     expect(within(more).queryByRole("button", { name: /^Keep going/ })).toBeNull();
+  });
+
+  it("names the scope and its size on the test door", () => {
+    renderStudy("location", NONE, { continents: ["South America"] });
+    expect(
+      screen.getByRole("button", { name: /^Test all 2 countries in South America/ }),
+    ).toBeTruthy();
   });
 });
 

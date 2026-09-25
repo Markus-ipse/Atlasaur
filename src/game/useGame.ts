@@ -1478,7 +1478,7 @@ function advanceCard(state: State, now: Date): State {
 }
 
 // Switch to Study or a test round. Resets session counters and the soft cap.
-// Entering a test round ("Test me on these") also starts it clean: completedSet
+// Entering a test round ("Test all N …") also starts it clean: completedSet
 // and retryQueue from an earlier test would otherwise make pickNext skip
 // countries and poolComplete end the new test early. Going back to studying
 // keeps them, which is harmless — Study reads neither. Leaving an expedition
@@ -2058,7 +2058,7 @@ export function useGame(): GameApi {
   const [state, dispatch] = useReducer(reducer, undefined, () =>
     initialState({
       mode: loadQuestionMode(),
-      // Study is the home. A "Test me on these" round is entered
+      // Study is the home. A "Test all N …" round is entered
       // deliberately from the Study summary and is never persisted, so a
       // reload always lands back on Study.
       practiceMode: "study",
