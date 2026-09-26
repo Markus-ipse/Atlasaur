@@ -51,7 +51,7 @@ import {
   type Label,
   type Rect,
 } from "./labelLayout";
-import { fillFor, strokeFor, type Palette } from "./fillFor";
+import { outlinesFor, paintFor, strokeFor, type Palette } from "./fillFor";
 import { masteryPercent, type MasteryTier } from "../game/srs";
 import { Wordmark } from "./Wordmark";
 import {
@@ -157,6 +157,12 @@ const CONTINENT_CAPTION_MIN_PX = 10;
 // On-screen spacing of the engraved hatch drawn over a country that has just
 // become known.
 const HATCH_SCREEN_PX = 6;
+// The outline around the typed question's target and a wrong pick, in
+// on-screen px: heavy enough to read over a country's 0.5 px edge, over a
+// casing that shows a px of the opposite ink on each side.
+const OUTLINE_WIDTH_PX = 1.5;
+const OUTLINE_CASING_PX = 3.5;
+const OUTLINE_DASH = "4 3";
 
 // Hoisted: one object shared by every country path rather than a fresh
 // literal per path per render. Stroke transitions alongside fill because
@@ -189,6 +195,15 @@ const PATHS: PathItem[] = collection.features.map((f, i) => {
     d: pathGen(f) ?? "",
   };
 });
+// Every drawn piece of a country, for the overlays drawn over one (the
+// milestone hatch, the outlines).
+const PATHS_BY_NUMERIC = new Map<string, PathItem[]>();
+for (const p of PATHS) {
+  if (!p.numericId) continue;
+  const list = PATHS_BY_NUMERIC.get(p.numericId);
+  if (list) list.push(p);
+  else PATHS_BY_NUMERIC.set(p.numericId, [p]);
+}
 
 // Graticule (latitude/longitude grid) — period-cartography hallmark.
 // Default `geoGraticule10` emits meridians and parallels every 10°, with
@@ -286,6 +301,66 @@ const PAN_LIMITS: [[number, number], [number, number]] = [
   [W, H],
 ];
 const CONSTRAIN = d3zoom<SVGSVGElement, unknown>().constrain();
+// The ring drawn round something too small to find by its colour or its
+// outline: a marker dot, or a shape a few pixels across (#62). The typed
+// question's target gets a solid ring in its own blue; a wrong pick gets a
+// dashed ring, cased like a shape's outline, so the red is not its only mark.
+function OutlineRing({
+  cx,
+  cy,
+  r,
+  kind,
+  palette,
+  id,
+}: {
+  cx: number;
+  cy: number;
+  r: number;
+  kind: "target" | "wrong";
+  palette: Palette;
+  id: string;
+}) {
+  if (kind === "target") {
+    return (
+      <circle
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill="none"
+        stroke={palette.highlight}
+        strokeWidth={2}
+        vectorEffect="non-scaling-stroke"
+        pointerEvents="none"
+        data-ring="target"
+        data-ring-for={id}
+      />
+    );
+  }
+  return (
+    <g pointerEvents="none" data-ring="wrong" data-ring-for={id}>
+      <circle
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill="none"
+        stroke={palette.borderInverse}
+        strokeWidth={OUTLINE_CASING_PX}
+        vectorEffect="non-scaling-stroke"
+      />
+      <circle
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill="none"
+        stroke={palette.border}
+        strokeWidth={OUTLINE_WIDTH_PX}
+        strokeDasharray={OUTLINE_DASH}
+        vectorEffect="non-scaling-stroke"
+      />
+    </g>
+  );
+}
+
 function withinPanLimits(t: ZoomTransform): ZoomTransform {
   const c = CONSTRAIN(t, PAN_LIMITS, PAN_LIMITS);
   // Hand back the same object when nothing moved, so the world frame stays
@@ -388,9 +463,9 @@ type Props = {
   // wrong/skipped reveal. Empty when feedback is null or the correct
   // country has no land neighbors (islands).
   correctNeighborIso3s: readonly string[];
-  // Countries inside the active Study spotlight subregion, tinted with an
-  // ambient ochre wash and framed as the resting view. Empty when no
-  // spotlight is active.
+  // Countries inside the active Study spotlight subregion: framed as the
+  // resting view, with the rest of the scope set back (fillFor). Empty when
+  // no spotlight is active.
   spotlightIso3Set: ReadonlySet<string>;
   // Ceremony (R2.2): the country that just crossed into "known", hatched for
   // a beat before its pigment lands on the next commit. Null almost always.
@@ -1075,8 +1150,48 @@ export function WorldMap({
     if (!hatchIso3) return [] as PathItem[];
     const numeric = numericFromIso3(hatchIso3);
     if (!numeric) return [] as PathItem[];
-    return PATHS.filter((p) => p.numericId === numeric);
+    return PATHS_BY_NUMERIC.get(numeric) ?? [];
   }, [hatchIso3, numericFromIso3]);
+
+  // What outlinesFor names (#62): every drawn piece of a country, and for
+  // a marker, which has no path, a ring round its dot.
+  const outlines = useMemo(
+    () => outlinesFor(feedback, highlightedIso3),
+    [feedback, highlightedIso3],
+  );
+  const outlinePaths = useMemo(
+    () =>
+      outlines.flatMap(({ iso3, kind }) => {
+        const numeric = numericFromIso3(iso3);
+        if (!numeric) return [];
+        return (PATHS_BY_NUMERIC.get(numeric) ?? []).map((p) => ({
+          key: p.key,
+          d: p.d,
+          kind,
+          numeric,
+        }));
+      }),
+    [outlines, numericFromIso3],
+  );
+  // A shape under HINT_TARGET_PX on screen is a speck (the size the zoom
+  // hint already treats as one): a cased outline would bury what little fill
+  // it shows. It is ringed like a marker dot instead, and its outline
+  // dropped. Judged at the current zoom, so the ring gives way to the
+  // outline as the learner zooms in.
+  const pxPerUnit = (effectiveScale > 0 ? effectiveScale : 1) * transform.k;
+  const specks = useMemo(() => {
+    const out = new Map<string, { cx: number; cy: number }>();
+    if (effectiveScale === 0) return out;
+    for (const { iso3 } of outlines) {
+      const numeric = numericFromIso3(iso3);
+      const label = numeric ? LABELS_BY_NUMERIC.get(numeric) : undefined;
+      if (!numeric || !label || label.marker) continue;
+      if (screenSizePx(label, effectiveScale, transform.k) < HINT_TARGET_PX) {
+        out.set(numeric, { cx: label.cx, cy: label.cy });
+      }
+    }
+    return out;
+  }, [outlines, numericFromIso3, effectiveScale, transform.k]);
 
   // R3.4: on a touch screen each marker also gets a tap circle drawn above
   // the land (see the marker layer). Read once: a device's primary pointer
@@ -1097,7 +1212,6 @@ export function WorldMap({
   );
   const markerHits = useMemo(() => {
     if (!coarsePointer || !mapClickable) return [] as HitDisc[];
-    const pxPerUnit = (effectiveScale > 0 ? effectiveScale : 1) * transform.k;
     return liveMarkers.map((m): HitDisc => {
       let r = HIT_DISC_PX / 2 / pxPerUnit;
       for (const o of liveMarkers) {
@@ -1105,7 +1219,7 @@ export function WorldMap({
       }
       return { ...m, r };
     });
-  }, [coarsePointer, mapClickable, effectiveScale, transform.k, liveMarkers]);
+  }, [coarsePointer, mapClickable, pxPerUnit, liveMarkers]);
 
   // A tap on a dot, its tap circle or its hit disc answers the in-scope
   // marker nearest the pointer, not whichever element was drawn last: at a
@@ -1243,7 +1357,7 @@ export function WorldMap({
           {PATHS.map((p) => {
             const iso3 = p.numericId ? isoFromNumeric(p.numericId) : undefined;
             const inScope = iso3 ? isInScope(iso3) : false;
-            const fill = fillFor(
+            const { fill, stroke } = paintFor(
               {
                 iso3,
                 highlightedIso3,
@@ -1272,7 +1386,7 @@ export function WorldMap({
                 key={p.key}
                 d={p.d}
                 fill={fill}
-                stroke={strokeFor(fill, palette)}
+                stroke={stroke}
                 strokeWidth={0.5}
                 vectorEffect="non-scaling-stroke"
                 className={className}
@@ -1322,6 +1436,58 @@ export function WorldMap({
                   d={p.d}
                   className="known-hatch"
                   fill="url(#known-hatch-pattern)"
+                />
+              ))}
+            </g>
+          )}
+          {/* Outlines over the land and under every label, so no
+              neighbour's stroke, drawn later in paint order, cuts into one.
+              A cased line, as a map draws a road: the border ink over a
+              wider band of the inverse ink, so it reads against whatever
+              lies on either side of it — the country's own pigment, dark or
+              light land, or the ocean — in both themes. A wrong pick's ink
+              is dashed over a solid casing. */}
+          {outlinePaths.length > 0 && (
+            <g aria-hidden="true" pointerEvents="none">
+              {outlines.map(({ iso3, kind }) => {
+                const numeric = numericFromIso3(iso3);
+                const speck = numeric ? specks.get(numeric) : undefined;
+                return speck && numeric ? (
+                  <OutlineRing
+                    key={`ring-${kind}-${numeric}`}
+                    cx={speck.cx}
+                    cy={speck.cy}
+                    r={(MARKER_RADIUS_PX * 3) / pxPerUnit}
+                    kind={kind}
+                    palette={palette}
+                    id={numeric}
+                  />
+                ) : null;
+              })}
+              {outlinePaths.filter((o) => !specks.has(o.numeric)).map((o) => (
+                <path
+                  key={`casing-${o.kind}-${o.key}`}
+                  d={o.d}
+                  fill="none"
+                  stroke={palette.borderInverse}
+                  strokeWidth={OUTLINE_CASING_PX}
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              ))}
+              {outlinePaths.filter((o) => !specks.has(o.numeric)).map((o) => (
+                <path
+                  key={`${o.kind}-${o.key}`}
+                  d={o.d}
+                  fill="none"
+                  stroke={palette.border}
+                  strokeWidth={OUTLINE_WIDTH_PX}
+                  strokeDasharray={
+                    o.kind === "wrong" ? OUTLINE_DASH : undefined
+                  }
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                  data-outline={o.kind}
                 />
               ))}
             </g>
@@ -1394,7 +1560,7 @@ export function WorldMap({
               fontSize={labelFontSize}
               textAnchor="middle"
               dominantBaseline="middle"
-              fill={palette.border}
+              fill={palette.label}
               stroke={palette.oceanTint}
               strokeWidth={labelFontSize * 0.22}
               paintOrder="stroke"
@@ -1434,7 +1600,7 @@ export function WorldMap({
           {MARKER_LABELS.map((m) => {
             const iso3 = isoFromNumeric(m.numericId);
             const inScope = iso3 ? isInScope(iso3) : false;
-            const fill = fillFor(
+            const { fill, stroke } = paintFor(
               {
                 iso3,
                 highlightedIso3,
@@ -1452,25 +1618,25 @@ export function WorldMap({
             let className = clickable ? "country-clickable cursor-pointer" : "";
             if (correctPulse)
               className += className ? " correct-pulse" : "correct-pulse";
-            const pxPerUnit = (effectiveScale > 0 ? effectiveScale : 1) * transform.k;
             const r = MARKER_RADIUS_PX / pxPerUnit;
-            // A shape highlighted in a typed mode is found by its colour; a
-            // few pixels of ochre are not, so the dot being asked about gets
-            // a ring. It is the question, not the answer, so it leaks nothing.
-            const asked = !feedback && iso3 !== undefined && highlightedIso3 === iso3;
+            // A shape highlighted in a typed mode is found by its colour and
+            // outline; a few pixels of blue are not, so the dot being asked
+            // about gets a ring. It is the question, not the answer, so it
+            // leaks nothing. A dot picked wrongly gets a dashed ring, cased
+            // like a shape's outline, so the red is not its only mark.
+            const outline = iso3
+              ? outlines.find((o) => o.iso3 === iso3)?.kind
+              : undefined;
             return (
               <g key={m.numericId}>
-                {asked && (
-                  <circle
+                {outline && (
+                  <OutlineRing
                     cx={m.cx}
                     cy={m.cy}
                     r={r * 3}
-                    fill="none"
-                    stroke={palette.highlight}
-                    strokeWidth={2}
-                    vectorEffect="non-scaling-stroke"
-                    pointerEvents="none"
-                    data-marker-ring={m.numericId}
+                    kind={outline}
+                    palette={palette}
+                    id={m.numericId}
                   />
                 )}
                 <circle
@@ -1478,7 +1644,7 @@ export function WorldMap({
                   cy={m.cy}
                   r={r}
                   fill={fill}
-                  stroke={strokeFor(fill, palette)}
+                  stroke={stroke}
                   vectorEffect="non-scaling-stroke"
                   className={className}
                   data-marker={m.numericId}

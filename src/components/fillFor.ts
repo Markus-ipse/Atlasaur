@@ -12,13 +12,12 @@ export type Palette = {
   masterySeen: string; // in-scope land with a record, not yet known
   masteryKnown: string; // in-scope land the learner knows — full pigment
   inert: string; // out-of-scope / undefined country
-  highlight: string; // shape-to-name preview
-  correct: string; // correct country fill on answer reveal
+  highlight: string; // the country a typed question is asking about
+  correct: string; // the answer on a reveal — found, missed or skipped
   wrong: string; // wrong-clicked country fill
-  skipped: string; // correct country fill on skip
   neighbor: string; // miss-reveal land neighbors
-  spotlight: string; // ambient tint for the focused spotlight subregion
   border: string; // country path stroke
+  label: string; // country name text
   borderInverse: string; // country path stroke where `border` would vanish
   oceanTint: string; // SVG/map background
   oceanLabel: string; // ocean label text
@@ -33,13 +32,12 @@ const PALETTE_TOKENS: Record<keyof Palette, string> = {
   masterySeen: "--color-mastery-seen",
   masteryKnown: "--color-mastery-known",
   inert: "--color-parchment-shadow",
-  highlight: "--color-ochre",
+  highlight: "--color-prussian-blue",
   correct: "--color-sap-green",
   wrong: "--color-vermillion-faded",
-  skipped: "--color-skipped",
   neighbor: "--color-teal-engraving", // see the token's comment in index.css
-  spotlight: "--color-spotlight",
   border: "--color-map-border",
+  label: "--color-map-label",
   borderInverse: "--color-map-border-inverse",
   oceanTint: "--color-ocean-tint",
   oceanLabel: "--color-ink-mid",
@@ -88,55 +86,148 @@ const MASTERY_SLOT = [
   "masteryKnown",
 ] as const satisfies readonly (keyof Palette)[];
 
-export function fillFor(
-  args: {
-    iso3: string | undefined;
-    highlightedIso3: string | null;
-    feedback: Feedback | null;
-    inScope: boolean;
-    neighborSet: ReadonlySet<string>;
-    spotlightSet?: ReadonlySet<string>;
-    // How much of this country the learner has taken (R2.1). Defaults to 0
-    // (unseen) so callers that predate the ambient paint still type-check.
-    masteryTier?: MasteryTier;
-  },
+export type PaintArgs = {
+  iso3: string | undefined;
+  highlightedIso3: string | null;
+  feedback: Feedback | null;
+  inScope: boolean;
+  neighborSet: ReadonlySet<string>;
+  spotlightSet?: ReadonlySet<string>;
+  // How much of this country the learner has taken (R2.1). Defaults to 0
+  // (unseen) so callers that predate the ambient paint still type-check.
+  masteryTier?: MasteryTier;
+};
+
+// The country a wrong answer named, when it named one other than the
+// answer: a typed answer that matched nothing has an empty `answerIso3`.
+function wrongPickOf(feedback: Feedback | null): string | null {
+  if (
+    feedback?.kind === "wrong" &&
+    feedback.answerIso3 &&
+    feedback.answerIso3 !== feedback.correctIso3
+  ) {
+    return feedback.answerIso3;
+  }
+  return null;
+}
+
+export type Outline = { iso3: string; kind: "target" | "wrong" };
+
+// The countries outlined as well as coloured (#62), so neither the typed
+// question's target nor a wrong pick rests on colour alone: the target while
+// its question is up (solid), and a wrong pick through its reveal (dashed).
+// Decided here, beside the fills they accompany, so the two cannot disagree.
+export function outlinesFor(
+  feedback: Feedback | null,
+  highlightedIso3: string | null,
+): Outline[] {
+  const out: Outline[] = [];
+  if (!feedback && highlightedIso3) {
+    out.push({ iso3: highlightedIso3, kind: "target" });
+  }
+  const wrong = wrongPickOf(feedback);
+  if (wrong) out.push({ iso3: wrong, kind: "wrong" });
+  return out;
+}
+
+// The fill alone. The map draws through `paintFor`, which adds the line;
+// this stays for callers that need only the colour, such as the tests of the
+// precedence chain.
+export function fillFor(args: PaintArgs, palette: Palette): string {
+  return resolveFill(args, palette).fill;
+}
+
+// A country's fill and the line that draws it, together, because a focus
+// sets both back: fading the fill alone does next to nothing to unseen land,
+// which already sits a hair above the ocean, so the rest of the map recedes
+// mostly by losing its lines while the focus keeps them (#62). Everything
+// that draws a country — a path or a marker dot — takes its paint from here.
+export function paintFor(
+  args: PaintArgs,
   palette: Palette,
-): string {
+): { fill: string; stroke: string } {
+  const { fill, receded } = resolveFill(args, palette);
+  const stroke = strokeFor(fill, palette);
+  return {
+    fill,
+    stroke: receded ? recede(stroke, palette, RECEDE_LINE) : stroke,
+  };
+}
+
+function resolveFill(
+  args: PaintArgs,
+  palette: Palette,
+): { fill: string; receded: boolean } {
+  const fill = (f: string) => ({ fill: f, receded: false });
   const { iso3, highlightedIso3, feedback, inScope, neighborSet } = args;
   const spotlightSet = args.spotlightSet ?? EMPTY_SET;
-  if (!iso3) return palette.inert;
+  if (!iso3) return fill(palette.inert);
   if (feedback) {
-    // The correct country always lights up — sap green when answered
-    // (right or wrong, since "wrong" reveals the answer too) and ochre
-    // when skipped.
-    if (feedback.correctIso3 === iso3) {
-      return feedback.kind === "skipped" ? palette.skipped : palette.correct;
-    }
-    if (
-      feedback.kind === "wrong" &&
-      feedback.answerIso3 === iso3 &&
-      feedback.answerIso3 !== feedback.correctIso3
-    ) {
-      return palette.wrong;
-    }
+    // The answer always lights up green — found, missed or skipped. Green
+    // means "this is the one" on the map and nothing else (#62); the panel
+    // says how the learner got there.
+    if (feedback.correctIso3 === iso3) return fill(palette.correct);
+    if (wrongPickOf(feedback) === iso3) return fill(palette.wrong);
     // Elaborative-encoding cue: paint land neighbors of the correct country.
     // Wrong-clicked country is handled above so it stays vermillion if it
     // happens to also be a neighbor.
-    if (neighborSet.has(iso3)) return palette.neighbor;
+    if (neighborSet.has(iso3)) return fill(palette.neighbor);
   }
-  if (highlightedIso3 === iso3) return palette.highlight;
-  // Ambient spotlight tint — lowest-priority overlay, so it never competes
-  // with feedback/neighbor/highlight signals. Note the `if (feedback)` block
-  // above only early-returns for the correct/wrong/neighbor countries, so
-  // during a miss-reveal a spotlight country that isn't one of those still
-  // shows the tint here. That's intended (spotlight is a persistent ambient
-  // cue, not a transient reveal).
-  if (spotlightSet.has(iso3)) return palette.spotlight;
-  if (!inScope) return palette.inert;
-  // Ambient mastery paint — the bottom of the chain. Everything above is
-  // either a reveal (transient) or a focus the learner asked for; progress is
-  // what shows when none of those apply.
-  return palette[MASTERY_SLOT[args.masteryTier ?? 0]];
+  if (highlightedIso3 === iso3) return fill(palette.highlight);
+  if (!inScope) return fill(palette.inert);
+  // Ambient mastery paint — the bottom of the chain. Everything above is a
+  // reveal or the question's target; progress is what shows when neither
+  // applies.
+  const mastery = palette[MASTERY_SLOT[args.masteryTier ?? 0]];
+  // A focus (#62) keeps its own countries' paint and sets the rest of the
+  // scope back into the ocean, so the region reads by what surrounds it
+  // rather than by a wash of its own that would compete with the progress
+  // inside it. Out-of-scope land is already inert and stays so. Like the
+  // mastery paint, this holds under a miss-reveal for every country the
+  // reveal does not name.
+  if (spotlightSet.size > 0 && !spotlightSet.has(iso3)) {
+    return { fill: recede(mastery, palette, RECEDE_FILL), receded: true };
+  }
+  return fill(mastery);
+}
+
+// How far a focus sets the rest of the map back into the ocean. The fill
+// goes far enough that known land outside a focus is no brighter than unseen
+// land inside it in dark (at half, Egypt outshone every country in a Western
+// Asia focus); the line goes half as far, so the land keeps a faint edge.
+export const RECEDE_FILL = 0.75;
+const RECEDE_LINE = 0.5;
+
+// `color` mixed `amount` of the way into the ocean — a receded fill, or the
+// line round one — as a literal hex so a fill transition and strokeFor's
+// contrast check both see the colour actually drawn. An unparseable colour
+// (a test fixture's sentinel, or a token jsdom resolved empty) comes back
+// unchanged rather than guessed at.
+const RECEDE_CACHE = new Map<string, string>();
+
+export function recede(
+  color: string,
+  palette: Palette,
+  amount: number,
+): string {
+  const key = `${color}|${palette.oceanTint}|${amount}`;
+  const hit = RECEDE_CACHE.get(key);
+  if (hit !== undefined) return hit;
+  const a = parseColor(color);
+  const b = parseColor(palette.oceanTint);
+  const out =
+    a && b
+      ? "#" +
+        a
+          .map((v, i) =>
+            Math.round(v + (b[i] - v) * amount)
+              .toString(16)
+              .padStart(2, "0"),
+          )
+          .join("")
+      : color;
+  RECEDE_CACHE.set(key, out);
+  return out;
 }
 
 // --- The engraved line -----------------------------------------------------
@@ -145,9 +236,9 @@ export function fillFor(
 // luminance range. In dark mode --color-map-border is a warm faded ochre so
 // coastlines read against the near-black ocean — which means it all but
 // disappears into the bright pigments above it in fillFor's chain: known
-// land, the spotlight wash, a reveal's green/red/neighbour tones. Two gold
-// countries side by side then look like one landmass, which is exactly the
-// shape a learner is being asked to find.
+// land, the typed question's target, a reveal's green/red/neighbour tones.
+// Two gold countries side by side then look like one landmass, which is
+// exactly the shape a learner is being asked to find.
 //
 // So the line has a second ink. `strokeFor` keeps --color-map-border unless
 // it is failing against the fill it sits on, and only then reaches for

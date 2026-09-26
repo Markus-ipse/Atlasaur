@@ -34,7 +34,8 @@
 }
 
 /* Design tokens. Color names follow period-pigment vocabulary
-   (parchment / ink / vermillion / ochre / wax-red / teal-engraving)
+   (parchment / ink / vermillion / ochre / wax-red / teal-engraving /
+   prussian-blue)
    because the cartography-examination aesthetic IS the design language —
    "vermillion" is what this red is called in this app the same way
    "ink-deep" is what we call black. Components reference pigments
@@ -66,8 +67,14 @@
   --color-teal-engraving: #5a7d77;
 
   /* Map states */
-  --color-sap-green: #5d7e3e; /* correct country fill — muted period green */
-  --color-skipped: #9a7a2a; /* skipped country fill */
+  --color-sap-green: #5d7e3e; /* the answer on a reveal, whether it was
+                                 found, missed or skipped: on the map green
+                                 means "this is the one" and nothing else */
+  /* The country a typed question is asking about (#62). Blue, so it sits
+     outside the warm mastery ramp by hue as well as luminance and cannot be
+     read as progress; it never shares the map with the teal neighbours,
+     which only appear once the answer has turned green. */
+  --color-prussian-blue: #3f6189;
 
   /* Ambient mastery paint (R2.1) — what the learner has taken of the world,
      always on beneath every other map state, and the only fill an in-scope
@@ -77,20 +84,18 @@
      is a light wash, known is the full pigment. Two orderings have to hold in
      BOTH themes: every tier stays clear of --color-parchment-shadow (the
      out-of-scope `inert` fill) so the continent filter still reads on the map,
-     and known stays below --color-spotlight, which sits directly above it in
-     fillFor's precedence chain. */
+     and every tier stays clear of --color-prussian-blue, the typed question's
+     target, which fillFor.test.ts pins. */
   --color-mastery-unseen: #e3d9c0;
   --color-mastery-seen: #d8c28d;
   --color-mastery-known: #c0a271;
-  --color-spotlight: #dcb45a; /* ambient ochre wash for the focused subregion —
-                                 lighter and more golden than
-                                 --color-mastery-known, which it sits directly
-                                 above in fillFor's precedence chain, so a
-                                 focused subregion still reads over land the
-                                 learner already knows */
   --color-map-border: #2b1f12; /* country path stroke — mirrors ink-deep in
                                   light but stays warm ochre in dark so
                                   borders read against the dark ocean */
+  --color-map-label: #2b1f12; /* country names on the map. The same ink as the
+                                 border in light; in dark the border is tuned
+                                 for a line, and names need text contrast
+                                 against the ocean */
   --color-map-border-inverse: #f0e2c4; /* the same line at opposite polarity,
                                           for fills --color-map-border would
                                           disappear into. strokeFor picks it
@@ -145,7 +150,7 @@
 
   /* Map states */
   --color-sap-green: #7d9a4c; /* same period foliage, brightened for legibility */
-  --color-skipped: #c69a36; /* amber, ochre family */
+  --color-prussian-blue: #7fa3d4;
 
   /* Ambient mastery paint — same progression against the dark ocean. Dark
      needs a wider ramp than light: unseen has to clear --color-parchment-shadow
@@ -155,17 +160,18 @@
   --color-mastery-unseen: #362b1c;
   --color-mastery-seen: #4a3c26;
   --color-mastery-known: #6b5732;
-  --color-spotlight: #8a6a2a; /* ambient ochre wash — lifted clear of
-                                 --color-mastery-known, which it has to win
-                                 over (see fillFor's precedence chain) */
-  --color-map-border: #7a6440; /* warm faded ochre — visible against dark ocean */
+  --color-map-border: #967b4e; /* warm faded ochre — at least 3:1 against the
+                                  ocean, the inert fill and unseen land, so
+                                  coastlines and the continent filter read */
+  --color-map-label: #b89a6c; /* ink-mid's aged ivory: text contrast on the
+                                 ocean, where the border ink is a line's */
   --color-map-border-inverse: #14100a; /* pressed-ink near-black, below the
                                           ocean tint. The ochre line above is
                                           what lets a coastline read against
                                           the ocean, and is exactly why it
                                           vanishes into the bright pigments —
-                                          known land, the spotlight wash, a
-                                          reveal — so those get this instead
+                                          known land, the target, a reveal —
+                                          so those get this instead
                                           (see strokeFor in fillFor.ts). */
   --map-marker-stroke-width: 1.25;
 

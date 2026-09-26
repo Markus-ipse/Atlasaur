@@ -17,10 +17,9 @@ const PALETTE: Palette = {
   highlight: "#highlt",
   correct: "#correc",
   wrong: "#wrong0",
-  skipped: "#skippd",
   neighbor: "#neighb",
-  spotlight: "#spotlt",
   border: "#border",
+  label: "#label0",
   borderInverse: "#bordin",
   oceanTint: "#ocean0",
   oceanLabel: "#oclbl0",
@@ -690,7 +689,7 @@ describe("WorldMap — markers (R3.4)", () => {
         revealCapitalLonLat={null}
       />,
     );
-    expect(container.querySelectorAll("circle[data-marker-ring]")).toHaveLength(1);
+    expect(container.querySelectorAll('circle[data-ring="target"]')).toHaveLength(1);
     expect(dot(container)?.getAttribute("fill")).toBe(PALETTE.highlight);
     rerender(
       <WorldMap
@@ -702,7 +701,32 @@ describe("WorldMap — markers (R3.4)", () => {
         revealCapitalLonLat={null}
       />,
     );
-    expect(container.querySelectorAll("circle[data-marker-ring]")).toHaveLength(0);
+    expect(container.querySelectorAll('circle[data-ring="target"]')).toHaveLength(0);
+  });
+
+  it("rings a wrongly picked dot with a dashed line, so red is not its only mark", () => {
+    const { container, rerender } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        numericFromIso3={numericFromMlt}
+        feedback={{ kind: "wrong", answerIso3: "MLT", correctIso3: "FRA", at: 0 }}
+        revealCapitalLonLat={null}
+      />,
+    );
+    const ring = container.querySelector('g[data-ring="wrong"]');
+    expect(ring).not.toBeNull();
+    expect(ring!.querySelector("circle[stroke-dasharray]")).not.toBeNull();
+    rerender(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        numericFromIso3={numericFromMlt}
+        feedback={{ kind: "correct", answerIso3: "MLT", correctIso3: "MLT", at: 0 }}
+        revealCapitalLonLat={null}
+      />,
+    );
+    expect(container.querySelector('g[data-ring="wrong"]')).toBeNull();
   });
 
   it("names a revealed marker below its dot, and draws no capital dot over it", () => {
@@ -722,7 +746,7 @@ describe("WorldMap — markers (R3.4)", () => {
     expect(Number(label!.getAttribute("y"))).toBeGreaterThan(
       Number(dot(container)!.getAttribute("cy")),
     );
-    expect(dot(container)?.getAttribute("fill")).toBe(PALETTE.skipped);
+    expect(dot(container)?.getAttribute("fill")).toBe(PALETTE.correct);
     expect(capitalDotCircles(container)).toHaveLength(0);
   });
 });
@@ -989,5 +1013,134 @@ describe("WorldMap — map controls (#62)", () => {
     expect((800 - x) / k).toBeLessThanOrEqual(800 + 1e-9);
     expect(-y / k).toBeGreaterThanOrEqual(-1e-9);
     expect((400 - y) / k).toBeLessThanOrEqual(400 + 1e-9);
+  });
+});
+
+describe("WorldMap — outlines (#62)", () => {
+  afterEach(cleanup);
+
+  const NUMERIC: Record<string, string> = { FRA: "250", DEU: "276" };
+  const outlines = (container: HTMLElement, kind: string) =>
+    container.querySelectorAll(`path[data-outline="${kind}"]`);
+
+  it("outlines a typed question's target, solid", () => {
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        mode="shape-to-name"
+        numericFromIso3={(iso3) => NUMERIC[iso3]}
+        highlightedIso3="FRA"
+        feedback={null}
+        revealCapitalLonLat={null}
+      />,
+    );
+    const target = outlines(container, "target");
+    expect(target.length).toBeGreaterThan(0);
+    expect(target[0].getAttribute("stroke-dasharray")).toBeNull();
+    expect(target[0].getAttribute("fill")).toBe("none");
+  });
+
+  it("outlines nothing in Name → Click, which has no target to show", () => {
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        numericFromIso3={(iso3) => NUMERIC[iso3]}
+        feedback={null}
+        revealCapitalLonLat={null}
+      />,
+    );
+    expect(container.querySelectorAll("path[data-outline]")).toHaveLength(0);
+  });
+
+  it("dashes the outline of a wrong pick through its reveal", () => {
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        numericFromIso3={(iso3) => NUMERIC[iso3]}
+        feedback={WRONG}
+        revealCapitalLonLat={null}
+      />,
+    );
+    const wrong = outlines(container, "wrong");
+    expect(wrong.length).toBeGreaterThan(0);
+    expect(wrong[0].getAttribute("stroke-dasharray")).not.toBeNull();
+    expect(outlines(container, "target")).toHaveLength(0);
+  });
+
+  it("outlines nothing on a correct answer, or a typed answer that matched no country", () => {
+    const correct: Feedback = { kind: "correct", answerIso3: "FRA", correctIso3: "FRA", at: 0 };
+    const { container, rerender } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        mode="shape-to-name"
+        numericFromIso3={(iso3) => NUMERIC[iso3]}
+        highlightedIso3="FRA"
+        feedback={correct}
+        revealCapitalLonLat={null}
+      />,
+    );
+    expect(container.querySelectorAll("path[data-outline]")).toHaveLength(0);
+    const unmatched: Feedback = { kind: "wrong", answerIso3: "", correctIso3: "FRA", at: 0 };
+    rerender(
+      <WorldMap
+        {...BASE_PROPS}
+        mode="shape-to-name"
+        numericFromIso3={(iso3) => NUMERIC[iso3]}
+        highlightedIso3="FRA"
+        feedback={unmatched}
+        revealCapitalLonLat={null}
+      />,
+    );
+    expect(container.querySelectorAll("path[data-outline]")).toHaveLength(0);
+  });
+
+  it("rings a speck of a target instead of burying it under an outline", () => {
+    // Luxembourg is a few pixels across at a phone's world view: a cased
+    // outline would cover all of its blue, so it is ringed like a dot.
+    const TABLE = countriesData as Country[];
+    const NUM = new Map(TABLE.map((c) => [c.iso3, c.numeric]));
+    const original = globalThis.ResizeObserver;
+    class PhoneObserver {
+      constructor(private cb: ResizeObserverCallback) {}
+      observe(target: Element) {
+        this.cb(
+          [{ target, contentRect: { width: 390, height: 300 } as DOMRectReadOnly } as ResizeObserverEntry],
+          this as unknown as ResizeObserver,
+        );
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = PhoneObserver as unknown as typeof ResizeObserver;
+    try {
+      const { container } = render(
+        <WorldMap
+          {...BASE_PROPS}
+          mode="shape-to-name"
+          numericFromIso3={(iso3) => NUM.get(iso3)}
+          highlightedIso3="LUX"
+          feedback={null}
+          revealCapitalLonLat={null}
+        />,
+      );
+      expect(container.querySelectorAll('circle[data-ring="target"]')).toHaveLength(1);
+      expect(outlines(container, "target")).toHaveLength(0);
+      cleanup();
+      // Brazil is a shape, not a speck: outlined as usual.
+      const { container: brazil } = render(
+        <WorldMap
+          {...BASE_PROPS}
+          mode="shape-to-name"
+          numericFromIso3={(iso3) => NUM.get(iso3)}
+          highlightedIso3="BRA"
+          feedback={null}
+          revealCapitalLonLat={null}
+        />,
+      );
+      expect(outlines(brazil, "target").length).toBeGreaterThan(0);
+      expect(brazil.querySelectorAll('circle[data-ring="target"]')).toHaveLength(0);
+    } finally {
+      globalThis.ResizeObserver = original;
+    }
   });
 });

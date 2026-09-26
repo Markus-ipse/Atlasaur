@@ -7,7 +7,7 @@ import { StatusBar } from "./StatusBar";
 import { StudyIntro } from "./StudyIntro";
 import { CaughtUp } from "./CaughtUp";
 import { isTypedMode } from "../game/questionModes";
-import { hidesIntroduced } from "../game/srs";
+import { focusHidesProgress, hidesIntroduced } from "../game/srs";
 import { cardIsReturning, type GameApi } from "../game/useGame";
 import type { ThemePref } from "../theme";
 
@@ -110,6 +110,9 @@ export function ControlZone({
             mode={state.mode}
             streak={state.streak}
             milestone={state.milestone}
+            onMap={
+              !focusHidesProgress(state.mode, state.spotlightSubregion)
+            }
             returning={pillWithAnswer}
           />
         ) : (

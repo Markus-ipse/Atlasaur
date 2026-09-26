@@ -19,6 +19,8 @@ import {
   masteryTiers,
   masteryPercent,
   paintTiers,
+  focusHidesProgress,
+  paintsProgress,
   newAvailableCount,
   nextDueAt,
   saveStore,
@@ -572,6 +574,40 @@ describe("mastery paint (R2.1)", () => {
       // The one score a learner shows someone else is the most neutral
       // measurement of all.
       expect(paintTiers(records(), "name-to-click", "expedition").size).toBe(0);
+    });
+
+    it("paints nothing at all during a focus in name-to-click", () => {
+      // A focus can be two countries: with one of them known, the other
+      // would be the answer. Outside it too, or known land there outshines
+      // the region being practised.
+      const tiers = paintTiers(
+        records(),
+        "name-to-click",
+        "study",
+        "Western Europe",
+      );
+      expect(tiers.size).toBe(0);
+      expect(paintsProgress("name-to-click", "study", "Western Europe")).toBe(
+        false,
+      );
+    });
+
+    it("says the map withholds a focus's progress only in name-to-click", () => {
+      expect(focusHidesProgress("name-to-click", "Western Europe")).toBe(true);
+      expect(focusHidesProgress("name-to-click", null)).toBe(false);
+      expect(focusHidesProgress("shape-to-name", "Western Europe")).toBe(false);
+    });
+
+    it("keeps every tier during a focus in shape-to-name", () => {
+      // The shape is highlighted, so the tiers cannot supply the answer.
+      const tiers = paintTiers(
+        records(),
+        "shape-to-name",
+        "study",
+        "Western Europe",
+      );
+      expect(tiers.get("FRA")).toBe(2);
+      expect(tiers.get("DEU")).toBe(1);
     });
   });
 

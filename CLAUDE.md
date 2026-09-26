@@ -139,21 +139,29 @@ Typed-answer matching compares `normalize(input)` against the candidates for the
 
 The Equal-Earth projection is centred on 11.6°E (`PROJECTION_CENTRE_LON`), so its edge is 168.4°W — the one meridian in the Bering Strait that cuts no country at 110m. Russia and Fiji are drawn whole and the Pacific markers sit beside Oceania; the United States' St Lawrence Island and Antarctica are the two features drawn on both sides of the edge, which `pathGen.bounds` reads as the full map width (hence LABELS' largest ring for framing). It is fitted with `MAP_SIDE_MARGIN` at each side so a dot near the edge is drawn whole on a phone. The projection, all path `d` strings, the label list, and `FEATURE_BY_NUMERIC` are computed once at module load — they only depend on the projection. Re-renders during pan/zoom apply a CSS `transform` to a single `<g>` element; the path data does not change. If you need to recompute paths, you're probably doing something wrong; consider whether the change can be expressed via fill/highlight state in `fillFor` instead.
 
-`fillFor` is the single decision point for country color (inert / **mastery paint** / highlighted / correct / wrong / skipped / neighbor / spotlight). Add new visual states there, not in the JSX. Precedence inside a feedback reveal: correct → wrong-clicked → neighbor → highlight → spotlight → inert → mastery paint. A neighbor that's also the wrong-clicked country stays red; the neighbor tone is the lowest-priority *reveal* overlay so it never competes with primary signals. Below every reveal state sit the spotlight wash and, at the very bottom, the ambient mastery paint.
+`fillFor.ts` is the single decision point for country color — `paintFor` hands the map a country's fill and line together, `fillFor` is the fill alone, `outlinesFor` names what is outlined (inert / **mastery paint** / receded by a focus / highlighted / correct / wrong / neighbor). Add new visual states there, not in the JSX. Precedence inside a feedback reveal: correct → wrong-clicked → neighbor → highlight → inert → mastery paint, which a focus recedes outside its subregion. A neighbor that's also the wrong-clicked country stays red; the neighbor tone is the lowest-priority *reveal* overlay so it never competes with primary signals.
+
+**One meaning per map colour (#62).** Green (`--color-sap-green`) is the answer on every reveal — found, missed or skipped; there is no separate skip pigment, and the panel says how the learner got there. The typed question's target is `--color-prussian-blue`, outside the warm mastery ramp by hue, where the old ochre read as one more tier of progress; `fillFor.test.ts` pins it at 1.5:1 or more against every ambient fill, as it does the neighbour teal. Ochre is off the map. Colour is never the only cue for the two states a learner has to pick out: `outlinesFor` names them and `WorldMap` draws an **outline layer** above the land and below every label (`data-outline`, `aria-hidden`, no pointer events) — a solid line round the target while its question is up, and a dashed one round a wrong pick through its reveal (`kind === "wrong"`, a non-empty `answerIso3` other than the answer, a typed answer that matched no country has nothing to outline). A marker has no path, so a dot being asked about keeps its solid ring and a dot picked wrongly gets a dashed ring, cased the same way (`OutlineRing`, `data-ring`). A shape under `HINT_TARGET_PX` (12 px) on screen at the current zoom is ringed the same way instead of outlined, since a 3.5 px cased line would bury the few pixels of fill a speck shows; zooming in turns the ring back into an outline. Each outline is a cased line, as a map draws a road: the border ink over a wider band of the inverse ink, so it reads against the country's own pigment, the land beside it and the ocean in both themes (inking it with `strokeFor` against the fill left dark's target outline near-black on the near-black ocean).
+
+**A focus sets the rest of the map back** rather than washing its own subregion. An in-scope country outside `spotlightSet` has its mastery fill mixed `RECEDE_FILL` (¾) of the way into the ocean and its line half way, by `recede` (a cached literal hex, so `strokeFor` judges the colour actually drawn; an unparseable colour comes back unchanged), while the focus keeps its own paint and lines, and out-of-scope land stays inert. The line matters as much as the fill: unseen land already sits a hair above the ocean, so fading its fill alone changed nothing visible, and the focus reads by which countries keep their edges. The fill goes far enough that known land outside a focus is no brighter than unseen land inside it in dark — at half, Egypt outshone every country of a Western Asia focus — which `fillFor.test.ts` pins. Because a focus sets both fill and line, every country (path or marker dot) takes its paint from **`paintFor`**, which returns the two together; `fillFor` remains the fill alone. The old gold wash competed with the progress inside the focus and sat in the same warm family as the target.
 
 `strokeFor` (same file) is the matching decision point for the **engraved
 line**. One border ink can't hold against a fill ramp that spans the whole
 luminance range: in dark, `--color-map-border` is a warm faded ochre so
 coastlines read against the near-black ocean, which means it all but
-disappears into every bright pigment above it — known land, the spotlight
-wash, a reveal's green/red/neighbour tones — and two adjacent countries under
+disappears into every bright pigment above it — known land, the typed
+question's target, a reveal's green/red/neighbour tones — and two adjacent countries under
 the same paint read as one landmass. So the line has a second ink,
 `--color-map-border-inverse`, and `strokeFor` reaches for it only when the
 default is below `BORDER_MIN_CONTRAST` (2.5:1) against the fill *and* the
 inverse does better. Light hits neither condition — its border is near-black
 under parchment pigments — so that map is untouched; dark switches for the
-mastery-known, spotlight, highlight, correct, wrong, skipped and neighbor
-fills. Where two countries meet only one stroke wins by paint order, which is
+mastery-known, highlight, correct, wrong and neighbor fills. Dark's border was
+lifted in #62 to 3:1 or more against the ocean, the inert fill and unseen land
+(pinned in `fillFor.test.ts`), which also keeps met land on the ochre line.
+Country **names** have their own ink, `--color-map-label` (`palette.label`):
+the border colour is tuned for a line, and names need text contrast (4.5:1)
+on the ocean, pinned in both themes. Where two countries meet only one stroke wins by paint order, which is
 fine: each is chosen against its own fill, so the shared edge reads against at
 least one side. The milestone hatch is inked the same way, against
 `palette.correct` — the only fill it is ever drawn over. Add a fill and the
@@ -335,7 +343,7 @@ not be enough there. Capital cards are introduced in the same
 from that same set, so the gold of tier 2 points at the answer as surely as a
 wash would. Its counterpart `country-to-capital` keeps the full three tones:
 the country is already highlighted, so there is nothing left to give away.
-`paintsProgress(mode, practiceMode)` in `srs.ts` is the single rule — `App`
+`paintsProgress(mode, practiceMode, spotlightSubregion)` in `srs.ts` is the single rule — `App`
 reads it for the continent captions so the two can never disagree.
 
 **Finding the capital questions (R3.2).** Nothing outside the settings menu
@@ -391,14 +399,30 @@ already highlighted there, and knowing you have met a country cannot supply its
 name. If you add a question mode that asks the learner to *find* something on
 the map, collapse the wash for it too.
 
+**A focus in `name-to-click` gets no paint at all, anywhere on the map**
+(`focusHidesProgress(mode, spotlightSubregion)`, folded into `paintsProgress`,
+so the continent percentages go with it). Two tones are only safe while both
+are large, and a subregion can be two countries: focused on Australia and New
+Zealand with Australia known, the one left unseen is the answer. The old gold
+wash hid this; receding the rest of the map would have exposed it. Holding
+only the focus at unseen was tried and dropped: known land outside it, even
+receded, outshone the region being practised, which in light sits at the
+ocean's own tone. So the focus reads by its full lines against a faded map.
+The other modes keep their tones inside a focus for the reasons above.
+Nothing may then point at a country's pigment: while the rule holds a country
+crossing into known gets no hatch and `CorrectHero` says "France is known
+now." instead of "now on your map" (the ceremony is kept; only the map claim
+goes).
+
 The tier map is deliberately **scope-independent** — a country keeps the ink it
 earned when the continent filter excludes it, and `fillFor`'s own `inScope`
 branch decides whether that ink is shown. That keeps the memo in `App.tsx`
-keyed on `state.srsStore` alone.
+keyed on the location records, the two modes and the focus, never the scope.
 
-Mastery sits at the **bottom** of `fillFor`'s precedence chain, below the
-spotlight wash: everything above it is either a transient reveal or a focus the
-learner switched on, and ambient progress must not compete with either.
+Mastery sits at the **bottom** of `fillFor`'s precedence chain: everything
+above it is either a transient reveal or the question's target, and ambient
+progress must not compete with either. A focus does not paint over it; it
+recedes the progress outside the subregion instead (see `fillFor` above).
 
 Per-continent percentages are drawn on the map from
 `masteryByContinent(store, countries, scope)` at hand-placed `[lon, lat]`
@@ -484,7 +508,7 @@ Three affordances, all in `WorldMap.tsx` with the pure thresholds in `src/compon
 
 ### Miss-reveal elaborative encoding (M2)
 
-On wrong/skipped feedback, the map paints the correct country's land neighbors in the teal-engraving pigment (`palette.neighbor`, aliased to `--color-teal-engraving`; since R3.3a, because a warm tone was indistinguishable from the mastery paint — `fillFor.test.ts` pins a contrast floor against every ambient fill) and the `ControlZone` appends `Capital: X` and `Bordered by: Y, Z` lines below the correct-answer line. Both lines are conditional: the capital line is omitted when `state.current.capital === null` (Antarctica), the neighbors line is omitted when `state.current.neighbors.length === 0` (islands). The "Bordered by" list is sorted by display name at render time for natural reading order — `state.current.neighbors` itself stays iso3-sorted for stable JSON diffs.
+On wrong/skipped feedback, the map paints the answer green (a skip too, since #62) and the correct country's land neighbors in the teal-engraving pigment (`palette.neighbor`, aliased to `--color-teal-engraving`; since R3.3a, because a warm tone was indistinguishable from the mastery paint — `fillFor.test.ts` pins a contrast floor against every ambient fill) and the `ControlZone` appends `Capital: X` and `Bordered by: Y, Z` lines below the correct-answer line. Both lines are conditional: the capital line is omitted when `state.current.capital === null` (Antarctica), the neighbors line is omitted when `state.current.neighbors.length === 0` (islands). The "Bordered by" list is sorted by display name at render time for natural reading order — `state.current.neighbors` itself stays iso3-sorted for stable JSON diffs.
 
 The data flows through `state.current` — no new `Feedback` field, no parallel lookup helper. `App.tsx` derives `correctNeighborIso3s` from `state.current.neighbors` (using a module-level `NO_NEIGHBORS` constant when feedback is null, so the WorldMap's `neighborSet` memo doesn't churn).
 
@@ -781,8 +805,8 @@ paint order let Saint Vincent's dot answer for Grenada, Saint Lucia and
 Barbados. They are drawn **above the land and the
 labels**: on an enclave the dot sits on its neighbour and is the only thing to
 tap. Every in-scope marker is drawn, never only the card's, so the dots give
-nothing away. A dot a typed question is asking about gets an ochre ring
-(`data-marker-ring`), since a few pixels of highlight cannot be found by
+nothing away. A dot a typed question is asking about gets a ring in the target's blue
+(`data-ring="target"`; a tiny shape gets the same ring, see `fillFor` above), since a few pixels of highlight cannot be found by
 colour. There is no capital dot on a marker's reveal (it has no drawn bounds
 for the gate, and the marker is already at the capital) and no engraved hatch
 (no path to hatch); the panel's ceremony still plays. A marker's label is
@@ -829,7 +853,7 @@ an answer.
 
 ## Design tokens
 
-Color and typography tokens live in Tailwind v4's `@theme` block at the top of `src/index.css`. The names follow **period-pigment vocabulary** — `parchment-base/shadow/deep` for surfaces, `ink-deep/mid/faded` for neutrals, `vermillion / wax-red / ochre / teal-engraving` for accents. The cartography-examination aesthetic is the design language, so pigments are referenced directly in components (`bg-parchment-base`, `text-ink-deep`, `text-vermillion`). No semantic alias layer — when you need a danger color, reach for `text-vermillion`, not `text-danger`.
+Color and typography tokens live in Tailwind v4's `@theme` block at the top of `src/index.css`. The names follow **period-pigment vocabulary** — `parchment-base/shadow/deep` for surfaces, `ink-deep/mid/faded` for neutrals, `vermillion / wax-red / ochre / teal-engraving / prussian-blue` for accents, and `map-border / map-border-inverse / map-label` for the map's engraved line and its names. The cartography-examination aesthetic is the design language, so pigments are referenced directly in components (`bg-parchment-base`, `text-ink-deep`, `text-vermillion`). No semantic alias layer — when you need a danger color, reach for `text-vermillion`, not `text-danger`.
 
 When adding a new color, add it to `@theme` first so a Tailwind utility (`bg-foo`, `text-foo`, `border-foo`) is generated automatically. Don't drop raw hex into components or new `@theme` tokens elsewhere — keep all tokens in `src/index.css` so the palette stays auditable in one place.
 
