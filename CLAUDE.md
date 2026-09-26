@@ -441,6 +441,33 @@ return on a bigger map, a continent filter, or a pinch. `masteryPercent` reserve
 100% for a finished continent and 0% for an untouched one, so neither is ever a
 rounding artefact.
 
+### The map key (#62)
+
+A strip at the map's bottom-left names **only the colours the map is showing
+right now** — `mapKeyFor` in `src/components/mapKey.ts`, pure, read off the
+same props `fillFor` paints from, so it cannot name a colour that is not
+drawn. During a miss reveal it lists the reveal's own colours and nothing else
+(the answer, your answer with a dashed swatch when it named another country, its neighbours — only those drawn teal, so not a wrong pick that is also one); the capital dot
+has no entry, since the panel names the capital. Otherwise: the typed
+question's target while its question is up; the progress tones once some
+in-scope country — inside the focus, when there is one — has been met (two
+tones in Name → Click, "Not yet known" / "Known", matching the collapsed wash, and otherwise "Not yet seen" / "Seen" / "Known", the summary tiles' words;
+none in a test, an expedition or Capital → Click, where `paintTiers` paints
+nothing, nor on a first day — omit rather than show zero); "Outside your
+focus" in a focus, or else "Continents you left out" when the continent filter
+leaves an askable continent out (`scopeNarrowed`, computed in `App`; never in
+an expedition). A Name → Click focus adds a note that progress is hidden while
+you focus. A correct flash keeps the ambient entries. With no entries nothing
+renders. Each swatch is drawn with the line the map draws round that fill
+(`strokeFor`, or the border ink for an outlined state), so the key matches in
+both themes.
+
+It folds to a **Key** button, remembered per browser in
+`atlasaur:mapKeyCollapsed` (every access in try/catch; "Erase all progress"
+leaves it, like the theme). On a map shorter than `SHORT_MAP_PX` — a phone
+keyboard open in a typed mode — it is left out entirely, folded button too,
+and comes back as the learner left it. The zoom hint stacks above it.
+
 ### Ceremony (R2.2)
 
 Three moments are marked and nothing else: a run of correct answers at exactly

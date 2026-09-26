@@ -52,6 +52,12 @@ import {
   type Rect,
 } from "./labelLayout";
 import { outlinesFor, paintFor, strokeFor, type Palette } from "./fillFor";
+import {
+  loadMapKeyCollapsed,
+  mapKeyFor,
+  saveMapKeyCollapsed,
+  type MapKey,
+} from "./mapKey";
 import { masteryPercent, type MasteryTier } from "../game/srs";
 import { Wordmark } from "./Wordmark";
 import {
@@ -455,6 +461,76 @@ function toZoomTransform(fit: Target): ZoomTransform {
   );
 }
 
+// The map key (#62, mapKey.ts): a swatch per colour the map is showing, each
+// drawn with the line the map draws round it, so the key matches the map in
+// both themes. Folds to a Key button.
+function MapKeyPanel({
+  mapKey,
+  palette,
+  collapsed,
+  onToggle,
+}: {
+  mapKey: MapKey;
+  palette: Palette;
+  collapsed: boolean;
+  onToggle: (collapsed: boolean) => void;
+}) {
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        onClick={() => onToggle(false)}
+        aria-label="Show map key"
+        aria-expanded={false}
+        className={`${MAP_BUTTON} pointer-events-auto self-start px-3`}
+      >
+        Key
+      </button>
+    );
+  }
+  return (
+    <section
+      aria-label="Map key"
+      className="pointer-events-auto relative max-w-60 self-start rounded-lg border border-ink-faded bg-parchment-base/90 py-2 pl-3 pr-9 text-xs text-ink-deep shadow-sm backdrop-blur"
+    >
+      <button
+        type="button"
+        onClick={() => onToggle(true)}
+        aria-label="Hide map key"
+        aria-expanded={true}
+        className="absolute right-0 top-0 flex h-9 w-9 items-center justify-center rounded-full text-ink-mid hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep"
+      >
+        <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round">
+          <path d="M4 4l8 8M12 4l-8 8" />
+        </svg>
+      </button>
+      <ul className="flex flex-col gap-1">
+        {mapKey.entries.map((e) => (
+          <li key={e.id} className="flex items-center gap-2">
+            <svg aria-hidden="true" viewBox="0 0 18 12" className="h-3 w-[18px] shrink-0">
+              <rect
+                x={1}
+                y={1}
+                width={16}
+                height={10}
+                rx={1.5}
+                fill={e.fill}
+                stroke={e.line ? palette.border : strokeFor(e.fill, palette)}
+                strokeWidth={e.line ? 1.5 : 1}
+                strokeDasharray={e.line === "dashed" ? "3 2" : undefined}
+              />
+            </svg>
+            {e.label}
+          </li>
+        ))}
+      </ul>
+      {mapKey.note && (
+        <p className="mt-1.5 italic text-ink-mid">{mapKey.note}</p>
+      )}
+    </section>
+  );
+}
+
 type Props = {
   mode: QuestionMode;
   highlightedIso3: string | null;
@@ -504,6 +580,10 @@ type Props = {
   // literal hex strings (var() refs don't interpolate reliably across
   // animated attribute changes; see CLAUDE.md).
   palette: Palette;
+  // For the map key: the selection leaves part of the map inert, and a
+  // Name → Click focus is holding the map's progress back.
+  scopeNarrowed?: boolean;
+  focusHidesProgress?: boolean;
 };
 
 export function WorldMap({
@@ -524,6 +604,8 @@ export function WorldMap({
   interactive = true,
   targetIso3,
   palette,
+  scopeNarrowed = false,
+  focusHidesProgress = false,
 }: Props) {
   const neighborSet = useMemo(
     () => new Set(correctNeighborIso3s),
@@ -932,6 +1014,43 @@ export function WorldMap({
   const isWorld = (t: ZoomTransform) => sameView(t, zoomIdentity);
   const offerWorld = !isWorld(restingTransform) && !isWorld(transform);
   const shortMap = svgSize.height > 0 && svgSize.height < SHORT_MAP_PX;
+
+  // The map key. Folded away when the learner says so (remembered), and left
+  // out on a short map — a phone keyboard open — where even the folded button
+  // would sit on the land the question is about; it comes back with the
+  // keyboard gone, as the learner left it.
+  const mapKey = useMemo(
+    () =>
+      mapKeyFor({
+        mode,
+        feedback,
+        highlightedIso3,
+        neighborIso3s: correctNeighborIso3s,
+        spotlightIso3Set,
+        masteryByIso3,
+        isInScope,
+        scopeNarrowed,
+        focusHidesProgress,
+        palette,
+      }),
+    [
+      mode,
+      feedback,
+      highlightedIso3,
+      correctNeighborIso3s,
+      spotlightIso3Set,
+      masteryByIso3,
+      isInScope,
+      scopeNarrowed,
+      focusHidesProgress,
+      palette,
+    ],
+  );
+  const [keyCollapsed, setKeyCollapsed] = useState(loadMapKeyCollapsed);
+  const toggleKey = (collapsed: boolean) => {
+    setKeyCollapsed(collapsed);
+    saveMapKeyCollapsed(collapsed);
+  };
   const canZoomIn = transform.k < MAX_ZOOM;
   const canZoomOut = transform.k > MIN_ZOOM;
 
@@ -1686,16 +1805,28 @@ export function WorldMap({
       {/* Title cartouche. DOM overlay so it sits in the actual viewport
           corner regardless of how the SVG letterboxes its content. */}
       <Wordmark />
-      {pinchHint && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4">
-          <span
-            role="status"
-            className="toast-fade rounded-full border border-ink-faded bg-parchment-base/95 px-3 py-1 font-display text-xs uppercase tracking-wide text-ink-mid shadow-sm"
-          >
-            {zoomHintText(coarsePointer)}
-          </span>
-        </div>
-      )}
+      {/* The bottom edge: the zoom hint, centred, above the map key at the
+          left, stacked so the two never overlap on a narrow map. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-2 flex flex-col gap-2 px-2">
+        {pinchHint && (
+          <div className="flex justify-center px-2">
+            <span
+              role="status"
+              className="toast-fade rounded-full border border-ink-faded bg-parchment-base/95 px-3 py-1 font-display text-xs uppercase tracking-wide text-ink-mid shadow-sm"
+            >
+              {zoomHintText(coarsePointer)}
+            </span>
+          </div>
+        )}
+        {mapKey.entries.length > 0 && !shortMap && (
+          <MapKeyPanel
+            mapKey={mapKey}
+            palette={palette}
+            collapsed={keyCollapsed}
+            onToggle={toggleKey}
+          />
+        )}
+      </div>
       {/* Map controls. Zoom in and out stay put; World and Reset come and go
           beneath them (or, on a short map, to their left), so the buttons a
           learner reaches for never move. */}

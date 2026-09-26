@@ -1144,3 +1144,98 @@ describe("WorldMap — outlines (#62)", () => {
     }
   });
 });
+
+describe("WorldMap — map key", () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.removeItem("atlasaur:mapKeyCollapsed");
+  });
+
+  const TYPED = {
+    ...BASE_PROPS,
+    mode: "country-to-capital" as const,
+    highlightedIso3: "FRA",
+    feedback: null,
+    revealCapitalLonLat: null,
+  };
+
+  const keyOf = (container: HTMLElement) =>
+    container.querySelector('section[aria-label="Map key"]');
+  const buttonNamed = (container: HTMLElement, name: string) =>
+    container.querySelector<HTMLButtonElement>(`button[aria-label="${name}"]`);
+
+  it("names the colours the map is showing", () => {
+    const { container } = render(<WorldMap {...TYPED} />);
+    expect(keyOf(container)?.textContent).toContain(
+      "The country in the question",
+    );
+  });
+
+  it("draws nothing when the map has no colour to explain", () => {
+    const { container } = render(
+      <WorldMap {...BASE_PROPS} feedback={null} revealCapitalLonLat={null} />,
+    );
+    expect(keyOf(container)).toBeNull();
+    expect(buttonNamed(container, "Show map key")).toBeNull();
+  });
+
+  it("folds away and stays folded on the next load", () => {
+    const first = render(<WorldMap {...TYPED} />);
+    fireEvent.click(buttonNamed(first.container, "Hide map key")!);
+    expect(keyOf(first.container)).toBeNull();
+    expect(buttonNamed(first.container, "Show map key")).not.toBeNull();
+    expect(localStorage.getItem("atlasaur:mapKeyCollapsed")).toBe("true");
+    first.unmount();
+
+    const second = render(<WorldMap {...TYPED} />);
+    expect(keyOf(second.container)).toBeNull();
+    fireEvent.click(buttonNamed(second.container, "Show map key")!);
+    expect(keyOf(second.container)).not.toBeNull();
+    expect(localStorage.getItem("atlasaur:mapKeyCollapsed")).toBe("false");
+  });
+
+  it("still shows the key when storage throws", () => {
+    const get = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockImplementation(() => {
+        throw new Error("blocked");
+      });
+    const set = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new Error("blocked");
+      });
+    try {
+      const { container } = render(<WorldMap {...TYPED} />);
+      expect(keyOf(container)).not.toBeNull();
+      fireEvent.click(buttonNamed(container, "Hide map key")!);
+      expect(buttonNamed(container, "Show map key")).not.toBeNull();
+    } finally {
+      get.mockRestore();
+      set.mockRestore();
+    }
+  });
+
+  it("leaves the key out on a short map, where a keyboard is open", () => {
+    const original = globalThis.ResizeObserver;
+    class ShortObserver {
+      constructor(private cb: ResizeObserverCallback) {}
+      observe(target: Element) {
+        this.cb(
+          [{ target, contentRect: { width: 390, height: 240 } as DOMRectReadOnly } as ResizeObserverEntry],
+          this as unknown as ResizeObserver,
+        );
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = ShortObserver as unknown as typeof ResizeObserver;
+    try {
+      const { container } = render(<WorldMap {...TYPED} />);
+      expect(keyOf(container)).toBeNull();
+      expect(buttonNamed(container, "Show map key")).toBeNull();
+    } finally {
+      globalThis.ResizeObserver = original;
+    }
+  });
+});

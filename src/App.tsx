@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useState } from "react";
-import { useGame } from "./game/useGame";
+import { continentAskable, useGame } from "./game/useGame";
 import { WorldMap } from "./components/WorldMap";
 import { ControlZone } from "./components/ControlZone";
 import { SessionSummary } from "./components/SessionSummary";
@@ -131,6 +131,15 @@ export default function App() {
   const frameContinents = isExpedition
     ? ALL_CONTINENTS
     : state.selectedContinents;
+  // Whether the selection leaves a continent the learner could pick out of
+  // the map, drawn inert — the map key names that colour only then.
+  const scopeNarrowed =
+    !isExpedition &&
+    ALL_CONTINENTS.some(
+      (c) =>
+        !state.selectedContinents.includes(c) &&
+        continentAskable(c, state.includeTerritories, game.fact),
+    );
 
   // The engraved hatch belongs to the correct-answer flash that earned it.
   // Gating on the feedback rather than on `state.milestone` alone means no
@@ -211,6 +220,11 @@ export default function App() {
           }
           targetIso3={state.current.iso3}
           palette={palette}
+          scopeNarrowed={scopeNarrowed}
+          focusHidesProgress={focusHidesProgress(
+            state.mode,
+            state.spotlightSubregion,
+          )}
         />
       </div>
       <ControlZone
