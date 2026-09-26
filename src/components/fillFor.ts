@@ -100,7 +100,7 @@ export type PaintArgs = {
 
 // The country a wrong answer named, when it named one other than the
 // answer: a typed answer that matched nothing has an empty `answerIso3`.
-function wrongPickOf(feedback: Feedback | null): string | null {
+export function wrongPickOf(feedback: Feedback | null): string | null {
   if (
     feedback?.kind === "wrong" &&
     feedback.answerIso3 &&
