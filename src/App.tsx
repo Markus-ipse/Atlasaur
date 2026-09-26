@@ -14,7 +14,12 @@ import countriesData from "./data/countries.json";
 import { ALL_CONTINENTS, type Continent, type Country } from "./types";
 import { useTheme } from "./theme";
 import { readPaletteFromCss } from "./components/fillFor";
-import { masteryByContinent, paintsProgress, paintTiers } from "./game/srs";
+import {
+  focusHidesProgress,
+  masteryByContinent,
+  paintsProgress,
+  paintTiers,
+} from "./game/srs";
 import { isTypedMode } from "./game/questionModes";
 
 const ALL_COUNTRIES = countriesData as Country[];
@@ -67,8 +72,8 @@ export default function App() {
     ? state.current.capitalLonLat
     : null;
 
-  // Countries inside the active spotlight subregion — drives the ambient
-  // map tint. Empty stable set when no spotlight is active.
+  // Countries inside the active spotlight subregion — the map sets the rest
+  // of the scope back (fillFor). Empty stable set when no spotlight is active.
   const spotlightIso3Set = useMemo(() => {
     if (state.spotlightSubregion === null) return NO_SPOTLIGHT;
     const out = new Set<string>();
@@ -89,20 +94,33 @@ export default function App() {
   // memo — and so every fill on the map — untouched.
   const locationRecords = state.srsStore.facts.location;
   const masteryByIso3 = useMemo(
-    () => paintTiers(locationRecords, state.mode, state.practiceMode),
-    [locationRecords, state.mode, state.practiceMode],
+    () =>
+      paintTiers(
+        locationRecords,
+        state.mode,
+        state.practiceMode,
+        state.spotlightSubregion,
+      ),
+    [locationRecords, state.mode, state.practiceMode, state.spotlightSubregion],
   );
   // The percentages follow the paint, through the same predicate: a test
-  // round and Capital → Click both get a neutral map, and a caption claiming
+  // round, Capital → Click and a Name → Click focus all get a neutral map,
+  // and a caption claiming
   // "Europe 46%" over a blank one would contradict it. They cannot leak an
   // answer themselves — they are aggregates — so this is for coherence, not
   // safety.
   const continentProgress = useMemo(
     () =>
-      !paintsProgress(state.mode, state.practiceMode)
+      !paintsProgress(state.mode, state.practiceMode, state.spotlightSubregion)
         ? NO_CONTINENT_PROGRESS
         : masteryByContinent(locationRecords, ALL_COUNTRIES, game.scopeSet),
-    [locationRecords, game.scopeSet, state.mode, state.practiceMode],
+    [
+      locationRecords,
+      game.scopeSet,
+      state.mode,
+      state.practiceMode,
+      state.spotlightSubregion,
+    ],
   );
 
   // The expedition ignores the continent filter: its ten come from anywhere,
@@ -118,9 +136,13 @@ export default function App() {
   // Gating on the feedback rather than on `state.milestone` alone means no
   // reducer path can strand a mark animating over a country the learner has
   // already moved on from — the reducer clears the field too, but this is the
-  // invariant, stated once.
+  // invariant, stated once. No hatch during a Name → Click focus either: the
+  // map carries no progress then, so no pigment would land after it.
   const hatchIso3 =
-    state.feedback?.kind === "correct" ? (state.milestone?.iso3 ?? null) : null;
+    state.feedback?.kind === "correct" &&
+    !focusHidesProgress(state.mode, state.spotlightSubregion)
+      ? (state.milestone?.iso3 ?? null)
+      : null;
 
   // Nothing due and no new card can be asked: the scheduler has no more
   // work. Not when unseen cards wait only on the new-card allowance, which

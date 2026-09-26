@@ -4,6 +4,9 @@ import {
   BORDER_MIN_CONTRAST,
   contrastRatio,
   fillFor,
+  paintFor,
+  recede,
+  RECEDE_FILL,
   strokeFor,
   type Palette,
 } from "./fillFor";
@@ -18,10 +21,9 @@ const LIGHT_PALETTE: Palette = {
   highlight: "#highlt",
   correct: "#correc",
   wrong: "#wrong0",
-  skipped: "#skippd",
   neighbor: "#neighb",
-  spotlight: "#spotlt",
   border: "#border",
+  label: "#label0",
   borderInverse: "#bordin",
   oceanTint: "#ocean0",
   oceanLabel: "#oclbl0",
@@ -59,7 +61,7 @@ describe("fillFor — precedence", () => {
     ).toBe(LIGHT_PALETTE.correct);
   });
 
-  it("correct country shows yellow on a skip", () => {
+  it("paints the answer green on a skip too — green only ever means the answer", () => {
     expect(
       fillFor(
         {
@@ -71,7 +73,7 @@ describe("fillFor — precedence", () => {
         },
         LIGHT_PALETTE,
       ),
-    ).toBe(LIGHT_PALETTE.skipped);
+    ).toBe(LIGHT_PALETTE.correct);
   });
 
   it("wrong-clicked country that is ALSO a neighbor stays red, not blue", () => {
@@ -201,89 +203,105 @@ describe("fillFor — no feedback", () => {
   });
 });
 
-describe("fillFor — spotlight tint", () => {
-  const SPOTLIGHT: ReadonlySet<string> = new Set(["NGA", "GHA"]);
+// Written against the real light palette rather than the sentinels: recede
+// can only mix colours it can read, and on a sentinel it hands the fill back
+// unchanged, which would make "receded" indistinguishable from "painted".
+describe("fillFor — a focus sets the rest of the map back", () => {
+  const FOCUS: ReadonlySet<string> = new Set(["NGA", "GHA"]);
+  const base = {
+    highlightedIso3: null,
+    feedback: null,
+    inScope: true,
+    neighborSet: NO_NEIGHBORS,
+    spotlightSet: FOCUS,
+  };
 
-  it("tints a spotlight country over the in-scope default", () => {
+  it("keeps a focus country's own progress paint", () => {
     expect(
-      fillFor(
-        {
-          iso3: "NGA",
-          highlightedIso3: null,
-          feedback: null,
-          inScope: true,
-          neighborSet: NO_NEIGHBORS,
-          spotlightSet: SPOTLIGHT,
-        },
-        LIGHT_PALETTE,
-      ),
-    ).toBe(LIGHT_PALETTE.spotlight);
+      fillFor({ ...base, iso3: "NGA", masteryTier: 2 }, LIGHT),
+    ).toBe(LIGHT.masteryKnown);
   });
 
-  it("loses to highlight", () => {
-    expect(
-      fillFor(
-        {
-          iso3: "NGA",
-          highlightedIso3: "NGA",
-          feedback: null,
-          inScope: true,
-          neighborSet: NO_NEIGHBORS,
-          spotlightSet: SPOTLIGHT,
-        },
-        LIGHT_PALETTE,
-      ),
-    ).toBe(LIGHT_PALETTE.highlight);
+  it("recedes an in-scope country outside the focus", () => {
+    const fill = fillFor({ ...base, iso3: "FRA", masteryTier: 2 }, LIGHT);
+    expect(fill).toBe(recede(LIGHT.masteryKnown, LIGHT, RECEDE_FILL));
+    expect(fill).not.toBe(LIGHT.masteryKnown);
   });
 
-  it("loses to feedback states (correct/neighbor) for the involved countries", () => {
-    // Correct country wins even if it's also in the spotlight set.
+  it("leaves out-of-scope land inert", () => {
     expect(
-      fillFor(
-        {
-          iso3: "FRA",
-          highlightedIso3: null,
-          feedback: wrong,
-          inScope: true,
-          neighborSet: FRANCE_NEIGHBORS,
-          spotlightSet: new Set(["FRA"]),
-        },
-        LIGHT_PALETTE,
-      ),
-    ).toBe(LIGHT_PALETTE.correct);
-    // A neighbor that's also spotlighted shows the neighbor cue. Use BEL
-    // (a France neighbor that is NOT the wrong-clicked answer, which is DEU).
-    expect(
-      fillFor(
-        {
-          iso3: "BEL",
-          highlightedIso3: null,
-          feedback: wrong,
-          inScope: true,
-          neighborSet: FRANCE_NEIGHBORS,
-          spotlightSet: new Set(["BEL"]),
-        },
-        LIGHT_PALETTE,
-      ),
-    ).toBe(LIGHT_PALETTE.neighbor);
+      fillFor({ ...base, iso3: "FRA", inScope: false, masteryTier: 2 }, LIGHT),
+    ).toBe(LIGHT.inert);
   });
 
-  it("stays ambient during a reveal for a country not involved in the feedback", () => {
-    // ITA is in scope, spotlit, NOT the answer and NOT a France neighbor here.
-    const noNeighbors: ReadonlySet<string> = new Set();
+  it("recedes nothing without a focus", () => {
     expect(
       fillFor(
-        {
-          iso3: "ITA",
-          highlightedIso3: null,
-          feedback: wrong,
-          inScope: true,
-          neighborSet: noNeighbors,
-          spotlightSet: new Set(["ITA"]),
-        },
-        LIGHT_PALETTE,
+        { ...base, iso3: "FRA", masteryTier: 2, spotlightSet: new Set() },
+        LIGHT,
       ),
-    ).toBe(LIGHT_PALETTE.spotlight);
+    ).toBe(LIGHT.masteryKnown);
+  });
+
+  it("loses to the highlight", () => {
+    expect(
+      fillFor({ ...base, iso3: "FRA", highlightedIso3: "FRA" }, LIGHT),
+    ).toBe(LIGHT.highlight);
+  });
+
+  it("loses to a reveal for the countries it names, even outside the focus", () => {
+    const reveal = { ...base, feedback: wrong, neighborSet: FRANCE_NEIGHBORS };
+    expect(fillFor({ ...reveal, iso3: "FRA" }, LIGHT)).toBe(LIGHT.correct);
+    expect(fillFor({ ...reveal, iso3: "DEU" }, LIGHT)).toBe(LIGHT.wrong);
+    expect(fillFor({ ...reveal, iso3: "BEL" }, LIGHT)).toBe(LIGHT.neighbor);
+  });
+
+  it("stays on during a reveal for a country the reveal does not name", () => {
+    expect(
+      fillFor(
+        { ...base, iso3: "JPN", feedback: wrong, neighborSet: FRANCE_NEIGHBORS },
+        LIGHT,
+      ),
+    ).toBe(recede(LIGHT.masteryUnseen, LIGHT, RECEDE_FILL));
+  });
+
+  it("changes every ambient fill, in both themes", () => {
+    for (const palette of [LIGHT, DARK]) {
+      for (const slot of MASTERY) {
+        const receded = recede(palette[slot], palette, RECEDE_FILL);
+        expect(receded, slot).not.toBe(palette[slot]);
+        expect(receded, slot).toMatch(/^#[0-9a-f]{6}$/);
+      }
+    }
+  });
+
+  it("fades the line round a receded country, and keeps the focus's own", () => {
+    // Unseen land barely moves when faded — it already sits a hair above the
+    // ocean — so a focus reads mostly by which countries keep their lines.
+    const outside = paintFor({ ...base, iso3: "FRA" }, LIGHT);
+    expect(outside.stroke).not.toBe(strokeFor(outside.fill, LIGHT));
+    const inside = paintFor({ ...base, iso3: "NGA" }, LIGHT);
+    expect(inside.stroke).toBe(strokeFor(inside.fill, LIGHT));
+    expect(paintFor({ ...base, iso3: "FRA", highlightedIso3: "FRA" }, LIGHT)).toEqual({
+      fill: LIGHT.highlight,
+      stroke: strokeFor(LIGHT.highlight, LIGHT),
+    });
+  });
+
+  it("never lets known land outside a focus outshine unseen land inside it in dark", () => {
+    // On the dark ocean brighter is louder: at a half-way fade Egypt drew the
+    // eye away from every country of a Western Asia focus.
+    const receded = recede(DARK.masteryKnown, DARK, RECEDE_FILL);
+    expect(contrastRatio(receded, DARK.oceanTint)!).toBeLessThanOrEqual(
+      contrastRatio(DARK.masteryUnseen, DARK.oceanTint)!,
+    );
+  });
+
+  it("hands back a colour it cannot read unchanged", () => {
+    expect(recede("#unseen", LIGHT, RECEDE_FILL)).toBe("#unseen");
+    expect(recede(LIGHT.masteryKnown, { ...LIGHT, oceanTint: "" }, RECEDE_FILL)).toBe(
+      LIGHT.masteryKnown,
+    );
   });
 });
 
@@ -335,15 +353,6 @@ describe("fillFor — ambient mastery paint", () => {
     ).toBe(LIGHT_PALETTE.inert);
   });
 
-  it("lets the spotlight wash win over the mastery paint", () => {
-    expect(
-      fillFor(
-        { ...base, masteryTier: 2, spotlightSet: new Set(["BEL"]) },
-        LIGHT_PALETTE,
-      ),
-    ).toBe(LIGHT_PALETTE.spotlight);
-  });
-
   it("lets a reveal win over the mastery paint", () => {
     const reveal: Feedback = {
       kind: "wrong",
@@ -382,14 +391,14 @@ const LIGHT: Palette = {
   masterySeen: "#d8c28d",
   masteryKnown: "#c0a271",
   inert: "#e3d2ad", // --color-parchment-shadow
-  highlight: "#b08327", // --color-ochre
+  highlight: "#3f6189", // --color-prussian-blue
   correct: "#5d7e3e", // --color-sap-green
   wrong: "#b66556", // --color-vermillion-faded
-  skipped: "#9a7a2a",
   neighbor: "#5a7d77",
-  spotlight: "#dcb45a",
   border: "#2b1f12",
   borderInverse: "#f0e2c4",
+  label: "#2b1f12", // --color-map-label
+  oceanTint: "#e6dec9",
 };
 
 const DARK: Palette = {
@@ -398,29 +407,45 @@ const DARK: Palette = {
   masterySeen: "#4a3c26",
   masteryKnown: "#6b5732",
   inert: "#272118",
-  highlight: "#d49a3a",
+  highlight: "#7fa3d4",
   correct: "#7d9a4c",
   wrong: "#a64634",
-  skipped: "#c69a36",
   neighbor: "#6ea8a0",
-  spotlight: "#8a6a2a",
-  border: "#7a6440",
+  border: "#967b4e",
   borderInverse: "#14100a",
+  label: "#b89a6c",
+  oceanTint: "#17130d",
 };
 
-// Every Palette slot fillFor can hand back for a country path. The ocean,
-// label and capital-marker slots are not fills, so they never reach strokeFor.
-const COUNTRY_FILLS = [
+const MASTERY = [
   "masteryUnseen",
   "masterySeen",
   "masteryKnown",
+] as const satisfies readonly (keyof Palette)[];
+
+// Every fill a country can wear at rest: the mastery ramp, the inert fill and
+// the ramp set back by a focus. Named, so a failing floor says which.
+function ambientFills(palette: Palette): [string, string][] {
+  return [
+    ...MASTERY.map((k): [string, string] => [k, palette[k]]),
+    ["inert", palette.inert],
+    ...MASTERY.map((k): [string, string] => [
+      `receded ${k}`,
+      recede(palette[k], palette, RECEDE_FILL),
+    ]),
+  ];
+}
+
+// Every Palette slot fillFor can hand back for a country path. The ocean,
+// label and capital-marker slots are not fills, so they never reach strokeFor.
+// A receded fill is mixed rather than a slot; `ambientFills` covers those.
+const COUNTRY_FILLS = [
+  ...MASTERY,
   "inert",
   "highlight",
   "correct",
   "wrong",
-  "skipped",
   "neighbor",
-  "spotlight",
 ] as const satisfies readonly (keyof Palette)[];
 
 describe("strokeFor — the engraved line", () => {
@@ -433,23 +458,21 @@ describe("strokeFor — the engraved line", () => {
   });
 
   it("keeps the ochre line where dark land still reads against it", () => {
-    // Out-of-scope land and unseen in-scope land are the map at rest; the
-    // ochre line is what draws them, and coastlines with it.
-    for (const slot of ["inert", "masteryUnseen"] as const) {
+    // Out-of-scope land and unseen and met in-scope land are the map at rest;
+    // the ochre line is what draws them, and coastlines with it.
+    for (const slot of ["inert", "masteryUnseen", "masterySeen"] as const) {
       expect(strokeFor(DARK[slot], DARK)).toBe(DARK.border);
     }
   });
 
   it("switches ink for the dark fills that swallowed it", () => {
-    // The reported bug: adjacent countries under the spotlight wash (or any
-    // other bright pigment) read as one landmass.
+    // The reported bug: adjacent countries under a bright pigment read as
+    // one landmass.
     for (const slot of [
       "masteryKnown",
-      "spotlight",
       "highlight",
       "correct",
       "wrong",
-      "skipped",
       "neighbor",
     ] as const) {
       expect(strokeFor(DARK[slot], DARK)).toBe(DARK.borderInverse);
@@ -474,8 +497,11 @@ describe("strokeFor — the engraved line", () => {
     // green would pick up 0.4 by switching, and doesn't) — but a switch can
     // only ever be an improvement, never a trade.
     for (const palette of [LIGHT, DARK]) {
-      for (const slot of COUNTRY_FILLS) {
-        const fill = palette[slot];
+      const fills = [
+        ...COUNTRY_FILLS.map((slot) => palette[slot]),
+        ...ambientFills(palette).map(([, fill]) => fill),
+      ];
+      for (const fill of fills) {
         expect(
           contrastRatio(fill, strokeFor(fill, palette))!,
         ).toBeGreaterThanOrEqual(contrastRatio(fill, palette.border)!);
@@ -485,7 +511,7 @@ describe("strokeFor — the engraved line", () => {
 
   it("answers per palette, so a theme flip can't serve a stale ink", () => {
     // Same fill string, both palettes — guards the memo key.
-    const fill = DARK.spotlight;
+    const fill = DARK.masteryKnown;
     expect(strokeFor(fill, DARK)).toBe(DARK.borderInverse);
     expect(strokeFor(fill, { ...DARK, borderInverse: "" })).toBe(DARK.border);
   });
@@ -494,12 +520,12 @@ describe("strokeFor — the engraved line", () => {
     // Sentinel fixtures and a token that resolved empty under jsdom both
     // land here — a legibility check it can't make must not repaint the map.
     expect(strokeFor("#unseen", LIGHT_PALETTE)).toBe(LIGHT_PALETTE.border);
-    expect(strokeFor(DARK.spotlight, { ...DARK, border: "" })).toBe("");
+    expect(strokeFor(DARK.masteryKnown, { ...DARK, border: "" })).toBe("");
   });
 
   it("reads the rgb() form as well as hex", () => {
     const asRgb = { ...DARK, borderInverse: "rgb(20, 16, 10)" };
-    expect(strokeFor(DARK.spotlight, asRgb)).toBe("rgb(20, 16, 10)");
+    expect(strokeFor(DARK.masteryKnown, asRgb)).toBe("rgb(20, 16, 10)");
   });
 
   it("reads a three-digit hex", () => {
@@ -507,26 +533,68 @@ describe("strokeFor — the engraved line", () => {
   });
 });
 
+// Not a WCAG figure — fills, not text — but a floor that keeps a retune from
+// sliding a cue back into the ramp. The old warm neighbour tone scored 1.02
+// in light, the same paint as a known country.
+const FILL_MIN_CONTRAST = 1.5;
+
 describe("the neighbour cue against the ambient paint (R3.3a)", () => {
   // Every fill a neighbour can sit beside at rest: the whole mastery ramp
   // (the introduced wash is only collapsed in name-to-click), the inert
-  // fill, the spotlight.
-  // The reveal's own fills (correct, wrong, skipped) are left out on purpose:
+  // fill, the ramp receded by a focus.
+  // The reveal's own fills (correct and wrong) are left out on purpose:
   // no tone clears both them and the ramp by luminance, and against them the
   // cue is carried by the frame and the label, not the fill alone.
-  // The old warm tone scored 1.02 here in light, the same paint as a known
-  // country. Not a WCAG figure — fills, not text — but a floor that keeps a
-  // retune from sliding back into the ramp.
-  const NEIGHBOR_MIN_CONTRAST = 1.5;
-  const AMBIENT = ["masteryUnseen", "masterySeen", "masteryKnown", "inert", "spotlight"] as const;
   for (const [name, palette] of [["light", LIGHT], ["dark", DARK]] as const) {
     it(`stays clear of every ambient fill in ${name}`, () => {
-      for (const key of AMBIENT) {
+      for (const [key, fill] of ambientFills(palette)) {
         expect(
-          contrastRatio(palette.neighbor, palette[key]),
+          contrastRatio(palette.neighbor, fill),
           `neighbor vs ${key}`,
-        ).toBeGreaterThanOrEqual(NEIGHBOR_MIN_CONTRAST);
+        ).toBeGreaterThanOrEqual(FILL_MIN_CONTRAST);
       }
     });
   }
+});
+
+describe("the typed question's target against the ambient paint (#62)", () => {
+  // The target was ochre, inside the warm ramp, and read as one more tier of
+  // progress. It is blue now; this keeps a retune from sliding it back. The
+  // outline carries it too, so the fill is not the only cue.
+  for (const [name, palette] of [["light", LIGHT], ["dark", DARK]] as const) {
+    it(`stays clear of every ambient fill in ${name}`, () => {
+      for (const [key, fill] of ambientFills(palette)) {
+        expect(
+          contrastRatio(palette.highlight, fill),
+          `target vs ${key}`,
+        ).toBeGreaterThanOrEqual(FILL_MIN_CONTRAST);
+      }
+    });
+  }
+});
+
+describe("dark map legibility (#62)", () => {
+  // Country names are text: WCAG AA against the ocean they sit on, halo and
+  // all. Checked in light too, so a retune there cannot slip.
+  const TEXT_MIN_CONTRAST = 4.5;
+  // The coastline and the edge of the continent filter are the map's
+  // non-text graphics: WCAG's 3:1.
+  const LINE_MIN_CONTRAST = 3;
+
+  for (const [name, palette] of [["light", LIGHT], ["dark", DARK]] as const) {
+    it(`sets country names at text contrast on the ocean in ${name}`, () => {
+      expect(
+        contrastRatio(palette.label, palette.oceanTint),
+      ).toBeGreaterThanOrEqual(TEXT_MIN_CONTRAST);
+    });
+  }
+
+  it("draws dark coastlines and out-of-scope land at 3:1", () => {
+    for (const key of ["oceanTint", "inert", "masteryUnseen"] as const) {
+      expect(
+        contrastRatio(DARK.border, DARK[key]),
+        `border vs ${key}`,
+      ).toBeGreaterThanOrEqual(LINE_MIN_CONTRAST);
+    }
+  });
 });

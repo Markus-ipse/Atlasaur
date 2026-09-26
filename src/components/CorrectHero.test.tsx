@@ -55,6 +55,22 @@ describe("CorrectHero — ceremony", () => {
     expect(container.textContent).toContain("France, now on your map.");
   });
 
+  it("marks it without the map while a focus holds the pigment back", () => {
+    // In Name → Click the map keeps a focus's countries unseen, so "now on
+    // your map" would point at a colour that never lands.
+    const { container } = render(
+      <CorrectHero
+        mode="name-to-click"
+        current={FRANCE}
+        streak={3}
+        milestone={{ iso3: "FRA", name: "France", continentComplete: null }}
+        onMap={false}
+      />,
+    );
+    expect(container.textContent).toContain("France is known now.");
+    expect(container.textContent).not.toContain("on your map");
+  });
+
   it("presses a wax seal when a continent is finished", () => {
     const { container } = render(
       <CorrectHero

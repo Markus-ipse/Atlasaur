@@ -22,6 +22,10 @@ type Props = {
   // Set when this answer carried the country into "known". Null otherwise,
   // which is almost always.
   milestone: Milestone | null;
+  // False while the map is holding the country's pigment back (a focus in
+  // Name → Click, see focusHidesProgress): the milestone is still marked,
+  // but not as something now on the map.
+  onMap?: boolean;
   // The card had come back, marked here rather than on the prompt in
   // Name → Click (see ControlZone).
   returning?: boolean;
@@ -32,6 +36,7 @@ export function CorrectHero({
   mode,
   streak,
   milestone,
+  onMap = true,
   returning = false,
 }: Props) {
   const note = streakNote(streak);
@@ -71,7 +76,9 @@ export function CorrectHero({
       )}
       {milestone && !sealed && (
         <p className="milestone-in text-sm italic text-ochre">
-          {milestone.name}, now on your map.
+          {onMap
+            ? `${milestone.name}, now on your map.`
+            : `${milestone.name} is known now.`}
         </p>
       )}
       {sealed && <WaxSeal continent={sealed} />}

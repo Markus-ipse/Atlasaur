@@ -410,6 +410,15 @@ export function masteryTiers(records: SrsRecords): Map<string, MasteryTier> {
 // counterpart `country-to-capital` keeps the full three tones: the country is
 // already highlighted, so there is nothing left to give away.
 //
+// A focus narrows `name-to-click` further, and two tones are only safe while
+// both are large. A subregion can be two countries: focused on Australia and
+// New Zealand with Australia known, the one left unseen is the answer. So a
+// `name-to-click` focus gets no paint at all, on the whole map rather than
+// only inside it: with the focus held at unseen, known land outside it —
+// receded or not — outshone the region being practised, which in light sits
+// at the ocean's own tone. The other modes keep their tones inside a focus
+// for the reasons above.
+//
 // `records` is always the LOCATION fact: the paint is a map of where the
 // learner has been, whatever the prompt on screen happens to ask.
 
@@ -419,8 +428,13 @@ export function masteryTiers(records: SrsRecords): Map<string, MasteryTier> {
 export function paintsProgress(
   mode: QuestionMode,
   practiceMode: PracticeMode,
+  spotlightSubregion: string | null = null,
 ): boolean {
-  return practiceMode === "study" && mode !== "capital-to-click";
+  return (
+    practiceMode === "study" &&
+    mode !== "capital-to-click" &&
+    !focusHidesProgress(mode, spotlightSubregion)
+  );
 }
 
 // Whether the question is a place to find on the map, where knowing a card has
@@ -431,10 +445,22 @@ export function hidesIntroduced(mode: QuestionMode): boolean {
   return mode === "name-to-click";
 }
 
+// Whether a focus is withholding the map's progress right now: the leak
+// guard in paintsProgress. Anything that points at a country's paint — the
+// milestone hatch, "now on your map" — reads this, so it never claims a
+// pigment the map is holding back.
+export function focusHidesProgress(
+  mode: QuestionMode,
+  spotlightSubregion: string | null,
+): boolean {
+  return spotlightSubregion !== null && hidesIntroduced(mode);
+}
+
 export function paintTiers(
   records: SrsRecords,
   mode: QuestionMode,
   practiceMode: PracticeMode,
+  spotlightSubregion: string | null = null,
 ): Map<string, MasteryTier> {
   // A test round is a measurement, so the map carries no progress paint at
   // all. Its picks are random rather than scheduler-driven, so there is no
@@ -444,7 +470,7 @@ export function paintTiers(
   // skill the test is scoring. Everything reads as unseen until the test ends.
   // The Daily Expedition is the one score a learner shows someone else, so it
   // is the most neutral measurement of all and gets the same blank map.
-  if (!paintsProgress(mode, practiceMode)) return new Map();
+  if (!paintsProgress(mode, practiceMode, spotlightSubregion)) return new Map();
   const tiers = masteryTiers(records);
   if (!hidesIntroduced(mode)) return tiers;
   for (const [iso3, tier] of tiers) {
