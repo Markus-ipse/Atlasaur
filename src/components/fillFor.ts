@@ -111,12 +111,23 @@ export function wrongPickOf(feedback: Feedback | null): string | null {
   return null;
 }
 
-export type Outline = { iso3: string; kind: "target" | "wrong" };
+export type Outline = { iso3: string; kind: "target" | "answer" | "wrong" };
 
-// The countries outlined as well as coloured (#62), so neither the typed
-// question's target nor a wrong pick rests on colour alone: the target while
-// its question is up (solid), and a wrong pick through its reveal (dashed).
-// Decided here, beside the fills they accompany, so the two cannot disagree.
+// How each outline is drawn, read by the map and by its key alike, so the
+// key's swatch cannot show a line the map does not draw.
+export const OUTLINE_LINE: Record<Outline["kind"], "solid" | "dashed"> = {
+  target: "solid",
+  answer: "solid",
+  wrong: "dashed",
+};
+
+// The countries outlined as well as coloured (#62), so none of the typed
+// question's target, a miss's answer or a wrong pick rests on colour alone:
+// the target while its question is up (solid), the answer through a miss
+// reveal (solid, since it sits among the teal neighbours), and a wrong pick
+// through its reveal (dashed). A correct flash draws no neighbours, so its
+// green has nothing to be told apart from. Decided here, beside the fills
+// they accompany, so the two cannot disagree.
 export function outlinesFor(
   feedback: Feedback | null,
   highlightedIso3: string | null,
@@ -124,6 +135,9 @@ export function outlinesFor(
   const out: Outline[] = [];
   if (!feedback && highlightedIso3) {
     out.push({ iso3: highlightedIso3, kind: "target" });
+  }
+  if (feedback && feedback.kind !== "correct") {
+    out.push({ iso3: feedback.correctIso3, kind: "answer" });
   }
   const wrong = wrongPickOf(feedback);
   if (wrong) out.push({ iso3: wrong, kind: "wrong" });

@@ -141,7 +141,8 @@ describe("mapKeyFor", () => {
         scopeNarrowed: true,
       }),
     ).toEqual(["answer", "wrong", "neighbor"]);
-    const wrong = mapKeyFor(input({ feedback: WRONG })).entries[1];
+    const [answer, wrong] = mapKeyFor(input({ feedback: WRONG })).entries;
+    expect(answer.line).toBe("solid");
     expect(wrong.line).toBe("dashed");
   });
 

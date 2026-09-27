@@ -729,6 +729,32 @@ describe("WorldMap — markers (R3.4)", () => {
     expect(container.querySelector('g[data-ring="wrong"]')).toBeNull();
   });
 
+  it("rings the answer dot on a miss with a solid cased line, and not on a correct flash", () => {
+    const { container, rerender } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        numericFromIso3={numericFromMlt}
+        feedback={{ kind: "skipped", answerIso3: "", correctIso3: "MLT", at: 0 }}
+        revealCapitalLonLat={null}
+      />,
+    );
+    const ring = container.querySelector('g[data-ring="answer"]');
+    expect(ring).not.toBeNull();
+    expect(ring!.querySelectorAll("circle")).toHaveLength(2);
+    expect(ring!.querySelector("circle[stroke-dasharray]")).toBeNull();
+    rerender(
+      <WorldMap
+        {...BASE_PROPS}
+        isoFromNumeric={isoFromNumeric}
+        numericFromIso3={numericFromMlt}
+        feedback={{ kind: "correct", answerIso3: "MLT", correctIso3: "MLT", at: 0 }}
+        revealCapitalLonLat={null}
+      />,
+    );
+    expect(container.querySelector('g[data-ring="answer"]')).toBeNull();
+  });
+
   it("names a revealed marker below its dot, and draws no capital dot over it", () => {
     const { container } = render(
       <WorldMap
@@ -1067,19 +1093,23 @@ describe("WorldMap — outlines (#62)", () => {
     expect(outlines(container, "target")).toHaveLength(0);
   });
 
-  it("outlines nothing on a correct answer, or a typed answer that matched no country", () => {
-    const correct: Feedback = { kind: "correct", answerIso3: "FRA", correctIso3: "FRA", at: 0 };
+  it("outlines the answer through a miss reveal, solid, so the teal around it is not the only difference", () => {
+    const skipped: Feedback = { kind: "skipped", answerIso3: "", correctIso3: "FRA", at: 0 };
     const { container, rerender } = render(
       <WorldMap
         {...BASE_PROPS}
-        mode="shape-to-name"
         numericFromIso3={(iso3) => NUMERIC[iso3]}
-        highlightedIso3="FRA"
-        feedback={correct}
+        feedback={skipped}
         revealCapitalLonLat={null}
       />,
     );
-    expect(container.querySelectorAll("path[data-outline]")).toHaveLength(0);
+    const answer = outlines(container, "answer");
+    expect(answer.length).toBeGreaterThan(0);
+    expect(answer[0].getAttribute("stroke-dasharray")).toBeNull();
+    expect(outlines(container, "wrong")).toHaveLength(0);
+    // A typed question's miss: the country keeps a solid outline, now the
+    // answer's, and the target's is not left behind beside it; a typed
+    // answer that matched no country has no pick to dash.
     const unmatched: Feedback = { kind: "wrong", answerIso3: "", correctIso3: "FRA", at: 0 };
     rerender(
       <WorldMap
@@ -1088,6 +1118,43 @@ describe("WorldMap — outlines (#62)", () => {
         numericFromIso3={(iso3) => NUMERIC[iso3]}
         highlightedIso3="FRA"
         feedback={unmatched}
+        revealCapitalLonLat={null}
+      />,
+    );
+    expect(outlines(container, "answer").length).toBeGreaterThan(0);
+    expect(outlines(container, "target")).toHaveLength(0);
+    expect(outlines(container, "wrong")).toHaveLength(0);
+    rerender(
+      <WorldMap
+        {...BASE_PROPS}
+        numericFromIso3={(iso3) => NUMERIC[iso3]}
+        feedback={WRONG}
+        revealCapitalLonLat={null}
+      />,
+    );
+    expect(outlines(container, "answer").length).toBeGreaterThan(0);
+    expect(outlines(container, "wrong").length).toBeGreaterThan(0);
+    // The wrong pick is drawn whole — casing and dashes — after the answer's
+    // ink, so on a shared border its dashes are not filled in by solid ink.
+    const layer = container.querySelector('path[data-outline="answer"]')!.parentElement!;
+    const paths = [...layer.querySelectorAll("path")];
+    const lastAnswerInk = paths.findLastIndex((p) => p.dataset.outline === "answer");
+    const firstWrong = paths.findIndex(
+      (p, i) => i > lastAnswerInk && p.getAttribute("d") === outlines(container, "wrong")[0].getAttribute("d"),
+    );
+    expect(firstWrong).toBeGreaterThan(lastAnswerInk);
+    expect(paths[firstWrong].dataset.outline).toBeUndefined(); // its casing
+  });
+
+  it("outlines nothing on a correct answer", () => {
+    const correct: Feedback = { kind: "correct", answerIso3: "FRA", correctIso3: "FRA", at: 0 };
+    const { container } = render(
+      <WorldMap
+        {...BASE_PROPS}
+        mode="shape-to-name"
+        numericFromIso3={(iso3) => NUMERIC[iso3]}
+        highlightedIso3="FRA"
+        feedback={correct}
         revealCapitalLonLat={null}
       />,
     );
