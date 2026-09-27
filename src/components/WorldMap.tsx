@@ -1,4 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { geoGraticule10 } from "d3-geo";
 import { select } from "d3-selection";
 import {
@@ -51,7 +58,15 @@ import {
   type Label,
   type Rect,
 } from "./labelLayout";
-import { outlinesFor, paintFor, strokeFor, type Palette } from "./fillFor";
+import {
+  OUTLINE_LINE,
+  outlinesFor,
+  paintFor,
+  strokeFor,
+  wrongPickOf,
+  type Outline,
+  type Palette,
+} from "./fillFor";
 import {
   loadMapKeyCollapsed,
   mapKeyFor,
@@ -163,9 +178,9 @@ const CONTINENT_CAPTION_MIN_PX = 10;
 // On-screen spacing of the engraved hatch drawn over a country that has just
 // become known.
 const HATCH_SCREEN_PX = 6;
-// The outline around the typed question's target and a wrong pick, in
-// on-screen px: heavy enough to read over a country's 0.5 px edge, over a
-// casing that shows a px of the opposite ink on each side.
+// The outline around the typed question's target, a miss's answer and a
+// wrong pick, in on-screen px: heavy enough to read over a country's 0.5 px
+// edge, over a casing that shows a px of the opposite ink on each side.
 const OUTLINE_WIDTH_PX = 1.5;
 const OUTLINE_CASING_PX = 3.5;
 const OUTLINE_DASH = "4 3";
@@ -309,8 +324,9 @@ const PAN_LIMITS: [[number, number], [number, number]] = [
 const CONSTRAIN = d3zoom<SVGSVGElement, unknown>().constrain();
 // The ring drawn round something too small to find by its colour or its
 // outline: a marker dot, or a shape a few pixels across (#62). The typed
-// question's target gets a solid ring in its own blue; a wrong pick gets a
-// dashed ring, cased like a shape's outline, so the red is not its only mark.
+// question's target gets a solid ring in its own blue; a miss's answer and a
+// wrong pick get a ring cased like a shape's outline, solid and dashed as
+// their outlines are, so neither green nor red is its only mark.
 function OutlineRing({
   cx,
   cy,
@@ -322,7 +338,7 @@ function OutlineRing({
   cx: number;
   cy: number;
   r: number;
-  kind: "target" | "wrong";
+  kind: Outline["kind"];
   palette: Palette;
   id: string;
 }) {
@@ -343,7 +359,7 @@ function OutlineRing({
     );
   }
   return (
-    <g pointerEvents="none" data-ring="wrong" data-ring-for={id}>
+    <g pointerEvents="none" data-ring={kind} data-ring-for={id}>
       <circle
         cx={cx}
         cy={cy}
@@ -360,7 +376,7 @@ function OutlineRing({
         fill="none"
         stroke={palette.border}
         strokeWidth={OUTLINE_WIDTH_PX}
-        strokeDasharray={OUTLINE_DASH}
+        strokeDasharray={OUTLINE_LINE[kind] === "dashed" ? OUTLINE_DASH : undefined}
         vectorEffect="non-scaling-stroke"
       />
     </g>
@@ -722,10 +738,7 @@ export function WorldMap({
   // way off). Skips have no second reference point.
   const revealCorrectIso3 =
     feedback && feedback.kind !== "correct" ? feedback.correctIso3 : null;
-  const revealWrongIso3 =
-    feedback?.kind === "wrong" && feedback.answerIso3 !== feedback.correctIso3
-      ? feedback.answerIso3
-      : null;
+  const revealWrongIso3 = wrongPickOf(feedback);
 
   useEffect(() => {
     if (!revealCorrectIso3) return;
@@ -1278,17 +1291,12 @@ export function WorldMap({
     () => outlinesFor(feedback, highlightedIso3),
     [feedback, highlightedIso3],
   );
-  const outlinePaths = useMemo(
+  const outlineShapes = useMemo(
     () =>
-      outlines.flatMap(({ iso3, kind }) => {
-        const numeric = numericFromIso3(iso3);
-        if (!numeric) return [];
-        return (PATHS_BY_NUMERIC.get(numeric) ?? []).map((p) => ({
-          key: p.key,
-          d: p.d,
-          kind,
-          numeric,
-        }));
+      outlines.map(({ iso3, kind }) => {
+        const numeric = numericFromIso3(iso3) ?? null;
+        const paths = numeric ? (PATHS_BY_NUMERIC.get(numeric) ?? []) : [];
+        return { kind, numeric, paths };
       }),
     [outlines, numericFromIso3],
   );
@@ -1565,50 +1573,63 @@ export function WorldMap({
               wider band of the inverse ink, so it reads against whatever
               lies on either side of it — the country's own pigment, dark or
               light land, or the ocean — in both themes. A wrong pick's ink
-              is dashed over a solid casing. */}
-          {outlinePaths.length > 0 && (
+              is dashed over a solid casing; the target's and a miss's
+              answer are solid, and drawn first. */}
+          {outlineShapes.some((o) => o.paths.length > 0) && (
             <g aria-hidden="true" pointerEvents="none">
-              {outlines.map(({ iso3, kind }) => {
-                const numeric = numericFromIso3(iso3);
-                const speck = numeric ? specks.get(numeric) : undefined;
-                return speck && numeric ? (
-                  <OutlineRing
-                    key={`ring-${kind}-${numeric}`}
-                    cx={speck.cx}
-                    cy={speck.cy}
-                    r={(MARKER_RADIUS_PX * 3) / pxPerUnit}
-                    kind={kind}
-                    palette={palette}
-                    id={numeric}
-                  />
-                ) : null;
+              {outlineShapes.map(({ kind, numeric, paths }) => {
+                // Each outline drawn whole — ring, or casing then ink — in
+                // outlinesFor's order, so a wrong pick's dashes lie over the
+                // answer's solid line where the two meet, rather than
+                // dashing over solid ink that fills their gaps.
+                if (!numeric || paths.length === 0) return null;
+                const speck = specks.get(numeric);
+                if (speck) {
+                  return (
+                    <OutlineRing
+                      key={`ring-${kind}-${numeric}`}
+                      cx={speck.cx}
+                      cy={speck.cy}
+                      r={(MARKER_RADIUS_PX * 3) / pxPerUnit}
+                      kind={kind}
+                      palette={palette}
+                      id={numeric}
+                    />
+                  );
+                }
+                return (
+                  <Fragment key={`${kind}-${numeric}`}>
+                    {paths.map((p) => (
+                      <path
+                        key={`casing-${p.key}`}
+                        d={p.d}
+                        fill="none"
+                        stroke={palette.borderInverse}
+                        strokeWidth={OUTLINE_CASING_PX}
+                        strokeLinejoin="round"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ))}
+                    {paths.map((p) => (
+                      <path
+                        key={p.key}
+                        d={p.d}
+                        fill="none"
+                        stroke={palette.border}
+                        strokeWidth={OUTLINE_WIDTH_PX}
+                        strokeDasharray={
+                          OUTLINE_LINE[kind] === "dashed"
+                            ? OUTLINE_DASH
+                            : undefined
+                        }
+                        strokeLinejoin="round"
+                        vectorEffect="non-scaling-stroke"
+                        data-outline={kind}
+                      />
+                    ))}
+                  </Fragment>
+                );
               })}
-              {outlinePaths.filter((o) => !specks.has(o.numeric)).map((o) => (
-                <path
-                  key={`casing-${o.kind}-${o.key}`}
-                  d={o.d}
-                  fill="none"
-                  stroke={palette.borderInverse}
-                  strokeWidth={OUTLINE_CASING_PX}
-                  strokeLinejoin="round"
-                  vectorEffect="non-scaling-stroke"
-                />
-              ))}
-              {outlinePaths.filter((o) => !specks.has(o.numeric)).map((o) => (
-                <path
-                  key={`${o.kind}-${o.key}`}
-                  d={o.d}
-                  fill="none"
-                  stroke={palette.border}
-                  strokeWidth={OUTLINE_WIDTH_PX}
-                  strokeDasharray={
-                    o.kind === "wrong" ? OUTLINE_DASH : undefined
-                  }
-                  strokeLinejoin="round"
-                  vectorEffect="non-scaling-stroke"
-                  data-outline={o.kind}
-                />
-              ))}
             </g>
           )}
           {/* Continent progress — the mastery paint's legend, engraved in the
@@ -1741,8 +1762,8 @@ export function WorldMap({
             // A shape highlighted in a typed mode is found by its colour and
             // outline; a few pixels of blue are not, so the dot being asked
             // about gets a ring. It is the question, not the answer, so it
-            // leaks nothing. A dot picked wrongly gets a dashed ring, cased
-            // like a shape's outline, so the red is not its only mark.
+            // leaks nothing. On a miss the answer dot gets a solid cased ring
+            // and a dot picked wrongly a dashed one, as their shapes would.
             const outline = iso3
               ? outlines.find((o) => o.iso3 === iso3)?.kind
               : undefined;

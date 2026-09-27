@@ -1,7 +1,15 @@
 import type { Feedback, QuestionMode } from "../types";
 import { hidesIntroduced, type MasteryTier } from "../game/srs";
 import { isTypedMode } from "../game/questionModes";
-import { RECEDE_FILL, recede, wrongPickOf, type Palette } from "./fillFor";
+import {
+  OUTLINE_LINE,
+  outlinesFor,
+  RECEDE_FILL,
+  recede,
+  wrongPickOf,
+  type Outline,
+  type Palette,
+} from "./fillFor";
 
 // The map key (#62): what the colours on the map mean right now, and nothing
 // else. Each entry is a colour the map is actually showing, named in the
@@ -11,8 +19,9 @@ import { RECEDE_FILL, recede, wrongPickOf, type Palette } from "./fillFor";
 // because the map shows none (omit rather than show zero).
 //
 // Everything here is read off the same inputs fillFor paints from, so the key
-// cannot name a colour the map is not drawing. `line` is "dashed" for the one
-// entry the map draws with a dashed outline, a wrong pick.
+// cannot name a colour the map is not drawing. `line` marks an entry the map
+// outlines as well as colours: solid for the target and a miss's answer,
+// dashed for a wrong pick.
 
 export type MapKeyEntry = {
   id: string;
@@ -46,12 +55,25 @@ export type MapKeyInput = {
 
 export function mapKeyFor(input: MapKeyInput): MapKey {
   const { feedback, palette } = input;
+  // An entry's swatch carries the line the map draws round that state, read
+  // from the same outlinesFor, so the key cannot show an outline the map
+  // does not draw.
+  const outlined = new Set(
+    outlinesFor(feedback, input.highlightedIso3).map((o) => o.kind),
+  );
+  const lineOf = (kind: Outline["kind"]): MapKeyEntry["line"] =>
+    outlined.has(kind) ? OUTLINE_LINE[kind] : undefined;
 
   // A miss reveal: the key names the reveal's own colours and nothing else,
   // since those are the ones worth reading while it is up.
   if (feedback && feedback.kind !== "correct") {
     const entries: MapKeyEntry[] = [
-      { id: "answer", label: "The answer", fill: palette.correct },
+      {
+        id: "answer",
+        label: "The answer",
+        fill: palette.correct,
+        line: lineOf("answer"),
+      },
     ];
     const wrong = wrongPickOf(feedback);
     if (wrong) {
@@ -59,7 +81,7 @@ export function mapKeyFor(input: MapKeyInput): MapKey {
         id: "wrong",
         label: "Your answer",
         fill: palette.wrong,
-        line: "dashed",
+        line: lineOf("wrong"),
       });
     }
     // A neighbour that is also the wrong pick stays red (fillFor), so count
@@ -81,7 +103,7 @@ export function mapKeyFor(input: MapKeyInput): MapKey {
       id: "target",
       label: "The country in the question",
       fill: palette.highlight,
-      line: "solid",
+      line: lineOf("target"),
     });
   }
 

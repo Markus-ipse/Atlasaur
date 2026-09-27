@@ -4,6 +4,7 @@ import {
   BORDER_MIN_CONTRAST,
   contrastRatio,
   fillFor,
+  outlinesFor,
   paintFor,
   recede,
   RECEDE_FILL,
@@ -596,5 +597,30 @@ describe("dark map legibility (#62)", () => {
         `border vs ${key}`,
       ).toBeGreaterThanOrEqual(LINE_MIN_CONTRAST);
     }
+  });
+});
+
+describe("outlinesFor — what is outlined as well as coloured (#62)", () => {
+  const at = 0;
+  it("outlines the typed question's target while its question is up", () => {
+    expect(outlinesFor(null, "FRA")).toEqual([{ iso3: "FRA", kind: "target" }]);
+  });
+
+  it("outlines the answer on a skip, and the answer and the pick on a wrong answer", () => {
+    const skip: Feedback = { kind: "skipped", answerIso3: "", correctIso3: "FRA", at };
+    expect(outlinesFor(skip, "FRA")).toEqual([{ iso3: "FRA", kind: "answer" }]);
+    // A typed answer that matched no country names no pick to outline.
+    const unmatched: Feedback = { kind: "wrong", answerIso3: "", correctIso3: "FRA", at };
+    expect(outlinesFor(unmatched, "FRA")).toEqual([{ iso3: "FRA", kind: "answer" }]);
+    const wrong: Feedback = { kind: "wrong", answerIso3: "DEU", correctIso3: "FRA", at };
+    expect(outlinesFor(wrong, null)).toEqual([
+      { iso3: "FRA", kind: "answer" },
+      { iso3: "DEU", kind: "wrong" },
+    ]);
+  });
+
+  it("outlines nothing on a correct flash", () => {
+    const correct: Feedback = { kind: "correct", answerIso3: "FRA", correctIso3: "FRA", at };
+    expect(outlinesFor(correct, "FRA")).toEqual([]);
   });
 });
