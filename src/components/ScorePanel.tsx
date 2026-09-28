@@ -1,7 +1,7 @@
 import type { TestTally } from "../game/testTally";
 
 const SHELL =
-  "flex items-baseline gap-2 text-xs text-ink-mid tabular-nums";
+  "flex items-baseline gap-2 text-sm text-ink-mid tabular-nums";
 const VALUE = "font-semibold text-ink-deep";
 
 // Test-round chips. The per-session streak used to live here; it left when

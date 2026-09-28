@@ -44,10 +44,10 @@ export function RevealHero({
     <div role="status" className="flex flex-col gap-2">
       {returning && <BackAgain />}
       <p className="leading-tight">
-        <span className="block text-xs">
+        <span className="block text-sm">
           <span
             className={
-              "font-display uppercase tracking-wide " +
+              "font-display text-xs uppercase tracking-wide " +
               (skipped ? "text-ochre" : "text-vermillion")
             }
           >

@@ -14,4 +14,4 @@ export const COMING_BACK_TIP = "Met before and ready for another look now.";
 // The small "?" mark beside a label that explains itself, drawn by CSS so
 // it is not part of the label's text.
 export const EXPLAINED_LABEL_CLASS =
-  "underline decoration-dotted decoration-ink-faded underline-offset-2 after:content-['?'] after:inline-flex after:items-center after:justify-center after:w-3 after:h-3 after:ml-1 after:rounded-full after:border after:border-current after:text-[8px] after:leading-none after:no-underline after:align-[1px]";
+  "underline decoration-dotted decoration-ink-faded underline-offset-2 after:content-['?'] after:inline-flex after:items-center after:justify-center after:w-3.5 after:h-3.5 after:ml-1 after:rounded-full after:border after:border-current after:text-[10px] after:leading-none after:no-underline after:align-[1px]";

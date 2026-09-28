@@ -48,7 +48,9 @@ export function Prompt({ mode, current, returning }: Props) {
       {returning && <BackAgain />}
       {prompt ? (
         <p className="leading-tight">
-          <span className="block font-display text-xs uppercase tracking-wide text-ink-mid">
+          {/* The eyebrow is the question in three modes, so it is read at 14 px
+              (#61); the other eyebrows stay at 12. */}
+          <span className="block font-display text-sm uppercase tracking-wide text-ink-mid">
             {prompt.eyebrow}
           </span>
           <span className="block text-2xl sm:text-3xl landscape:text-4xl font-semibold text-ink-deep break-words">

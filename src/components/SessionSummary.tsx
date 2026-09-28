@@ -27,6 +27,7 @@ import {
 } from "./figureTips";
 import { subject, testDoorLabel } from "./scopeSummary";
 import { NO_MORE_NEW, nextBackOrNothing } from "../game/nextBack";
+import { PRIMARY, SECONDARY, STACKED, SECONDARY_SUB } from "./buttonStyles";
 
 type Props = {
   practiceMode: PracticeMode;
@@ -127,11 +128,6 @@ function TestSummary({
     (showReview ? reviewRef : playAgainRef).current?.focus();
   }, [showReview]);
 
-  const primaryClass =
-    "min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
-  const secondaryClass =
-    "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
-
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4">
       <div
@@ -155,7 +151,7 @@ function TestSummary({
               <Tile label="Still missed" value={String(test.stillMissed)} />
             </div>
             {/* The scoring model, said once where the score is. */}
-            <p className="text-xs text-ink-mid text-center -mt-2">
+            <p className="text-sm text-ink-mid text-center -mt-2">
               Scored on first tries. A country found on a later try is
               recovered.
             </p>
@@ -167,7 +163,7 @@ function TestSummary({
           </>
         )}
         {dueCount > 0 && (
-          <p className="text-xs text-ink-mid text-center">
+          <p className="text-sm text-ink-mid text-center">
             {dueCount} coming back — first up when you go back to studying.
           </p>
         )}
@@ -207,7 +203,7 @@ function TestSummary({
               ref={reviewRef}
               type="button"
               onClick={onReview}
-              className={primaryClass}
+              className={PRIMARY}
             >
               Review {unlearnedCount} missed
             </button>
@@ -216,14 +212,14 @@ function TestSummary({
             ref={playAgainRef}
             type="button"
             onClick={onPlayAgain}
-            className={showReview ? secondaryClass : primaryClass}
+            className={showReview ? SECONDARY : PRIMARY}
           >
             Test again
           </button>
           <button
             type="button"
             onClick={onBackToStudy}
-            className={secondaryClass}
+            className={SECONDARY}
           >
             Back to studying
           </button>
@@ -284,9 +280,6 @@ function StudySummary({
   // At most one figure's explanation is open at a time.
   const [openTip, setOpenTip] = useState<"known" | "due" | null>(null);
 
-  const secondaryClass =
-    "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
-
   // What Keep going picks next, in the scheduler's own order: what has come
   // back, then new cards while the stretch's cap allows them. With neither it
   // is "anyway", as on the round break, and says when the next ones come back.
@@ -315,10 +308,6 @@ function StudySummary({
         // aren't next.
         `${NO_MORE_NEW} · ${nextBackOrNothing(nextBack)}`
       : nextBackOrNothing(nextBack);
-
-  const stackedSecondaryClass =
-    secondaryClass + " flex flex-col items-center justify-center leading-tight";
-  const secondarySubClass = "text-xs font-normal text-ink-faded";
 
   // Only once there is something to keep: a Done before any first answer has
   // nothing in this browser yet.
@@ -369,21 +358,21 @@ function StudySummary({
         <button
           type="button"
           onClick={onKeepStudying}
-          className={stackedSecondaryClass}
+          className={`${SECONDARY} ${STACKED}`}
         >
           <span>{keepGoingLabel}</span>
-          <span className={secondarySubClass}>{keepGoingSub}</span>
+          <span className={SECONDARY_SUB}>{keepGoingSub}</span>
         </button>
         {/* Everything else a finished sitting could lead to, out of the way
             of someone who only wants to stop. */}
         <details className="group flex flex-col border-t border-ink-faded/30 pt-2">
-          <summary className="min-h-11 flex items-center justify-center gap-2 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden rounded text-sm text-ink-mid hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1">
+          <summary className="min-h-11 flex items-center justify-center gap-2 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden rounded text-sm text-ink-mid group-open:text-ink-deep hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1">
             {/* Says what it holds, so a learner looking for a test knows
                 where it went. */}
             <svg
               aria-hidden="true"
               viewBox="0 0 10 10"
-              className="w-2.5 h-2.5 transition-transform group-open:rotate-90 motion-reduce:transition-none"
+              className="w-3 h-3 transition-transform group-open:rotate-90 motion-reduce:transition-none"
             >
               <path d="M3 1.5 L7 5 L3 8.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
             </svg>
@@ -398,7 +387,7 @@ function StudySummary({
         <section aria-labelledby="study-summary-scoped" className="relative flex flex-col gap-2">
           <h3
             id="study-summary-scoped"
-            className="text-xs text-ink-mid text-center italic"
+            className="text-sm text-ink-mid text-center italic"
           >
             {fact === "capital" ? "Capitals" : "Places"}
           </h3>
@@ -433,7 +422,7 @@ function StudySummary({
         >
           <h3
             id="study-summary-lifetime"
-            className="text-xs text-ink-mid text-center italic"
+            className="text-sm text-ink-mid text-center italic"
           >
             All time
           </h3>
@@ -453,10 +442,10 @@ function StudySummary({
           <button
             type="button"
             onClick={() => onSetSpotlight(spotlight.subregion)}
-            className={stackedSecondaryClass}
+            className={`${SECONDARY} ${STACKED}`}
           >
             <span>Focus on {spotlight.subregion}</span>
-            <span className={secondarySubClass}>
+            <span className={SECONDARY_SUB}>
               {spotlight.remaining} waiting there — just that region
               for now
             </span>
@@ -468,14 +457,14 @@ function StudySummary({
         >
           <h3
             id="study-summary-test"
-            className="text-xs text-ink-mid text-center italic"
+            className="text-sm text-ink-mid text-center italic"
           >
             Or test yourself
           </h3>
           <button
             type="button"
             onClick={onStartTest}
-            className={stackedSecondaryClass}
+            className={`${SECONDARY} ${STACKED}`}
           >
             <span>
               {testDoorLabel(
@@ -485,13 +474,13 @@ function StudySummary({
                 totalInScope,
               )}
             </span>
-            <span className={secondarySubClass}>Scored on first tries</span>
+            <span className={SECONDARY_SUB}>Scored on first tries</span>
           </button>
           <ExpeditionDoor
             status={expedition}
             onClick={onExpedition}
-            className={secondaryClass}
-            subClassName="text-ink-faded"
+            className={SECONDARY}
+            subClassName={SECONDARY_SUB}
           />
         </section>
           </div>
@@ -543,8 +532,8 @@ function Tile({
     };
   }, [open, onToggle]);
 
-  const labelClass =
-    "font-display text-xs uppercase tracking-wide text-ink-mid leading-tight";
+  // A metric label is read to decide, so it is 14 px regular, not an eyebrow.
+  const labelClass = "text-sm text-ink-mid leading-tight";
   // The figure is drawn above its label (flex-col-reverse) so a label that
   // wraps ("Not yet seen", four across) never pushes its figure out of line
   // with the others; the DOM keeps label then figure, the reading order.
@@ -600,7 +589,7 @@ function Tile({
         role="tooltip"
         className={`${open ? "" : "hidden "}absolute left-0 right-0 top-full z-10 pt-2`}
       >
-        <span className="relative block rounded border border-ink-faded/60 bg-parchment-base px-3 py-2 text-xs text-ink-mid text-left shadow-md">
+        <span className="relative block rounded border border-ink-faded/60 bg-parchment-base px-3 py-2 text-sm text-ink-mid text-left shadow-md">
           <span
             aria-hidden="true"
             className="absolute -top-[5px] w-2 h-2 -ml-1 rotate-45 border-l border-t border-ink-faded/60 bg-parchment-base"

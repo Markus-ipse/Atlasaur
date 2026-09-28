@@ -22,7 +22,7 @@ export function ContinentChip({
       title={title}
       onClick={disabled ? undefined : onClick}
       className={
-        "min-h-9 px-3 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep " +
+        "min-h-9 px-3 rounded-full text-sm font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep " +
         (active
           ? "bg-ink-deep text-parchment-base border-ink-deep"
           : "bg-parchment-base text-ink-mid border-ink-faded hover:bg-parchment-shadow") +

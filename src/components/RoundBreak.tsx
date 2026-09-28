@@ -6,6 +6,7 @@ import { STUDY_NEW_CAP } from "../game/pickCountry";
 import type { CapitalOffer } from "../game/offer";
 import { CapitalsDoor } from "./CapitalsDoor";
 import { testTallyParts, type TestTally } from "../game/testTally";
+import { PRIMARY, SECONDARY, SECONDARY_SUB } from "./buttonStyles";
 
 type Props = {
   practiceMode: PracticeMode;
@@ -108,11 +109,6 @@ export function RoundBreak({
     practiceMode === "study" ? roundNew : 0,
   );
 
-  const primaryClass =
-    "min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
-  const secondaryClass =
-    "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
-
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4">
       <div
@@ -149,14 +145,14 @@ export function RoundBreak({
                 ref={focusRef}
                 type="button"
                 onClick={onDone}
-                className={primaryClass}
+                className={PRIMARY}
               >
                 Done for now
               </button>
               <button
                 type="button"
                 onClick={onKeepGoing}
-                className={secondaryClass}
+                className={SECONDARY}
               >
                 Keep going anyway
               </button>
@@ -164,15 +160,15 @@ export function RoundBreak({
                 <CapitalsDoor
                   offer={capitalOffer}
                   onClick={onTryCapitals}
-                  className={secondaryClass}
-                  subClassName="text-ink-faded"
+                  className={SECONDARY}
+                  subClassName={SECONDARY_SUB}
                 />
               )}
               {spotlightSubregion !== null && (
                 <button
                   type="button"
                   onClick={onLeaveFocus}
-                  className={secondaryClass}
+                  className={SECONDARY}
                 >
                   Back to all regions
                 </button>
@@ -184,14 +180,14 @@ export function RoundBreak({
                 ref={focusRef}
                 type="button"
                 onClick={onKeepGoing}
-                className={primaryClass}
+                className={PRIMARY}
               >
                 Keep going
               </button>
               <button
                 type="button"
                 onClick={onDone}
-                className={secondaryClass}
+                className={SECONDARY}
               >
                 Done for now
               </button>
@@ -243,11 +239,6 @@ function TestBreak({
     ? testTallyParts({ ...test, notAsked: 0 }).slice(1)
     : testTallyParts(test);
 
-  const primaryClass =
-    "min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
-  const secondaryClass =
-    "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
-
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4">
       <div
@@ -276,11 +267,11 @@ function TestBreak({
             ref={focusRef}
             type="button"
             onClick={onKeepGoing}
-            className={primaryClass}
+            className={PRIMARY}
           >
             Keep going
           </button>
-          <button type="button" onClick={onDone} className={secondaryClass}>
+          <button type="button" onClick={onDone} className={SECONDARY}>
             {reviewing ? "End the review here" : "End the test here"}
           </button>
         </div>

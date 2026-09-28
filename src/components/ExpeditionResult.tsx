@@ -10,6 +10,7 @@ import {
   shareText,
   type ExpeditionStore,
 } from "../game/expedition";
+import { PRIMARY, SECONDARY } from "./buttonStyles";
 
 type Props = {
   store: ExpeditionStore;
@@ -99,11 +100,6 @@ export function ExpeditionResult({
         ? "A good day out."
         : "Expedition complete.";
 
-  const primaryClass =
-    "min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
-  const secondaryClass =
-    "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
-
   return (
     // No Escape and no backdrop close: this is where an expedition's Done
     // lands, and like the rest card it stays at rest until the learner picks
@@ -149,7 +145,7 @@ export function ExpeditionResult({
         {/* What the squares mean, outside the selectable box so copying it
             by hand still yields exactly what Share sends. The spoken row
             below already names each outcome. */}
-        <p className="-mt-2 text-xs text-ink-mid" aria-hidden>
+        <p className="-mt-2 text-sm text-ink-mid" aria-hidden>
           {GLYPH_FOUND} found · {GLYPH_MISSED} missed
         </p>
         <p id="expedition-result-outcomes" className="sr-only">
@@ -162,7 +158,7 @@ export function ExpeditionResult({
           .
         </p>
         <ol
-          className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-ink-mid"
+          className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-sm text-ink-mid"
           aria-hidden
         >
           {store.iso3s.map((iso3, i) => {
@@ -186,11 +182,11 @@ export function ExpeditionResult({
                 ref={primaryRef}
                 type="button"
                 onClick={onReview}
-                className={primaryClass}
+                className={PRIMARY}
               >
                 Review {missedCount} missed
               </button>
-              <p className="-mt-1 text-xs text-ink-mid text-center">
+              <p className="-mt-1 text-sm text-ink-mid text-center">
                 A second look on the map. Today's result stays as it is.
               </p>
             </>
@@ -199,12 +195,12 @@ export function ExpeditionResult({
               ref={primaryRef}
               type="button"
               onClick={onClose}
-              className={primaryClass}
+              className={PRIMARY}
             >
               Back to studying
             </button>
           )}
-          <button type="button" onClick={share} className={secondaryClass}>
+          <button type="button" onClick={share} className={SECONDARY}>
             {shareState === "shared"
               ? "Shared"
               : shareState === "copied"
@@ -219,17 +215,17 @@ export function ExpeditionResult({
             </p>
           )}
           {shareState === "failed" && (
-            <p className="text-xs text-ink-mid text-center" role="status">
+            <p className="text-sm text-ink-mid text-center" role="status">
               Couldn't copy — select the text above to copy it by hand.
             </p>
           )}
           {reviewFirst ? (
-            <button type="button" onClick={onClose} className={secondaryClass}>
+            <button type="button" onClick={onClose} className={SECONDARY}>
               Back to studying
             </button>
           ) : (
             missedCount > 0 && (
-              <button type="button" onClick={onReview} className={secondaryClass}>
+              <button type="button" onClick={onReview} className={SECONDARY}>
                 Review {missedCount} missed
               </button>
             )

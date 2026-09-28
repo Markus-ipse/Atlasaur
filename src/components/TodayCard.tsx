@@ -4,6 +4,7 @@ import type { CapitalOffer } from "../game/offer";
 import { ExpeditionDoor } from "./ExpeditionDoor";
 import { CapitalsDoor } from "./CapitalsDoor";
 import { nextBackOrNothing } from "../game/nextBack";
+import { PRIMARY, SECONDARY, SECONDARY_SUB } from "./buttonStyles";
 
 type Props = {
   dueCount: number;
@@ -93,22 +94,22 @@ export function TodayCard({
             ref={beginRef}
             type="button"
             onClick={onBegin}
-            className="min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
+            className={PRIMARY}
           >
             Begin
           </button>
           <ExpeditionDoor
             status={expedition}
             onClick={onExpedition}
-            className="min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
-            subClassName="text-ink-faded"
+            className={SECONDARY}
+            subClassName={SECONDARY_SUB}
           />
           {capitalOffer && (
             <CapitalsDoor
               offer={capitalOffer}
               onClick={onTryCapitals}
-              className="min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
-              subClassName="text-ink-faded"
+              className={SECONDARY}
+              subClassName={SECONDARY_SUB}
             />
           )}
         </div>

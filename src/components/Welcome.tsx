@@ -3,6 +3,7 @@ import { ALL_CONTINENTS, type Continent } from "../types";
 import { continentAskable, filterPool } from "../game/useGame";
 import { scopeLine } from "./scopeSummary";
 import { ContinentChip } from "./ContinentChip";
+import { PRIMARY, SECONDARY, QUIET, STACKED, PRIMARY_SUB } from "./buttonStyles";
 
 type Props = {
   // The territories setting, so the chips here match the settings menu's.
@@ -52,14 +53,8 @@ export function Welcome({
     });
   };
 
-  const primaryClass =
-    "min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed";
-  const secondaryClass =
-    "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
   // The alternatives to the one route: still a full tap target, but read as
   // links rather than as competing buttons.
-  const quietClass =
-    "min-h-11 px-3 rounded text-sm text-ink-mid underline underline-offset-4 decoration-ink-faded hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
 
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4">
@@ -118,7 +113,7 @@ export function Welcome({
                 ))}
               </div>
               {picked.size > 0 && (
-                <p className="text-xs text-ink-mid mt-1">
+                <p className="text-sm text-ink-mid mt-1">
                   {scopeLine(
                     [...picked],
                     includeTerritories,
@@ -136,14 +131,14 @@ export function Welcome({
                 onClick={() =>
                   onStartRegion(ALL_CONTINENTS.filter((c) => picked.has(c)))
                 }
-                className={primaryClass}
+                className={PRIMARY}
               >
                 Begin
               </button>
               <button
                 type="button"
                 onClick={() => setPicking(false)}
-                className={secondaryClass}
+                className={SECONDARY}
               >
                 Back
               </button>
@@ -155,10 +150,10 @@ export function Welcome({
               ref={primaryRef}
               type="button"
               onClick={onStartBig}
-              className={primaryClass + " flex flex-col items-center leading-tight"}
+              className={`${PRIMARY} ${STACKED}`}
             >
               <span>Start a short round</span>
-              <span className="text-xs font-normal text-parchment-base/70">
+              <span className={PRIMARY_SUB}>
                 Big, familiar countries first
               </span>
             </button>
@@ -166,11 +161,11 @@ export function Welcome({
               <button
                 type="button"
                 onClick={() => setPicking(true)}
-                className={quietClass}
+                className={QUIET}
               >
                 Pick a region
               </button>
-              <button type="button" onClick={onStartTest} className={quietClass}>
+              <button type="button" onClick={onStartTest} className={QUIET}>
                 I know my way around — test all{" "}
                 {filterPool(ALL_CONTINENTS, includeTerritories, "location").length}{" "}
                 countries

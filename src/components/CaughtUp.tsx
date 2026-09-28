@@ -2,6 +2,7 @@ import { CapitalsDoor } from "./CapitalsDoor";
 import type { CapitalOffer } from "../game/offer";
 import type { Subregion } from "../types";
 import { NO_MORE_NEW } from "../game/nextBack";
+import { PRIMARY, SECONDARY, PRIMARY_SUB } from "./buttonStyles";
 
 type Props = {
   onKeepGoing: () => void;
@@ -72,15 +73,15 @@ export function CaughtUp({
           <CapitalsDoor
             offer={capitalOffer}
             onClick={onTryCapitals}
-            className="min-h-11 px-4 rounded bg-ink-deep text-parchment-base text-sm font-medium hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
-            subClassName="text-parchment-shadow"
+            className={PRIMARY}
+            subClassName={PRIMARY_SUB}
           />
         )}
         {inFocus && (
           <button
             type="button"
             onClick={onLeaveFocus}
-            className="min-h-11 px-4 rounded bg-ink-deep text-parchment-base text-sm font-medium hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
+            className={PRIMARY}
           >
             Back to all regions
           </button>
@@ -88,7 +89,7 @@ export function CaughtUp({
         <button
           type="button"
           onClick={onKeepGoing}
-          className="min-h-11 px-4 rounded border border-ink-faded text-ink-mid text-sm hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
+          className={SECONDARY}
         >
           Keep going anyway
         </button>

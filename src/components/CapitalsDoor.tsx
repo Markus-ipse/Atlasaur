@@ -1,4 +1,5 @@
 import type { CapitalOffer } from "../game/offer";
+import { STACKED } from "./buttonStyles";
 
 type Props = {
   offer: CapitalOffer;
@@ -26,12 +27,10 @@ export function CapitalsDoor({ offer, onClick, className, subClassName }: Props)
     <button
       type="button"
       onClick={onClick}
-      className={
-        className + " flex flex-col items-center justify-center leading-tight"
-      }
+      className={`${className} ${STACKED}`}
     >
       <span>{label}</span>
-      <span className={"text-xs font-normal " + subClassName}>{sub}</span>
+      <span className={subClassName}>{sub}</span>
     </button>
   );
 }

@@ -1,5 +1,6 @@
 import type { ExpeditionStatus } from "../game/expedition";
 import { EXPEDITION_SIZE } from "../game/expedition";
+import { STACKED } from "./buttonStyles";
 
 type Props = {
   status: ExpeditionStatus;
@@ -30,12 +31,10 @@ export function ExpeditionDoor({ status, onClick, className, subClassName }: Pro
     <button
       type="button"
       onClick={onClick}
-      className={
-        className + " flex flex-col items-center justify-center leading-tight"
-      }
+      className={`${className} ${STACKED}`}
     >
       <span>{label}</span>
-      <span className={"text-xs font-normal " + subClassName}>{sub}</span>
+      <span className={subClassName}>{sub}</span>
     </button>
   );
 }

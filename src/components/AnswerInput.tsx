@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { factOf } from "../game/questionModes";
 import type { Country, Feedback, QuestionMode } from "../types";
+import { PRIMARY, SECONDARY } from "./buttonStyles";
 
 type Props = {
   mode: QuestionMode;
@@ -76,7 +77,9 @@ export function AnswerInput({
       <button
         type="submit"
         disabled={Boolean(feedback) || paused || !value.trim()}
-        className="shrink-0 min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        // Through a reveal Continue is the one way on, so Submit steps down
+        // to an outline rather than a second, half-faded dark button (#61).
+        className={`shrink-0 ${feedback ? SECONDARY : PRIMARY}`}
       >
         Submit
       </button>
