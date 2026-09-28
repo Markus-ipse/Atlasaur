@@ -127,7 +127,7 @@ function makeGame(overrides: {
     isInScope: () => true,
     fact: "location",
     capitalOffer: null,
-    matchTyped: () => "",
+    readTyped: () => ({ iso3: "", suggestions: [] }),
     answer: vi.fn(),
     skip: vi.fn(),
     dismiss: vi.fn(),

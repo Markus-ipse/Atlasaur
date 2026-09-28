@@ -1,11 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import {
-  matchTypedCapital,
-  matchTypedName,
-  useGame,
-} from "./useGame";
+import { useGame } from "./useGame";
+import { matchTypedCapital, matchTypedName } from "./typedMatch";
 import { loadCounters } from "./counters";
 import countriesData from "../data/countries.json";
 import type { Country } from "../types";

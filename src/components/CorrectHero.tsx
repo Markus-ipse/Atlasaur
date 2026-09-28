@@ -1,4 +1,5 @@
 import type { Country, QuestionMode } from "../types";
+import { shownCapitals } from "../game/typedMatch";
 import type { Milestone } from "../game/milestones";
 import { streakNote } from "../game/milestones";
 import { BackAgain } from "./Prompt";
@@ -48,10 +49,7 @@ export function CorrectHero({
   // primary — typing "Cape Town" and being congratulated with "Pretoria"
   // reads as a correction rather than a tick.
   const askedForCapital = mode === "country-to-capital";
-  const capitals =
-    current.capital === null
-      ? []
-      : [current.capital, ...(current.capitalAlternates ?? [])];
+  const capitals = shownCapitals(current);
   return (
     <div role="status" className="correct-pop flex flex-col gap-2">
       {returning && <BackAgain />}
