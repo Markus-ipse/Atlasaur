@@ -30,9 +30,11 @@ describe("Welcome", () => {
 
   it("offers one primary route, focused, with two quieter alternatives", () => {
     const { onStartBig, onStartTest } = setup();
-    const big = screen.getByRole("button", {
-      name: /Start a short round.*Big, familiar countries first/,
-    });
+    const big = screen.getByRole("button", { name: "Start a short round" });
+    // The reason moved off the button and into the intro (#61).
+    expect(
+      screen.getByText(/A short round starts with big, familiar countries\./),
+    ).toBeTruthy();
     expect(document.activeElement).toBe(big);
     fireEvent.click(big);
     expect(onStartBig).toHaveBeenCalledTimes(1);

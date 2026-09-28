@@ -25,9 +25,11 @@ import {
   EXPLAINED_LABEL_CLASS,
   KNOWN_TIP,
 } from "./figureTips";
-import { subject, testDoorLabel } from "./scopeSummary";
+import { subject, testDoor } from "./scopeSummary";
+import { IndexRow } from "./IndexRow";
+import { Chevron } from "./Chevron";
 import { NO_MORE_NEW, nextBackOrNothing } from "../game/nextBack";
-import { PRIMARY, SECONDARY, STACKED, SECONDARY_SUB } from "./buttonStyles";
+import { PRIMARY, SECONDARY } from "./buttonStyles";
 
 type Props = {
   practiceMode: PracticeMode;
@@ -224,29 +226,25 @@ function TestSummary({
               Review {unlearnedCount} missed
             </button>
           )}
-          {/* Side by side from 360 px, where "Back to studying" fits on one
-              line with tight padding; stacked on the narrowest phones. */}
-          <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2">
+          {/* The other ways on are index rows, one under the other (#61). */}
+          {showReview ? (
+            <IndexRow label="Test again" onClick={onPlayAgain} />
+          ) : (
             <button
               ref={playAgainRef}
               type="button"
               onClick={onPlayAgain}
-              className={showReview ? SECONDARY : PRIMARY}
+              className={PRIMARY}
             >
               Test again
             </button>
-            {/* What waits in Study goes with the way back to it. */}
-            <button
-              type="button"
-              onClick={onBackToStudy}
-              className={`${SECONDARY} ${STACKED} px-2!`}
-            >
-              <span className="whitespace-nowrap">Back to studying</span>
-              {dueCount > 0 && (
-                <span className={SECONDARY_SUB}>{dueCount} coming back first</span>
-              )}
-            </button>
-          </div>
+          )}
+          {/* What waits in Study goes with the way back to it. */}
+          <IndexRow
+            label="Back to studying"
+            figure={dueCount > 0 ? `${dueCount} coming back` : undefined}
+            onClick={onBackToStudy}
+          />
         </div>
       </div>
     </div>
@@ -337,6 +335,7 @@ function StudySummary({
   // nothing in this browser yet.
   const showSaved = progressSaved && hasAnyRecord(srsStore);
   const hasSittingLines = sittingCards > 0 || showSaved;
+  const door = testDoor(selectedContinents, includeTerritories, fact, totalInScope);
 
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4">
@@ -379,13 +378,19 @@ function StudySummary({
             {showSaved && <p>Kept in this browser — no account needed.</p>}
           </div>
         )}
+        {/* What Keep going asks next, above the button rather than on it:
+            it is a sentence, and the card stays without a dark button (#54),
+            so this is the one outline that is not an index row (#61). */}
+        <p id="study-summary-next" className="text-sm italic text-ink-mid -mb-2">
+          {keepGoingSub}
+        </p>
         <button
           type="button"
           onClick={onKeepStudying}
-          className={`${SECONDARY} ${STACKED}`}
+          aria-describedby="study-summary-next"
+          className={SECONDARY}
         >
-          <span>{keepGoingLabel}</span>
-          <span className={SECONDARY_SUB}>{keepGoingSub}</span>
+          {keepGoingLabel}
         </button>
         {/* Everything else a finished sitting could lead to, out of the way
             of someone who only wants to stop. */}
@@ -393,13 +398,7 @@ function StudySummary({
           <summary className="min-h-11 flex items-center justify-center gap-2 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden rounded text-sm text-ink-mid group-open:text-ink-deep hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1">
             {/* Says what it holds, so a learner looking for a test knows
                 where it went. */}
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 10 10"
-              className="w-3 h-3 transition-transform group-open:rotate-90 motion-reduce:transition-none"
-            >
-              <path d="M3 1.5 L7 5 L3 8.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
-            </svg>
+            <Chevron className="w-3.5 h-3.5 transition-transform group-open:rotate-90 motion-reduce:transition-none" />
             Figures, focus and tests
           </summary>
           <div className="flex flex-col gap-4 pt-1">
@@ -459,53 +458,29 @@ function StudySummary({
           </div>
         </section>
         </div>
-        {/* Each door carries its own reason: bare labels left "Focus",
-            "Test" and "Keep studying" reading as three names for the same
-            thing. */}
+        {/* Each door carries its own reason as its figure: bare labels left
+            "Focus", "Test" and "Keep studying" reading as three names for
+            the same thing. */}
         {spotlight && (
-          <button
-            type="button"
+          <IndexRow
+            label={`Focus on ${spotlight.subregion}`}
+            figure={`${spotlight.remaining} waiting`}
             onClick={() => onSetSpotlight(spotlight.subregion)}
-            className={`${SECONDARY} ${STACKED}`}
-          >
-            <span>Focus on {spotlight.subregion}</span>
-            <span className={SECONDARY_SUB}>
-              {spotlight.remaining} waiting there — just that region
-              for now
-            </span>
-          </button>
+          />
         )}
         <section
           aria-labelledby="study-summary-test"
           className="flex flex-col gap-2"
         >
-          <h3
-            id="study-summary-test"
-            className="text-sm text-ink-mid text-center italic"
-          >
-            Or test yourself
+          <h3 id="study-summary-test" className="text-sm text-ink-mid italic">
+            Or test yourself, scored on first tries.
           </h3>
-          <button
-            type="button"
+          <IndexRow
+            label={door.label}
+            figure={door.figure}
             onClick={onStartTest}
-            className={`${SECONDARY} ${STACKED}`}
-          >
-            <span>
-              {testDoorLabel(
-                selectedContinents,
-                includeTerritories,
-                fact,
-                totalInScope,
-              )}
-            </span>
-            <span className={SECONDARY_SUB}>Scored on first tries</span>
-          </button>
-          <ExpeditionDoor
-            status={expedition}
-            onClick={onExpedition}
-            className={SECONDARY}
-            subClassName={SECONDARY_SUB}
           />
+          <ExpeditionDoor status={expedition} onClick={onExpedition} />
         </section>
           </div>
         </details>

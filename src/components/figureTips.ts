@@ -8,8 +8,8 @@ export const KNOWN_TIP =
   "Right often enough that it's now spaced out over days. Miss it and it comes back sooner.";
 export const COMING_BACK_TIP = "Met before and ready for another look now.";
 // No promise about what Keep going asks first: an in-session miss or the
-// card Done left unanswered can come before these, and Keep going's own
-// sub-line already says what comes next.
+// card Done left unanswered can come before these, and the line above Keep
+// going already says what comes next.
 
 // The small "?" mark beside a label that explains itself, drawn by CSS so
 // it is not part of the label's text.

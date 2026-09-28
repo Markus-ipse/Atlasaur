@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ALL_CONTINENTS } from "../types";
-import { scopeLine, scopeOf, testDoorLabel } from "./scopeSummary";
+import { scopeLine, scopeOf, testDoor } from "./scopeSummary";
 
 describe("scopeOf", () => {
   it("is the whole world when every chip is on", () => {
@@ -55,18 +55,25 @@ describe("scope copy", () => {
     );
   });
 
-  it("labels the test door with what it tests", () => {
-    expect(testDoorLabel(["South America"], false, "location", 12)).toBe(
-      "Test all 12 countries in South America",
-    );
-    expect(testDoorLabel(ALL_CONTINENTS, false, "location", 199)).toBe(
-      "Test all 199 countries",
-    );
-    expect(testDoorLabel(["Antarctica"], true, "location", 1)).toBe(
-      "Test the one country in Antarctica",
-    );
-    expect(testDoorLabel(["Africa", "Asia", "Europe", "North America"], false, "location", 150)).toBe(
-      "Test all 150 countries everywhere but Oceania and South America",
-    );
+  it("names the scope on the test door and puts its size in the figure", () => {
+    expect(testDoor(["South America"], false, "location", 12)).toEqual({
+      label: "Test South America",
+      figure: "12 countries",
+    });
+    expect(testDoor(ALL_CONTINENTS, false, "location", 199)).toEqual({
+      label: "Test the whole world",
+      figure: "199 countries",
+    });
+    expect(testDoor(["Antarctica"], true, "location", 1)).toEqual({
+      label: "Test Antarctica",
+      figure: "1 country",
+    });
+    expect(
+      testDoor(["Africa", "Asia", "Europe", "North America"], false, "location", 150),
+    ).toEqual({
+      label: "Test everywhere but Oceania and South America",
+      figure: "150 countries",
+    });
+    expect(testDoor(["Europe"], false, "capital", 44).figure).toBe("44 capitals");
   });
 });

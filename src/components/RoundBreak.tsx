@@ -6,7 +6,7 @@ import { STUDY_NEW_CAP } from "../game/pickCountry";
 import type { CapitalOffer } from "../game/offer";
 import { CapitalsDoor } from "./CapitalsDoor";
 import { testTallyParts, type TestTally } from "../game/testTally";
-import { PRIMARY, SECONDARY, SECONDARY_SUB } from "./buttonStyles";
+import { PRIMARY, SECONDARY } from "./buttonStyles";
 
 type Props = {
   practiceMode: PracticeMode;
@@ -156,14 +156,6 @@ export function RoundBreak({
               >
                 Keep going anyway
               </button>
-              {capitalOffer && (
-                <CapitalsDoor
-                  offer={capitalOffer}
-                  onClick={onTryCapitals}
-                  className={SECONDARY}
-                  subClassName={SECONDARY_SUB}
-                />
-              )}
               {spotlightSubregion !== null && (
                 <button
                   type="button"
@@ -172,6 +164,10 @@ export function RoundBreak({
                 >
                   Back to all regions
                 </button>
+              )}
+              {/* Last: the one index row under the plain outlines. */}
+              {capitalOffer && (
+                <CapitalsDoor offer={capitalOffer} onClick={onTryCapitals} />
               )}
             </>
           ) : (

@@ -4,7 +4,7 @@ import type { CapitalOffer } from "../game/offer";
 import { ExpeditionDoor } from "./ExpeditionDoor";
 import { CapitalsDoor } from "./CapitalsDoor";
 import { nextBackOrNothing } from "../game/nextBack";
-import { PRIMARY, SECONDARY, SECONDARY_SUB } from "./buttonStyles";
+import { PRIMARY } from "./buttonStyles";
 
 type Props = {
   dueCount: number;
@@ -98,19 +98,9 @@ export function TodayCard({
           >
             Begin
           </button>
-          <ExpeditionDoor
-            status={expedition}
-            onClick={onExpedition}
-            className={SECONDARY}
-            subClassName={SECONDARY_SUB}
-          />
+          <ExpeditionDoor status={expedition} onClick={onExpedition} />
           {capitalOffer && (
-            <CapitalsDoor
-              offer={capitalOffer}
-              onClick={onTryCapitals}
-              className={SECONDARY}
-              subClassName={SECONDARY_SUB}
-            />
+            <CapitalsDoor offer={capitalOffer} onClick={onTryCapitals} />
           )}
         </div>
       </div>

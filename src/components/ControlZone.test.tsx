@@ -761,14 +761,17 @@ describe("CaughtUp — the capitals offer", () => {
     // moment there already was.
     showCaughtUp({ due: 0, ready: 12 });
     expect(screen.queryByText(/Come back later/)).toBeNull();
-    expect(screen.getByText("Try capitals")).toBeDefined();
-    expect(screen.getByText("12 countries you already know")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Try capitals" })).toBeDefined();
+    // The banner's door is its dark button, so the reason is in the line.
+    expect(
+      screen.getByText(/Capitals are ready for 12 countries you already know\./),
+    ).toBeDefined();
   });
 
   it("says they're back once capitals have been met and come round", () => {
     showCaughtUp({ due: 5, ready: 3 });
-    expect(screen.getByText("Capitals are back")).toBeDefined();
-    expect(screen.getByText("5 coming back")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Capitals are back" })).toBeDefined();
+    expect(screen.getByText(/5 capitals are back\./)).toBeDefined();
   });
 
   it("keeps the old line when there is genuinely nothing else", () => {
@@ -797,7 +800,7 @@ describe("CaughtUp — the capitals offer", () => {
     showCaughtUp({ due: 0, ready: 4 }, "More come back later today");
     expect(
       screen.getByText(
-        "More come back later today. Meanwhile, there's another way to know these places.",
+        "More come back later today. Meanwhile, capitals are ready for 4 countries you already know.",
       ),
     ).toBeDefined();
   });

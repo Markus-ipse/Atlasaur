@@ -1,8 +1,8 @@
-import { CapitalsDoor } from "./CapitalsDoor";
+import { capitalsDoorCopy } from "./capitalsDoorCopy";
 import type { CapitalOffer } from "../game/offer";
 import type { Subregion } from "../types";
 import { NO_MORE_NEW } from "../game/nextBack";
-import { PRIMARY, SECONDARY, PRIMARY_SUB } from "./buttonStyles";
+import { PRIMARY, SECONDARY } from "./buttonStyles";
 
 type Props = {
   onKeepGoing: () => void;
@@ -39,12 +39,13 @@ export function CaughtUp({
   const when = inFocus ? null : nextBack;
   // "Come back later" is only true when there is nothing else to do, and
   // vaguer than the app needs to be: say when, and once capitals are on
-  // offer, say that too.
+  // offer, say that too. The door here is the dark button, so its reason
+  // is said in this line rather than on the button (#61).
+  const capitals = capitalOffer && capitalsDoorCopy(capitalOffer);
   const line = [
     newLeft && `${NO_MORE_NEW}.`,
     when && `${when}.`,
-    capitalOffer &&
-      `${when ? "Meanwhile, there's" : "There's"} another way to know these places.`,
+    capitals && `${when ? "Meanwhile, " : ""}${when ? lowerFirst(capitals.sentence) : capitals.sentence}`,
   ]
     .filter(Boolean)
     .join(" ");
@@ -69,13 +70,10 @@ export function CaughtUp({
         )}
       </p>
       <div className="flex flex-wrap gap-2">
-        {capitalOffer && (
-          <CapitalsDoor
-            offer={capitalOffer}
-            onClick={onTryCapitals}
-            className={PRIMARY}
-            subClassName={PRIMARY_SUB}
-          />
+        {capitals && (
+          <button type="button" onClick={onTryCapitals} className={PRIMARY}>
+            {capitals.label}
+          </button>
         )}
         {inFocus && (
           <button
@@ -96,4 +94,8 @@ export function CaughtUp({
       </div>
     </div>
   );
+}
+
+function lowerFirst(s: string): string {
+  return s.charAt(0).toLowerCase() + s.slice(1);
 }

@@ -3,7 +3,7 @@ import { ALL_CONTINENTS, type Continent } from "../types";
 import { continentAskable, filterPool } from "../game/useGame";
 import { scopeLine } from "./scopeSummary";
 import { ContinentChip } from "./ContinentChip";
-import { PRIMARY, SECONDARY, QUIET, STACKED, PRIMARY_SUB } from "./buttonStyles";
+import { PRIMARY, SECONDARY, QUIET } from "./buttonStyles";
 
 type Props = {
   // The territories setting, so the chips here match the settings menu's.
@@ -83,7 +83,7 @@ export function Welcome({
           Learn the world map, a few places at a time.
           <span className="block mt-1 text-sm text-ink-mid">
             Find a country. If you don't know it, we'll show you and bring it
-            back.
+            back. A short round starts with big, familiar countries.
           </span>
         </p>
         {picking ? (
@@ -150,12 +150,9 @@ export function Welcome({
               ref={primaryRef}
               type="button"
               onClick={onStartBig}
-              className={`${PRIMARY} ${STACKED}`}
+              className={PRIMARY}
             >
-              <span>Start a short round</span>
-              <span className={PRIMARY_SUB}>
-                Big, familiar countries first
-              </span>
+              Start a short round
             </button>
             <div className="flex flex-wrap justify-center gap-x-2">
               <button
