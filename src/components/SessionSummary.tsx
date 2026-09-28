@@ -113,7 +113,19 @@ function TestSummary({
   const playAgainRef = useRef<HTMLButtonElement>(null);
   const showReview = unlearnedCount > 0;
   const cleared = unlearnedCount === 0 && test.stillMissed === 0 && test.notAsked === 0;
-  const title = cleared ? "Complete!" : "Test over";
+  const endedEarly = asked > 0 && test.notAsked > 0;
+  // The eyebrow says how the test ended; the heading is the score itself.
+  const eyebrow =
+    asked === 0
+      ? "Test"
+      : endedEarly
+        ? "Test · Ended early"
+        : cleared
+          ? "Test · Complete"
+          : "Test · Finished";
+  // Out of what was asked when it ended early: "0 of 150" after three
+  // answers reads as failing the whole test.
+  const outOf = endedEarly ? asked : test.size;
   // Only the test's current countries, as the tiles count them: a region
   // switched off mid-test takes its misses out of the list too, or the list
   // would name a country the tiles no longer count. Still missed first:
@@ -136,43 +148,47 @@ function TestSummary({
         aria-labelledby="session-summary-title"
         className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-parchment-base rounded-lg shadow-lg p-6 flex flex-col gap-4"
       >
-        <h2 id="session-summary-title" className="text-2xl font-bold text-ink-deep">
-          {title}
-        </h2>
-        {asked === 0 ? (
-          // No answer, no score: a test ended before its first card is not
-          // 0 right, and it is certainly not a clean run.
-          <p className="text-sm text-ink-mid">No questions answered.</p>
-        ) : (
-          <>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <Tile label="First try" value={`${test.firstTry}/${test.size}`} />
+        <div className="flex flex-col gap-1">
+          <p className="font-display text-xs uppercase tracking-wide text-ink-mid">
+            {eyebrow}
+          </p>
+          {/* Leads with the result, the figure the tiles break down. */}
+          <h2 id="session-summary-title" className="text-2xl font-bold text-ink-deep tabular-nums">
+            {asked === 0
+              ? "Test over"
+              : `${test.firstTry} of ${outOf} right first try`}
+          </h2>
+          {asked === 0 ? (
+            // No answer, no score: a test ended before its first card is not
+            // 0 right, and it is certainly not a clean run.
+            <p className="text-sm text-ink-mid">No questions answered.</p>
+          ) : endedEarly ? (
+            <p className="text-sm text-ink-mid tabular-nums">
+              {asked} asked · {test.notAsked} not yet asked
+            </p>
+          ) : (
+            cleared && <p className="text-sm text-ink-mid">Every one found.</p>
+          )}
+        </div>
+        {asked > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-3 gap-3 text-center rounded border border-ink-faded/40 bg-parchment-shadow/40 px-3 py-3">
+              <Tile label="First try" value={String(test.firstTry)} />
               <Tile label="Recovered" value={String(test.recovered)} />
               <Tile label="Still missed" value={String(test.stillMissed)} />
             </div>
             {/* The scoring model, said once where the score is. */}
-            <p className="text-sm text-ink-mid text-center -mt-2">
-              Scored on first tries. A country found on a later try is
-              recovered.
+            <p className="text-sm text-ink-mid text-center">
+              Found on a later try counts as recovered.
             </p>
-            {test.notAsked > 0 && (
-              <p className="text-sm text-ink-mid tabular-nums">
-                {test.notAsked} not yet asked.
-              </p>
-            )}
-          </>
-        )}
-        {dueCount > 0 && (
-          <p className="text-sm text-ink-mid text-center">
-            {dueCount} coming back — first up when you go back to studying.
-          </p>
+          </div>
         )}
         {missedInScope.length > 0 ? (
-          <div>
-            <p className="text-sm font-medium text-ink-deep mb-2">
-              Missed at first ({missedInScope.length}):
-            </p>
-            <ul className="max-h-[28dvh] overflow-y-auto text-sm text-ink-mid border border-ink-faded/40 rounded p-3 flex flex-wrap gap-x-4 gap-y-1">
+          <section aria-labelledby="test-summary-missed">
+            <h3 id="test-summary-missed" className="text-sm text-ink-mid italic mb-1 tabular-nums">
+              Missed at first · {missedInScope.length}
+            </h3>
+            <ul className="max-h-[28dvh] overflow-y-auto text-base text-ink-deep flex flex-wrap gap-x-4 gap-y-1">
               {/* The one screen that says what you got wrong has to show the
                   thing you got wrong: a capital round names the capital
                   beside its country. */}
@@ -182,12 +198,12 @@ function TestSummary({
                     ? `${c.name} · ${c.capital}`
                     : c.name}
                   {foundIso3s.has(c.iso3) && (
-                    <span className="italic text-ink-faded"> — recovered</span>
+                    <span className="italic text-ink-mid"> — recovered</span>
                   )}
                 </li>
               ))}
             </ul>
-          </div>
+          </section>
         ) : (
           asked > 0 && (
             <p className="text-sm text-ink-mid">
@@ -208,21 +224,29 @@ function TestSummary({
               Review {unlearnedCount} missed
             </button>
           )}
-          <button
-            ref={playAgainRef}
-            type="button"
-            onClick={onPlayAgain}
-            className={showReview ? SECONDARY : PRIMARY}
-          >
-            Test again
-          </button>
-          <button
-            type="button"
-            onClick={onBackToStudy}
-            className={SECONDARY}
-          >
-            Back to studying
-          </button>
+          {/* Side by side from 360 px, where "Back to studying" fits on one
+              line with tight padding; stacked on the narrowest phones. */}
+          <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2">
+            <button
+              ref={playAgainRef}
+              type="button"
+              onClick={onPlayAgain}
+              className={showReview ? SECONDARY : PRIMARY}
+            >
+              Test again
+            </button>
+            {/* What waits in Study goes with the way back to it. */}
+            <button
+              type="button"
+              onClick={onBackToStudy}
+              className={`${SECONDARY} ${STACKED} px-2!`}
+            >
+              <span className="whitespace-nowrap">Back to studying</span>
+              {dueCount > 0 && (
+                <span className={SECONDARY_SUB}>{dueCount} coming back first</span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
