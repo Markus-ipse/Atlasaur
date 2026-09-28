@@ -347,11 +347,53 @@ describe("StudySummary doors", () => {
 
   it("runs the tiles unseen first, known after", () => {
     renderStudy("location");
-    const places = screen.getByRole("region", { name: "Places" });
+    const places = screen
+      .getByRole("region", { name: "Places" })
+      .cloneNode(true) as HTMLElement;
+    // The explanations are hidden until asked for; read the tiles alone.
+    places.querySelectorAll("[role=tooltip]").forEach((t) => t.remove());
     expect(places.textContent).toMatch(
       /Not yet seen\d+Seen\d+Known\d+Coming back\d+/,
     );
     expect(screen.queryByText("To review")).toBeNull();
+  });
+
+  it("explains Known and Coming back on tap, one at a time", () => {
+    renderStudy("location");
+    const known = screen.getByRole("button", { name: /^Known/ });
+    const due = screen.getByRole("button", { name: /^Coming back/ });
+    const tipOf = (b: HTMLElement) =>
+      document.getElementById(b.getAttribute("aria-describedby")!)!;
+    expect(tipOf(known).textContent).toMatch(/spaced out over days/);
+    expect(tipOf(due).textContent).toMatch(/ready for another look now/);
+    expect(known.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(known);
+    expect(known.getAttribute("aria-expanded")).toBe("true");
+    expect(tipOf(known).classList.contains("hidden")).toBe(false);
+    fireEvent.pointerDown(document.body);
+    fireEvent.click(due);
+    expect(known.getAttribute("aria-expanded")).toBe("false");
+    expect(due.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(due.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("keeps a hovered explanation open when the mouse clicks it", () => {
+    // jsdom has no PointerEvent: a mouse event carrying a pointerType is
+    // what React reads.
+    const mouse = (type: string) => {
+      const e = new MouseEvent(type, { bubbles: true, cancelable: true });
+      Object.defineProperty(e, "pointerType", { value: "mouse" });
+      return e;
+    };
+    renderStudy("location");
+    const known = screen.getByRole("button", { name: /^Known/ });
+    fireEvent(known, mouse("pointerover"));
+    expect(known.getAttribute("aria-expanded")).toBe("true");
+    fireEvent(known, mouse("click"));
+    expect(known.getAttribute("aria-expanded")).toBe("true");
+    fireEvent(known, mouse("pointerout"));
+    expect(known.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("puts the reasons on the doors, not in a hint above them", () => {

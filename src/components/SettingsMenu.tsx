@@ -11,6 +11,7 @@ import type { ThemePref } from "../theme";
 import { knownGain, type Counters, type ReturnInfo } from "../game/counters";
 import { ContinentChip } from "./ContinentChip";
 import { scopeLine } from "./scopeSummary";
+import { COMING_BACK_TIP, EXPLAINED_LABEL_CLASS, KNOWN_TIP } from "./figureTips";
 
 type PopupCoords = {
   top: number;
@@ -94,13 +95,16 @@ export function SettingsMenu({
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<PopupCoords | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  // Which Data row's explanation is open, if any: one at a time.
+  const [explained, setExplained] = useState<"known" | "due" | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open && confirmReset) setConfirmReset(false);
-  }, [open, confirmReset]);
+    if (!open && explained) setExplained(null);
+  }, [open, confirmReset, explained]);
 
   const close = () => {
     setOpen(false);
@@ -391,14 +395,30 @@ export function SettingsMenu({
                 <span className="text-ink-deep font-medium text-right">
                   {seenCount}
                 </span>
-                <span>Known</span>
-                <span className="text-ink-deep font-medium text-right">
-                  {learnedCount}
-                </span>
-                <span>Coming back</span>
-                <span className="text-ink-deep font-medium text-right">
-                  {dueCount}
-                </span>
+                {/* The same explanations as the rest card's tiles. Tapped
+                    open under the row rather than hovered, as the question
+                    examples above are printed: a hover is out of reach on a
+                    touch screen. */}
+                <ExplainedRow
+                  label="Known"
+                  value={learnedCount}
+                  tipId="settings-tip-known"
+                  text={KNOWN_TIP}
+                  open={explained === "known"}
+                  onToggle={() =>
+                    setExplained(explained === "known" ? null : "known")
+                  }
+                />
+                <ExplainedRow
+                  label="Coming back"
+                  value={dueCount}
+                  tipId="settings-tip-due"
+                  text={COMING_BACK_TIP}
+                  open={explained === "due"}
+                  onToggle={() =>
+                    setExplained(explained === "due" ? null : "due")
+                  }
+                />
               </div>
               <p className="text-xs text-ink-mid mb-1 italic">All time</p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-mid tabular-nums mb-3">
@@ -644,5 +664,42 @@ function MeasuredRows({
         </Fragment>
       ))}
     </div>
+  );
+}
+
+function ExplainedRow({
+  label,
+  value,
+  tipId,
+  text,
+  open,
+  onToggle,
+}: {
+  label: string;
+  value: number;
+  tipId: string;
+  text: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-describedby={tipId}
+        onClick={onToggle}
+        className="text-left cursor-help rounded hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep"
+      >
+        <span className={EXPLAINED_LABEL_CLASS}>{label}</span>
+      </button>
+      <span className="text-ink-deep font-medium text-right">{value}</span>
+      <span
+        id={tipId}
+        className={`${open ? "" : "hidden "}col-span-2 italic text-ink-mid pb-1`}
+      >
+        {text}
+      </span>
+    </>
   );
 }
