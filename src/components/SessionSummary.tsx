@@ -21,7 +21,6 @@ import type { TestTally } from "../game/testTally";
 import { ExpeditionDoor } from "./ExpeditionDoor";
 import { tallyParts } from "./tallyParts";
 import {
-  COMING_BACK_FIRST,
   COMING_BACK_TIP,
   EXPLAINED_LABEL_CLASS,
   KNOWN_TIP,
@@ -420,9 +419,7 @@ function StudySummary({
               value={String(dueCount)}
               tip={{
                 id: "study-summary-tip-due",
-                text:
-                  COMING_BACK_TIP +
-                  (spotlightSubregion === null ? COMING_BACK_FIRST : ""),
+                text: COMING_BACK_TIP,
                 caretAt: 87.5,
               }}
               open={openTip === "due"}
