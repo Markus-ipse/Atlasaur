@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   Continent,
   Country,
@@ -20,6 +20,11 @@ import type { ExpeditionStatus } from "../game/expedition";
 import type { TestTally } from "../game/testTally";
 import { ExpeditionDoor } from "./ExpeditionDoor";
 import { tallyParts } from "./tallyParts";
+import {
+  COMING_BACK_TIP,
+  EXPLAINED_LABEL_CLASS,
+  KNOWN_TIP,
+} from "./figureTips";
 import { subject, testDoorLabel } from "./scopeSummary";
 import { NO_MORE_NEW, nextBackOrNothing } from "../game/nextBack";
 
@@ -276,6 +281,9 @@ function StudySummary({
     dialogRef.current?.focus();
   }, []);
 
+  // At most one figure's explanation is open at a time.
+  const [openTip, setOpenTip] = useState<"known" | "due" | null>(null);
+
   const secondaryClass =
     "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
 
@@ -368,41 +376,68 @@ function StudySummary({
         </button>
         {/* Everything else a finished sitting could lead to, out of the way
             of someone who only wants to stop. */}
-        <details className="flex flex-col gap-4">
-          <summary className="min-h-11 flex items-center justify-center gap-1 cursor-pointer select-none rounded text-sm text-ink-mid hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1">
+        <details className="group flex flex-col border-t border-ink-faded/30 pt-2">
+          <summary className="min-h-11 flex items-center justify-center gap-2 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden rounded text-sm text-ink-mid hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1">
             {/* Says what it holds, so a learner looking for a test knows
                 where it went. */}
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 10 10"
+              className="w-2.5 h-2.5 transition-transform group-open:rotate-90 motion-reduce:transition-none"
+            >
+              <path d="M3 1.5 L7 5 L3 8.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+            </svg>
             Figures, focus and tests
           </summary>
-          <div className="flex flex-col gap-4 pt-2">
-        {/* Two groups, labelled as the settings label them. The first four
-            count the learner's fact over the active scope; the last two are
-            lifetime totals across every fact and every country, so they
-            cannot sit under the same heading. */}
-        <section aria-labelledby="study-summary-scoped" className="flex flex-col gap-1">
+          <div className="flex flex-col gap-4 pt-1">
+        {/* Two groups in one panel, labelled as the settings label them. The
+            first four count the learner's fact over the active scope; the
+            last two are lifetime totals across every fact and every country,
+            so they cannot sit under the same heading. */}
+        <div className="rounded border border-ink-faded/40 bg-parchment-shadow/40 px-3 py-3 flex flex-col gap-3">
+        <section aria-labelledby="study-summary-scoped" className="relative flex flex-col gap-2">
           <h3
             id="study-summary-scoped"
             className="text-xs text-ink-mid text-center italic"
           >
             {fact === "capital" ? "Capitals" : "Places"}
           </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+          <div className="grid grid-cols-4 gap-2 text-center">
             {/* Unseen first, known after. Not stages that add up: Seen
                 includes Known, and Coming back draws on both. */}
             <Tile label="Not yet seen" value={String(newAvailableCount)} />
             <Tile label="Seen" value={String(seen)} />
-            <Tile label="Known" value={String(learned)} />
-            <Tile label="Coming back" value={String(dueCount)} />
+            <Tile
+              label="Known"
+              value={String(learned)}
+              tip={{ id: "study-summary-tip-known", text: KNOWN_TIP, caretAt: 62.5 }}
+              open={openTip === "known"}
+              onToggle={(open) => setOpenTip(open ? "known" : null)}
+            />
+            <Tile
+              label="Coming back"
+              value={String(dueCount)}
+              tip={{
+                id: "study-summary-tip-due",
+                text: COMING_BACK_TIP,
+                caretAt: 87.5,
+              }}
+              open={openTip === "due"}
+              onToggle={(open) => setOpenTip(open ? "due" : null)}
+            />
           </div>
         </section>
-        <section aria-labelledby="study-summary-lifetime" className="flex flex-col gap-1">
+        <section
+          aria-labelledby="study-summary-lifetime"
+          className="flex flex-col gap-2 border-t border-ink-faded/30 pt-3"
+        >
           <h3
             id="study-summary-lifetime"
             className="text-xs text-ink-mid text-center italic"
           >
             All time
           </h3>
-          <div className="grid grid-cols-2 gap-3 text-center">
+          <div className="grid grid-cols-2 gap-2 text-center">
             <Tile label="Answers" value={String(reviews)} />
             <Tile
               label="Right"
@@ -410,6 +445,7 @@ function StudySummary({
             />
           </div>
         </section>
+        </div>
         {/* Each door carries its own reason: bare labels left "Focus",
             "Test" and "Keep studying" reading as three names for the same
             thing. */}
@@ -470,16 +506,108 @@ function recoveryLine(n: number): string {
   return `You got ${n} right that you'd missed earlier.`;
 }
 
-function Tile({ label, value }: { label: string; value: string }) {
+// caretAt: where the tile sits across the panel, as a percentage, so the
+// explanation (which spans the panel) points back at the figure it explains.
+type TileTip = { id: string; text: string; caretAt: number };
+
+function Tile({
+  label,
+  value,
+  tip,
+  open = false,
+  onToggle,
+}: {
+  label: string;
+  value: string;
+  tip?: TileTip;
+  open?: boolean;
+  onToggle?: (open: boolean) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  // A tap outside closes it, as does Escape; the dialog itself ignores
+  // Escape, so this is the only thing it does here.
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) onToggle?.(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onToggle?.(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open, onToggle]);
+
+  const labelClass =
+    "font-display text-xs uppercase tracking-wide text-ink-mid leading-tight";
+  // The figure is drawn above its label (flex-col-reverse) so a label that
+  // wraps ("Not yet seen", four across) never pushes its figure out of line
+  // with the others; the DOM keeps label then figure, the reading order.
+  const stackClass = "flex flex-col-reverse justify-end gap-1";
+  const figure = (
+    <span className="text-xl tabular-nums text-ink-deep">{value}</span>
+  );
+
+  if (!tip) {
+    return (
+      <div className={stackClass}>
+        <span className={labelClass}>{label}</span>
+        {figure}
+      </div>
+    );
+  }
+
   return (
-    // justify-between keeps the figures on one line when a label wraps
-    // ("Not yet seen" does, four across).
-    <div className="flex flex-col justify-between">
-      <span className="font-display text-xs uppercase tracking-wide text-ink-mid">
-        {label}
-      </span>
-      <span className="text-xl font-semibold tabular-nums text-ink-deep">
-        {value}
+    // Hover opens it for a mouse only (a touch would open it on the way in
+    // and the tap would toggle it straight shut), and it stays open while the
+    // pointer is anywhere over the tile or its explanation.
+    <div
+      ref={ref}
+      onPointerEnter={(e) => e.pointerType === "mouse" && onToggle?.(true)}
+      onPointerLeave={(e) => e.pointerType === "mouse" && onToggle?.(false)}
+    >
+      {/* The whole tile is the button, so the target is a thumb's width. */}
+      <button
+        type="button"
+        aria-describedby={tip.id}
+        aria-expanded={open}
+        // A mouse click lands on a tile hover already opened: keep it open
+        // rather than toggle it shut. A tap or a key toggles.
+        onClick={(e) =>
+          onToggle?.(
+            (e.nativeEvent as PointerEvent).pointerType === "mouse" || !open,
+          )
+        }
+        className={`${stackClass} w-full min-h-11 rounded cursor-help hover:bg-parchment-base/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep`}
+      >
+        {/* Dotted, with a small "?" mark that says there is more to read. */}
+        <span
+          className={`${labelClass} ${EXPLAINED_LABEL_CLASS}`}
+        >
+          {label}
+        </span>
+        {figure}
+      </button>
+      {/* Transparent padding bridges the gap to the tile, so a mouse moving
+          down onto the text never leaves the tile on the way. */}
+      <span
+        id={tip.id}
+        role="tooltip"
+        className={`${open ? "" : "hidden "}absolute left-0 right-0 top-full z-10 pt-2`}
+      >
+        <span className="relative block rounded border border-ink-faded/60 bg-parchment-base px-3 py-2 text-xs text-ink-mid text-left shadow-md">
+          <span
+            aria-hidden="true"
+            className="absolute -top-[5px] w-2 h-2 -ml-1 rotate-45 border-l border-t border-ink-faded/60 bg-parchment-base"
+            style={{ left: `${tip.caretAt}%` }}
+          />
+          {tip.text}
+        </span>
       </span>
     </div>
   );

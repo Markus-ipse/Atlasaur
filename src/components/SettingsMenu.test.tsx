@@ -249,3 +249,24 @@ describe("SettingsMenu — the stats say which fact they count", () => {
     expect(screen.queryByText("Places")).toBeNull();
   });
 });
+
+describe("SettingsMenu — Known and Coming back explain themselves", () => {
+  it("opens one explanation at a time under its row", () => {
+    open({});
+    const known = screen.getByRole("button", { name: "Known" });
+    const due = screen.getByRole("button", { name: "Coming back" });
+    const tipOf = (b: HTMLElement) =>
+      document.getElementById(b.getAttribute("aria-describedby")!)!;
+    expect(tipOf(known).textContent).toMatch(/spaced out over days/);
+    expect(tipOf(known).classList.contains("hidden")).toBe(true);
+    fireEvent.click(known);
+    expect(known.getAttribute("aria-expanded")).toBe("true");
+    expect(tipOf(known).classList.contains("hidden")).toBe(false);
+    fireEvent.click(due);
+    expect(known.getAttribute("aria-expanded")).toBe("false");
+    expect(due.getAttribute("aria-expanded")).toBe("true");
+    // Keep going is not on this screen, so the explanation makes no promise
+    // about it.
+    expect(tipOf(due).textContent).not.toMatch(/Keep going/);
+  });
+});
