@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import countriesData from "../data/countries.json";
-import { normalize } from "../data/normalize";
+import { readTyped, type TypedReading } from "./typedMatch";
 import { pickRandom, pickNext, pickNextStudy, STUDY_NEW_CAP } from "./pickCountry";
 import {
   dueCount as srsDueCount,
@@ -252,49 +252,6 @@ const isoFromNumeric = (numeric: string) => ISO3_BY_NUMERIC.get(numeric);
 const numericFromIso3 = (iso3: string) => NUMERIC_BY_ISO3.get(iso3);
 const nameFromIso3 = (iso3: string): string =>
   COUNTRY_BY_ISO3.get(iso3)?.name ?? iso3;
-
-export function matchTypedName(input: string): string {
-  const n = normalize(input);
-  if (!n) return "";
-  for (const country of COUNTRIES) {
-    const candidates = [country.name, ...country.aliases];
-    if (candidates.some((c) => normalize(c) === n)) return country.iso3;
-  }
-  return "";
-}
-
-// Every spelling of a country's capital that counts as typing it: the
-// capital, any additional capitals (which are real answers, and shown in the
-// reveal), and the aliases, which are accepted but never displayed.
-function capitalSpellings(country: Country): string[] {
-  if (country.capital === null) return [];
-  return [
-    country.capital,
-    ...(country.capitalAlternates ?? []),
-    ...(country.capitalAliases ?? []),
-  ];
-}
-
-// The country a typed capital names, or "" for no match. `current` is checked
-// first so a correct answer never resolves elsewhere; after that the whole
-// list, so a wrong capital resolves to the country it actually belongs to and
-// the map can paint and label THAT country red — the same courtesy
-// Shape → Name already does for a wrong country name.
-export function matchTypedCapital(input: string, current: Country): string {
-  const n = normalize(input);
-  if (!n) return "";
-  if (capitalSpellings(current).some((c) => normalize(c) === n)) {
-    return current.iso3;
-  }
-  for (const country of COUNTRIES) {
-    if (country.iso3 === current.iso3) continue;
-    if (capitalSpellings(country).some((c) => normalize(c) === n)) {
-      return country.iso3;
-    }
-  }
-  return "";
-}
-
 
 export type State = {
   mode: QuestionMode;
@@ -2017,10 +1974,11 @@ export type GameApi = {
   // counts over. Not the fact the current card grades — those differ during
   // an expedition. See learnerFact.
   fact: Fact;
-  // The iso3 a typed answer names — a country name or a capital, depending on
-  // the mode — or "" for no match. One entry point so components never branch
-  // on the fact themselves.
-  matchTyped: (input: string) => string;
+  // What a typed answer reads as: the country it names — by name or by
+  // capital, depending on the mode — or, when it names none, the countries
+  // it is a slip away from, offered as "Did you mean …?" (#64). One entry
+  // point so components never branch on the fact themselves.
+  readTyped: (input: string) => TypedReading;
   answer: (iso3: string) => void;
   skip: () => void;
   dismiss: () => void;
@@ -2384,10 +2342,8 @@ export function useGame(): GameApi {
     [learnerRecords, scopeSet],
   );
 
-  const matchTyped = (input: string) =>
-    answerFact(state) === "capital"
-      ? matchTypedCapital(input, state.current)
-      : matchTypedName(input);
+  const readTypedAnswer = (input: string) =>
+    readTyped(input, answerFact(state), state.current);
 
   // Offered only to a learner working on locations: someone already studying
   // capitals needs no door to them. Recomputed on the hourly tick, like every
@@ -2469,7 +2425,7 @@ export function useGame(): GameApi {
     isInScope,
     scopeSet,
     fact,
-    matchTyped,
+    readTyped: readTypedAnswer,
     answer: (iso3) => dispatch({ type: "answer", iso3, now: new Date() }),
     skip: () => dispatch({ type: "skip", now: new Date() }),
     dismiss: () => dispatch({ type: "dismiss", now: new Date() }),

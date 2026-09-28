@@ -127,7 +127,7 @@ export function ControlZone({
           current={state.current}
           feedback={state.feedback}
           paused={paused}
-          matchTyped={game.matchTyped}
+          readTyped={game.readTyped}
           onAnswer={game.answer}
         />
       )}

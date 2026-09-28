@@ -1,4 +1,5 @@
 import { isClickMode } from "../game/questionModes";
+import { shownCapitals } from "../game/typedMatch";
 import type { Country, Feedback, QuestionMode } from "../types";
 import { BackAgain } from "./Prompt";
 
@@ -17,13 +18,6 @@ type Props = {
   returning?: boolean;
 };
 
-// Every capital the country has, in the order the reveal names them. Empty
-// only for the rows a capital mode can never draw.
-function capitals(current: Country): string[] {
-  if (current.capital === null) return [];
-  return [current.capital, ...(current.capitalAlternates ?? [])];
-}
-
 export function RevealHero({
   current,
   feedback,
@@ -39,7 +33,9 @@ export function RevealHero({
   // would shout back the string they were just staring at and demote the
   // answer they actually failed to find.
   const askedForCapital = mode === "country-to-capital";
-  const names = capitals(current);
+  // Every capital the country has, in the order the reveal names them.
+  // Empty only for the rows a capital mode can never draw.
+  const names = shownCapitals(current);
   return (
     <div role="status" className="flex flex-col gap-2">
       {returning && <BackAgain />}
