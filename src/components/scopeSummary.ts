@@ -59,18 +59,22 @@ export function scopeLine(
   return `${name} · ${size} ${subject(fact, size)}`;
 }
 
-// The test door's label: "Test all 12 countries in South America", "… everywhere
-// but Oceania", or "Test all 199 countries" over the whole world.
-export function testDoorLabel(
+// The test door, an index row (#61): the label names the scope — "Test South
+// America", "Test everywhere but Oceania", "Test the whole world" — and the
+// figure its size, "12 countries". Both, as #63 decided; split so the size
+// sits where a row keeps its figure.
+export function testDoor(
   continents: readonly Continent[],
   includeTerritories: boolean,
   fact: Fact,
   size: number,
-): string {
+): { label: string; figure: string } {
   const scope = scopeOf(continents, includeTerritories, fact);
-  const all =
-    size === 1 ? `Test the one ${subject(fact, 1)}` : `Test all ${size} ${subject(fact, size)}`;
-  if (scope.kind === "world") return all;
-  if (scope.kind === "except") return `${all} everywhere but ${scope.names}`;
-  return `${all} in ${scope.names}`;
+  const label =
+    scope.kind === "world"
+      ? "Test the whole world"
+      : scope.kind === "except"
+        ? `Test everywhere but ${scope.names}`
+        : `Test ${scope.names}`;
+  return { label, figure: `${size} ${subject(fact, size)}` };
 }

@@ -10,6 +10,7 @@ import { isTypedMode } from "../game/questionModes";
 import { focusHidesProgress, hidesIntroduced } from "../game/srs";
 import { cardIsReturning, type GameApi } from "../game/useGame";
 import type { ThemePref } from "../theme";
+import { PRIMARY, SECONDARY } from "./buttonStyles";
 
 type Props = {
   game: GameApi;
@@ -55,10 +56,6 @@ export function ControlZone({
   // or skip). The correct flash is too brief to read.
   const showStudyIntro =
     isStudy && heroFeedback !== null && !game.seenSrsIntro;
-  // "Don't know" is the honest label wherever the answer is graded for the
-  // scheduler; a test round keeps "Skip".
-  const isTest = state.practiceMode === "quiz";
-  const skipLabel = isTest ? "Skip" : "Don't know";
   const roundBreak = state.roundDone && !state.sessionDone;
   // A card that has come back says so. In Name → Click it says so with the
   // answer, not the prompt: before the answer, "met before" narrows "find X"
@@ -146,17 +143,19 @@ export function ControlZone({
               ref={continueRef}
               type="button"
               onClick={game.dismiss}
-              className="flex-1 min-h-11 px-4 rounded bg-ink-deep text-parchment-base font-medium hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
+              className={`flex-1 ${PRIMARY}`}
             >
-              {isTest ? "Continue" : "Got it"}
+              Continue
             </button>
           ) : state.feedback === null ? (
             <button
               type="button"
               onClick={game.skip}
-              className="flex-1 min-h-11 px-4 rounded border border-ink-faded text-ink-mid hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
+              className={`flex-1 ${SECONDARY}`}
             >
-              {skipLabel}
+              {/* The same words in every mode (#61): a test's skip is graded
+                  as a miss, exactly as Study's is. */}
+              {"Don't know"}
             </button>
           ) : null}
         </div>

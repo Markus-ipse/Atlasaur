@@ -151,10 +151,10 @@ afterEach(() => {
 });
 
 describe("ControlZone", () => {
-  it("renders Skip when there is no feedback", () => {
+  it("renders Don't know when there is no feedback", () => {
     const game = makeGame({});
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
-    expect(screen.getByRole("button", { name: "Skip" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Don't know" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
   });
 
@@ -181,14 +181,14 @@ describe("ControlZone", () => {
     const game = makeGame({ feedback: correct });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Don't know" })).toBeNull();
   });
 
-  it("Skip click invokes game.skip", () => {
+  it("Don't know click invokes game.skip", () => {
     const game = makeGame({});
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     act(() => {
-      screen.getByRole("button", { name: "Skip" }).click();
+      screen.getByRole("button", { name: "Don't know" }).click();
     });
     expect(game.skip).toHaveBeenCalledTimes(1);
   });
@@ -550,7 +550,7 @@ describe("ControlZone", () => {
     expect(screen.getByPlaceholderText(/type the country name/i)).toBeTruthy();
   });
 
-  it("Study miss renders a 'Got it' dismiss button and no ease buttons", () => {
+  it("Study miss renders a Continue dismiss button and no ease buttons", () => {
     const wrong: Feedback = {
       kind: "wrong",
       answerIso3: "DEU",
@@ -559,9 +559,16 @@ describe("ControlZone", () => {
     };
     const game = makeGame({ practiceMode: "study", feedback: wrong });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
-    expect(screen.getByRole("button", { name: "Got it" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeTruthy();
     expect(screen.queryByRole("group", { name: "Grade" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Knew it|Forgot|Easy|Hard/ })).toBeNull();
+  });
+
+  it("labels the miss and dismiss buttons the same in Study as in a test", () => {
+    const game = makeGame({ practiceMode: "study" });
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
+    expect(screen.getByRole("button", { name: "Don't know" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
   });
 
   it("Study correct flash renders no ease buttons and no dismiss button", () => {
@@ -574,7 +581,6 @@ describe("ControlZone", () => {
     const game = makeGame({ practiceMode: "study", feedback: correct });
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
     expect(screen.queryByRole("group", { name: "Grade" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Got it" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
   });
 });
@@ -755,14 +761,17 @@ describe("CaughtUp — the capitals offer", () => {
     // moment there already was.
     showCaughtUp({ due: 0, ready: 12 });
     expect(screen.queryByText(/Come back later/)).toBeNull();
-    expect(screen.getByText("Try capitals")).toBeDefined();
-    expect(screen.getByText("12 countries you already know")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Try capitals" })).toBeDefined();
+    // The banner's door is its dark button, so the reason is in the line.
+    expect(
+      screen.getByText(/Capitals are ready for 12 countries you already know\./),
+    ).toBeDefined();
   });
 
   it("says they're back once capitals have been met and come round", () => {
     showCaughtUp({ due: 5, ready: 3 });
-    expect(screen.getByText("Capitals are back")).toBeDefined();
-    expect(screen.getByText("5 coming back")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Capitals are back" })).toBeDefined();
+    expect(screen.getByText(/5 capitals are back\./)).toBeDefined();
   });
 
   it("keeps the old line when there is genuinely nothing else", () => {
@@ -791,7 +800,7 @@ describe("CaughtUp — the capitals offer", () => {
     showCaughtUp({ due: 0, ready: 4 }, "More come back later today");
     expect(
       screen.getByText(
-        "More come back later today. Meanwhile, there's another way to know these places.",
+        "More come back later today. Meanwhile, capitals are ready for 4 countries you already know.",
       ),
     ).toBeDefined();
   });

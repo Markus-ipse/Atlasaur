@@ -1120,7 +1120,7 @@ function applyMiss(
   if (state.practiceMode === "study") {
     // Study mode doesn't touch session counters or retryQueue. Both a
     // wrong answer and a skip ("Don't know") schedule an auto-Again for
-    // dismiss-time; the reveal advances on a single "Got it" with no
+    // dismiss-time; the reveal advances on a single Continue with no
     // self-grading. The resurface enqueue happens at commit time in
     // dismissFeedback, keyed off autoGradePending === "Again".
     //

@@ -298,12 +298,12 @@ export function SettingsMenu({
               {/* The reason an option is unavailable, tied to the options it
                   explains so a screen reader reaches it too. */}
               {modeLocked ? (
-                <p id={pickerNoteId} className="text-xs text-ink-mid mt-1">
+                <p id={pickerNoteId} className="text-sm text-ink-mid mt-1">
                   An expedition always asks you to find countries on the map, anywhere in the world.
                 </p>
               ) : (
                 !capitalsAskable && (
-                  <p id={pickerNoteId} className="text-xs text-ink-mid mt-1">
+                  <p id={pickerNoteId} className="text-sm text-ink-mid mt-1">
                     Nothing in this scope has a capital.
                   </p>
                 )
@@ -330,7 +330,7 @@ export function SettingsMenu({
                   );
                 })}
               </div>
-              <p className="text-xs text-ink-mid mt-1">
+              <p className="text-sm text-ink-mid mt-1">
                 {scopeLine(selectedContinents, includeTerritories, fact, totalInScope)}
               </p>
               <label className="mt-2 flex items-center gap-2 text-sm text-ink-deep cursor-pointer">
@@ -342,7 +342,7 @@ export function SettingsMenu({
                 />
                 <span>
                   Include territories
-                  <span className="block text-xs text-ink-mid">
+                  <span className="block text-sm text-ink-mid">
                     Greenland, Puerto Rico, Antarctica and the like
                   </span>
                 </span>
@@ -381,10 +381,10 @@ export function SettingsMenu({
                   over the fact the learner is working on and say which. The
                   two below are lifetime totals across every fact and every
                   country, headed "All time" as the Study summary heads them. */}
-              <p className="text-xs text-ink-mid mb-1 italic">
+              <p className="text-sm text-ink-mid mb-1 italic">
                 {fact === "capital" ? "Capitals" : "Places"}
               </p>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-mid tabular-nums mb-2">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm text-ink-mid tabular-nums mb-2">
                 {/* The same order as the Study summary's tiles: unseen
                     first, known after. The counts overlap, so they don't sum. */}
                 <span>Not yet seen</span>
@@ -420,8 +420,8 @@ export function SettingsMenu({
                   }
                 />
               </div>
-              <p className="text-xs text-ink-mid mb-1 italic">All time</p>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-mid tabular-nums mb-3">
+              <p className="text-sm text-ink-mid mb-1 italic">All time</p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm text-ink-mid tabular-nums mb-3">
                 <span>Answers</span>
                 <span className="text-ink-deep font-medium text-right">
                   {totalReviews}
@@ -436,7 +436,7 @@ export function SettingsMenu({
               <MeasuredRows counters={counters} returns={returns} />
               {confirmReset ? (
                 <div className="flex flex-col gap-2">
-                  <p className="text-xs text-ink-mid">
+                  <p className="text-sm text-ink-mid">
                     This erases every country's record. There is no undo.
                   </p>
                   <div className="flex gap-2">
@@ -493,7 +493,7 @@ function ModeRow({
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex items-center gap-2">
-        <span className="w-16 shrink-0 text-xs text-ink-mid">{label}</span>
+        <span className="w-16 shrink-0 text-sm text-ink-mid">{label}</span>
         <div className="flex flex-1 gap-1 p-1 rounded-full border border-ink-faded/40 bg-parchment-shadow">
           {children}
         </div>
@@ -507,7 +507,7 @@ function ModeRow({
                 key={m}
                 id={exampleId(m)}
                 className={
-                  "flex-1 text-xs leading-tight text-center " +
+                  "flex-1 text-sm leading-tight text-center " +
                   (m === mode ? "text-ink-deep" : "text-ink-mid")
                 }
               >
@@ -556,7 +556,7 @@ function ModeButton({
       disabled={disabled}
       onClick={onClick}
       className={
-        "flex-1 min-h-9 px-2 whitespace-nowrap rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep disabled:opacity-50 disabled:cursor-not-allowed " +
+        "flex-1 min-h-9 px-2 whitespace-nowrap rounded-full text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep disabled:opacity-50 disabled:cursor-not-allowed " +
         (active ? "bg-ink-deep text-parchment-base" : "text-ink-mid hover:bg-parchment-base")
       }
     >
@@ -656,7 +656,7 @@ function MeasuredRows({
   if (rows.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-mid tabular-nums mb-3 pt-2 border-t border-ink-faded/20">
+    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm text-ink-mid tabular-nums mb-3 pt-2 border-t border-ink-faded/20">
       {rows.map(([label, value]) => (
         <Fragment key={label}>
           <span>{label}</span>

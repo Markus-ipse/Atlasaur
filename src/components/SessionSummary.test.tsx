@@ -111,6 +111,7 @@ function renderTest(figures: {
   found: string[];
   missed?: string[];
   scope?: ReadonlySet<string>;
+  due?: number;
 }) {
   const found = new Set(figures.found);
   const missedIso3s = figures.missed ?? [];
@@ -125,7 +126,7 @@ function renderTest(figures: {
       totalInScope={TEST_SCOPE.length}
       selectedContinents={ALL_CONTINENTS}
       includeTerritories={false}
-      dueCount={0}
+      dueCount={figures.due ?? 0}
       nextBack={null}
       caughtUp={false}
       spotlightSubregion={null}
@@ -164,11 +165,13 @@ describe("TestSummary", () => {
     // Eleven right first time, Chile skipped and found on its retry. This
     // once read "12/12 done", "92% Right" with Chile still listed as missed.
     renderTest({ found: TEST_SCOPE, missed: ["CHL"] });
-    expect(screen.getByRole("heading", { name: "Complete!" })).toBeTruthy();
-    expect(screen.getByText("First try").nextElementSibling?.textContent).toBe("11/12");
+    expect(screen.getByRole("heading", { name: "11 of 12 right first try" })).toBeTruthy();
+    expect(screen.getByText("Test · Complete")).toBeTruthy();
+    expect(screen.getByText("Every one found.")).toBeTruthy();
+    expect(screen.getByText("First try").nextElementSibling?.textContent).toBe("11");
     expect(screen.getByText("Recovered").nextElementSibling?.textContent).toBe("1");
     expect(screen.getByText("Still missed").nextElementSibling?.textContent).toBe("0");
-    expect(screen.getByText(/Scored on first tries/)).toBeTruthy();
+    expect(screen.getByText("Found on a later try counts as recovered.")).toBeTruthy();
     const chile = screen.getByText(/Chile/);
     expect(chile.textContent).toBe("Chile — recovered");
     expect(screen.queryByText("Review 1 missed")).toBeNull();
@@ -179,9 +182,11 @@ describe("TestSummary", () => {
       found: ["ARG", "BRA", "CHL", "PER"],
       missed: ["CHL", "BOL"],
     });
-    expect(screen.getByText("First try").nextElementSibling?.textContent).toBe("3/12");
+    expect(screen.getByText("First try").nextElementSibling?.textContent).toBe("3");
     expect(screen.getByText("Still missed").nextElementSibling?.textContent).toBe("1");
-    expect(screen.getByText("7 not yet asked.")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "3 of 5 right first try" })).toBeTruthy();
+    expect(screen.getByText("5 asked · 7 not yet asked")).toBeTruthy();
+    expect(screen.getByText("Test · Ended early")).toBeTruthy();
     const items = screen.getAllByRole("listitem").map((li) => li.textContent);
     expect(items).toEqual(["Bolivia", "Chile — recovered"]);
     expect(screen.getByRole("button", { name: "Review 1 missed" })).toBeTruthy();
@@ -202,9 +207,23 @@ describe("TestSummary", () => {
     expect(screen.queryByText(/not yet asked/)).toBeNull();
   });
 
+  it("says a test finished with a miss left is finished, without praise", () => {
+    renderTest({ found: TEST_SCOPE.filter((iso3) => iso3 !== "BOL"), missed: ["BOL"] });
+    expect(screen.getByText("Test · Finished")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "11 of 12 right first try" })).toBeTruthy();
+    expect(screen.queryByText("Every one found.")).toBeNull();
+  });
+
+  it("puts what is coming back on the way back to studying", () => {
+    renderTest({ found: ["ARG"], due: 6 });
+    expect(
+      screen.getByRole("button", { name: /^Back to studying.*6 coming back/ }),
+    ).toBeTruthy();
+  });
+
   it("keeps the praise out of a partial test without misses", () => {
     renderTest({ found: ["ARG", "BRA"] });
-    expect(screen.getByText("10 not yet asked.")).toBeTruthy();
+    expect(screen.getByText("2 asked · 10 not yet asked")).toBeTruthy();
     expect(screen.getByText("No misses.")).toBeTruthy();
     expect(screen.queryByText(/clean run/)).toBeNull();
   });
@@ -330,14 +349,14 @@ describe("StudySummary rest", () => {
     expect(within(more).getByRole("region", { name: "Places" })).toBeTruthy();
     expect(within(more).getByRole("region", { name: "All time" })).toBeTruthy();
     expect(within(more).getByRole("button", { name: /^Focus on/ })).toBeTruthy();
-    expect(within(more).getByRole("button", { name: /^Test all 2 countries/ })).toBeTruthy();
+    expect(within(more).getByRole("button", { name: /^Test the whole world.*2 countries/ })).toBeTruthy();
     expect(within(more).queryByRole("button", { name: /^Keep going/ })).toBeNull();
   });
 
   it("names the scope and its size on the test door", () => {
     renderStudy("location", NONE, { continents: ["South America"] });
     expect(
-      screen.getByRole("button", { name: /^Test all 2 countries in South America/ }),
+      screen.getByRole("button", { name: /^Test South America.*2 countries/ }),
     ).toBeTruthy();
   });
 });
@@ -419,27 +438,30 @@ describe("StudySummary doors", () => {
       dueCount: 5,
       spotlightSubregion: "Western Africa",
     });
-    expect(
-      screen.getByRole("button", {
-        name: /^Keep going.*Still focusing on Western Africa/,
-      }),
-    ).toBeTruthy();
+    // The reason sits above the button and describes it (#61).
+    const button = screen.getByRole("button", { name: "Keep going" });
+    expect(button.getAttribute("aria-describedby")).toBe("study-summary-next");
+    expect(document.getElementById("study-summary-next")?.textContent).toBe(
+      "Still focusing on Western Africa",
+    );
     expect(screen.queryByText(/coming back first/)).toBeNull();
   });
 
   it("says what has come back goes first", () => {
     renderStudy("location", NONE, { dueCount: 3 });
-    expect(
-      screen.getByRole("button", { name: /^Keep going.*3 coming back first/ }),
-    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Keep going" })).toBeTruthy();
+    expect(document.getElementById("study-summary-next")?.textContent).toBe(
+      "3 coming back first",
+    );
     expect(screen.queryByRole("button", { name: /Keep going anyway/ })).toBeNull();
   });
 
   it("says new places are next when nothing has come back", () => {
     renderStudy("location", NONE, { dueCount: 0, newAvailableCount: 1 });
-    expect(
-      screen.getByRole("button", { name: /^Keep going.*New countries next/ }),
-    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Keep going" })).toBeTruthy();
+    expect(document.getElementById("study-summary-next")?.textContent).toBe(
+      "New countries next",
+    );
   });
 
   it("goes on anyway once this stretch's new cards are used up", () => {
@@ -451,12 +473,11 @@ describe("StudySummary doors", () => {
       caughtUp: true,
       nextBack: "More come back later today",
     });
-    expect(
-      screen.getByRole("button", {
-        name: /Keep going anyway.*No more new ones for now · More come back later today/,
-      }),
-    ).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /New countries next/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Keep going anyway" })).toBeTruthy();
+    expect(document.getElementById("study-summary-next")?.textContent).toBe(
+      "No more new ones for now · More come back later today",
+    );
+    expect(screen.queryByText(/New countries next/)).toBeNull();
   });
 
   it("goes on anyway, and says when, with nothing waiting", () => {
@@ -465,9 +486,10 @@ describe("StudySummary doors", () => {
       newAvailableCount: 0,
       nextBack: "The next ones come back tomorrow",
     });
-    expect(
-      screen.getByRole("button", { name: /Keep going anyway.*tomorrow/ }),
-    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Keep going anyway" })).toBeTruthy();
+    expect(document.getElementById("study-summary-next")?.textContent).toMatch(
+      /tomorrow/,
+    );
   });
 
   it("gives the focus door its count", () => {
@@ -476,7 +498,7 @@ describe("StudySummary doors", () => {
     });
     expect(
       screen.getByRole("button", {
-        name: /^Focus on .*\d+ waiting there — just that region for now/,
+        name: /^Focus on .*\d+ waiting/,
       }),
     ).toBeTruthy();
   });

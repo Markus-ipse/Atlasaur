@@ -507,7 +507,7 @@ function MapKeyPanel({
   return (
     <section
       aria-label="Map key"
-      className="pointer-events-auto relative max-w-60 self-start rounded-lg border border-ink-faded bg-parchment-base/90 py-2 pl-3 pr-9 text-xs text-ink-deep shadow-sm backdrop-blur"
+      className="pointer-events-auto relative max-w-60 self-start rounded-lg border border-ink-faded bg-parchment-base/90 py-2 pl-3 pr-9 text-sm text-ink-deep shadow-sm backdrop-blur"
     >
       <button
         type="button"
@@ -1833,7 +1833,7 @@ export function WorldMap({
           <div className="flex justify-center px-2">
             <span
               role="status"
-              className="toast-fade rounded-full border border-ink-faded bg-parchment-base/95 px-3 py-1 font-display text-xs uppercase tracking-wide text-ink-mid shadow-sm"
+              className="toast-fade rounded-full border border-ink-faded bg-parchment-base/95 px-3 py-1 text-sm text-ink-mid shadow-sm"
             >
               {zoomHintText(coarsePointer)}
             </span>

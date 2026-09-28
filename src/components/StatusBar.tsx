@@ -54,7 +54,9 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
         (className ?? "")
       }
     >
-      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+      {/* Grows from nothing, so at 14 px the chips wrap inside this group and
+          Done and the gear keep their place rather than dropping a line. */}
+      <div className="flex flex-1 items-center gap-2 min-w-0 flex-wrap">
         <RoundChip
           practiceMode={state.practiceMode}
           phase={state.phase}
@@ -76,7 +78,7 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
                 type="button"
                 onClick={() => game.setPracticeMode("study")}
                 title="Back to studying"
-                className="shrink-0 text-xs text-ink-mid tabular-nums px-1.5 py-0.5 rounded hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink-deep"
+                className="shrink-0 text-sm text-ink-mid tabular-nums px-1.5 py-0.5 rounded hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink-deep"
               >
                 <span className="font-semibold text-ink-deep">{game.dueCount}</span>{" "}
                 coming back
@@ -90,7 +92,7 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
           type="button"
           onClick={game.endSession}
           disabled={state.sessionDone}
-          className="min-h-11 px-2.5 rounded text-xs text-ink-mid hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep disabled:opacity-50"
+          className="min-h-11 px-2.5 rounded text-sm text-ink-mid hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep disabled:opacity-50"
         >
           Done
         </button>
@@ -146,7 +148,7 @@ function RoundChip({
   if (practiceMode === "expedition" && phase === "review") {
     return (
       <span
-        className="shrink-0 font-display text-xs uppercase tracking-wide text-ink-mid tabular-nums"
+        className="shrink-0 text-sm text-ink-mid tabular-nums"
         aria-label={`Second look: ${lookLeft} left`}
       >
         Second look<span aria-hidden> · </span>
@@ -159,7 +161,7 @@ function RoundChip({
   const card = Math.min(roundCards + 1, size);
   return (
     <span
-      className="shrink-0 font-display text-xs uppercase tracking-wide text-ink-mid tabular-nums"
+      className="shrink-0 text-sm text-ink-mid tabular-nums"
       aria-label={`Card ${card} of ${size} this ${practiceMode === "expedition" ? "expedition" : "round"}`}
     >
       {practiceMode === "expedition" && (
@@ -184,7 +186,7 @@ function StudyChips({
   fact: Fact;
 }) {
   return (
-    <div className="flex flex-wrap items-baseline gap-x-2 text-xs text-ink-mid tabular-nums">
+    <div className="flex flex-wrap items-baseline gap-x-2 text-sm text-ink-mid tabular-nums">
       {/* These count the learner's fact, which is not always what the prompt
           beside them is asking. Name it, so the numbers can't be read as the
           other fact's. */}
@@ -227,7 +229,7 @@ function FocusChip({
       type="button"
       onClick={onClear}
       aria-label={`Focus: ${spotlight}, stop`}
-      className="basis-full min-h-11 -mx-1.5 px-1.5 rounded text-left text-xs text-ink-mid hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink-deep"
+      className="basis-full min-h-11 -mx-1.5 px-1.5 rounded text-left text-sm text-ink-mid hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink-deep"
     >
       Focus: <span className="text-ink-deep">{spotlight}</span>{" "}
       <span aria-hidden>×</span>

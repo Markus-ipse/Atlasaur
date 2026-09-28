@@ -25,8 +25,11 @@ import {
   EXPLAINED_LABEL_CLASS,
   KNOWN_TIP,
 } from "./figureTips";
-import { subject, testDoorLabel } from "./scopeSummary";
+import { subject, testDoor } from "./scopeSummary";
+import { IndexRow } from "./IndexRow";
+import { Chevron } from "./Chevron";
 import { NO_MORE_NEW, nextBackOrNothing } from "../game/nextBack";
+import { PRIMARY, SECONDARY } from "./buttonStyles";
 
 type Props = {
   practiceMode: PracticeMode;
@@ -112,7 +115,19 @@ function TestSummary({
   const playAgainRef = useRef<HTMLButtonElement>(null);
   const showReview = unlearnedCount > 0;
   const cleared = unlearnedCount === 0 && test.stillMissed === 0 && test.notAsked === 0;
-  const title = cleared ? "Complete!" : "Test over";
+  const endedEarly = asked > 0 && test.notAsked > 0;
+  // The eyebrow says how the test ended; the heading is the score itself.
+  const eyebrow =
+    asked === 0
+      ? "Test"
+      : endedEarly
+        ? "Test · Ended early"
+        : cleared
+          ? "Test · Complete"
+          : "Test · Finished";
+  // Out of what was asked when it ended early: "0 of 150" after three
+  // answers reads as failing the whole test.
+  const outOf = endedEarly ? asked : test.size;
   // Only the test's current countries, as the tiles count them: a region
   // switched off mid-test takes its misses out of the list too, or the list
   // would name a country the tiles no longer count. Still missed first:
@@ -127,11 +142,6 @@ function TestSummary({
     (showReview ? reviewRef : playAgainRef).current?.focus();
   }, [showReview]);
 
-  const primaryClass =
-    "min-h-11 px-5 rounded bg-ink-deep text-parchment-base font-medium hover:bg-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
-  const secondaryClass =
-    "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
-
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4">
       <div
@@ -140,43 +150,47 @@ function TestSummary({
         aria-labelledby="session-summary-title"
         className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-parchment-base rounded-lg shadow-lg p-6 flex flex-col gap-4"
       >
-        <h2 id="session-summary-title" className="text-2xl font-bold text-ink-deep">
-          {title}
-        </h2>
-        {asked === 0 ? (
-          // No answer, no score: a test ended before its first card is not
-          // 0 right, and it is certainly not a clean run.
-          <p className="text-sm text-ink-mid">No questions answered.</p>
-        ) : (
-          <>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <Tile label="First try" value={`${test.firstTry}/${test.size}`} />
+        <div className="flex flex-col gap-1">
+          <p className="font-display text-xs uppercase tracking-wide text-ink-mid">
+            {eyebrow}
+          </p>
+          {/* Leads with the result, the figure the tiles break down. */}
+          <h2 id="session-summary-title" className="text-2xl font-bold text-ink-deep tabular-nums">
+            {asked === 0
+              ? "Test over"
+              : `${test.firstTry} of ${outOf} right first try`}
+          </h2>
+          {asked === 0 ? (
+            // No answer, no score: a test ended before its first card is not
+            // 0 right, and it is certainly not a clean run.
+            <p className="text-sm text-ink-mid">No questions answered.</p>
+          ) : endedEarly ? (
+            <p className="text-sm text-ink-mid tabular-nums">
+              {asked} asked · {test.notAsked} not yet asked
+            </p>
+          ) : (
+            cleared && <p className="text-sm text-ink-mid">Every one found.</p>
+          )}
+        </div>
+        {asked > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-3 gap-3 text-center rounded border border-ink-faded/40 bg-parchment-shadow/40 px-3 py-3">
+              <Tile label="First try" value={String(test.firstTry)} />
               <Tile label="Recovered" value={String(test.recovered)} />
               <Tile label="Still missed" value={String(test.stillMissed)} />
             </div>
             {/* The scoring model, said once where the score is. */}
-            <p className="text-xs text-ink-mid text-center -mt-2">
-              Scored on first tries. A country found on a later try is
-              recovered.
+            <p className="text-sm text-ink-mid text-center">
+              Found on a later try counts as recovered.
             </p>
-            {test.notAsked > 0 && (
-              <p className="text-sm text-ink-mid tabular-nums">
-                {test.notAsked} not yet asked.
-              </p>
-            )}
-          </>
-        )}
-        {dueCount > 0 && (
-          <p className="text-xs text-ink-mid text-center">
-            {dueCount} coming back — first up when you go back to studying.
-          </p>
+          </div>
         )}
         {missedInScope.length > 0 ? (
-          <div>
-            <p className="text-sm font-medium text-ink-deep mb-2">
-              Missed at first ({missedInScope.length}):
-            </p>
-            <ul className="max-h-[28dvh] overflow-y-auto text-sm text-ink-mid border border-ink-faded/40 rounded p-3 flex flex-wrap gap-x-4 gap-y-1">
+          <section aria-labelledby="test-summary-missed">
+            <h3 id="test-summary-missed" className="text-sm text-ink-mid italic mb-1 tabular-nums">
+              Missed at first · {missedInScope.length}
+            </h3>
+            <ul className="max-h-[28dvh] overflow-y-auto text-base text-ink-deep flex flex-wrap gap-x-4 gap-y-1">
               {/* The one screen that says what you got wrong has to show the
                   thing you got wrong: a capital round names the capital
                   beside its country. */}
@@ -186,12 +200,12 @@ function TestSummary({
                     ? `${c.name} · ${c.capital}`
                     : c.name}
                   {foundIso3s.has(c.iso3) && (
-                    <span className="italic text-ink-faded"> — recovered</span>
+                    <span className="italic text-ink-mid"> — recovered</span>
                   )}
                 </li>
               ))}
             </ul>
-          </div>
+          </section>
         ) : (
           asked > 0 && (
             <p className="text-sm text-ink-mid">
@@ -207,26 +221,30 @@ function TestSummary({
               ref={reviewRef}
               type="button"
               onClick={onReview}
-              className={primaryClass}
+              className={PRIMARY}
             >
               Review {unlearnedCount} missed
             </button>
           )}
-          <button
-            ref={playAgainRef}
-            type="button"
-            onClick={onPlayAgain}
-            className={showReview ? secondaryClass : primaryClass}
-          >
-            Test again
-          </button>
-          <button
-            type="button"
+          {/* The other ways on are index rows, one under the other (#61). */}
+          {showReview ? (
+            <IndexRow label="Test again" onClick={onPlayAgain} />
+          ) : (
+            <button
+              ref={playAgainRef}
+              type="button"
+              onClick={onPlayAgain}
+              className={PRIMARY}
+            >
+              Test again
+            </button>
+          )}
+          {/* What waits in Study goes with the way back to it. */}
+          <IndexRow
+            label="Back to studying"
+            figure={dueCount > 0 ? `${dueCount} coming back` : undefined}
             onClick={onBackToStudy}
-            className={secondaryClass}
-          >
-            Back to studying
-          </button>
+          />
         </div>
       </div>
     </div>
@@ -284,9 +302,6 @@ function StudySummary({
   // At most one figure's explanation is open at a time.
   const [openTip, setOpenTip] = useState<"known" | "due" | null>(null);
 
-  const secondaryClass =
-    "min-h-11 px-5 rounded border border-ink-faded text-ink-mid font-medium hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1";
-
   // What Keep going picks next, in the scheduler's own order: what has come
   // back, then new cards while the stretch's cap allows them. With neither it
   // is "anyway", as on the round break, and says when the next ones come back.
@@ -316,14 +331,11 @@ function StudySummary({
         `${NO_MORE_NEW} · ${nextBackOrNothing(nextBack)}`
       : nextBackOrNothing(nextBack);
 
-  const stackedSecondaryClass =
-    secondaryClass + " flex flex-col items-center justify-center leading-tight";
-  const secondarySubClass = "text-xs font-normal text-ink-faded";
-
   // Only once there is something to keep: a Done before any first answer has
   // nothing in this browser yet.
   const showSaved = progressSaved && hasAnyRecord(srsStore);
   const hasSittingLines = sittingCards > 0 || showSaved;
+  const door = testDoor(selectedContinents, includeTerritories, fact, totalInScope);
 
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-scrim/55 p-4">
@@ -366,27 +378,27 @@ function StudySummary({
             {showSaved && <p>Kept in this browser — no account needed.</p>}
           </div>
         )}
+        {/* What Keep going asks next, above the button rather than on it:
+            it is a sentence, and the card stays without a dark button (#54),
+            so this is the one outline that is not an index row (#61). */}
+        <p id="study-summary-next" className="text-sm italic text-ink-mid -mb-2">
+          {keepGoingSub}
+        </p>
         <button
           type="button"
           onClick={onKeepStudying}
-          className={stackedSecondaryClass}
+          aria-describedby="study-summary-next"
+          className={SECONDARY}
         >
-          <span>{keepGoingLabel}</span>
-          <span className={secondarySubClass}>{keepGoingSub}</span>
+          {keepGoingLabel}
         </button>
         {/* Everything else a finished sitting could lead to, out of the way
             of someone who only wants to stop. */}
         <details className="group flex flex-col border-t border-ink-faded/30 pt-2">
-          <summary className="min-h-11 flex items-center justify-center gap-2 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden rounded text-sm text-ink-mid hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1">
+          <summary className="min-h-11 flex items-center justify-center gap-2 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden rounded text-sm text-ink-mid group-open:text-ink-deep hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1">
             {/* Says what it holds, so a learner looking for a test knows
                 where it went. */}
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 10 10"
-              className="w-2.5 h-2.5 transition-transform group-open:rotate-90 motion-reduce:transition-none"
-            >
-              <path d="M3 1.5 L7 5 L3 8.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
-            </svg>
+            <Chevron className="w-3.5 h-3.5 transition-transform group-open:rotate-90 motion-reduce:transition-none" />
             Figures, focus and tests
           </summary>
           <div className="flex flex-col gap-4 pt-1">
@@ -398,7 +410,7 @@ function StudySummary({
         <section aria-labelledby="study-summary-scoped" className="relative flex flex-col gap-2">
           <h3
             id="study-summary-scoped"
-            className="text-xs text-ink-mid text-center italic"
+            className="text-sm text-ink-mid text-center italic"
           >
             {fact === "capital" ? "Capitals" : "Places"}
           </h3>
@@ -433,7 +445,7 @@ function StudySummary({
         >
           <h3
             id="study-summary-lifetime"
-            className="text-xs text-ink-mid text-center italic"
+            className="text-sm text-ink-mid text-center italic"
           >
             All time
           </h3>
@@ -446,53 +458,29 @@ function StudySummary({
           </div>
         </section>
         </div>
-        {/* Each door carries its own reason: bare labels left "Focus",
-            "Test" and "Keep studying" reading as three names for the same
-            thing. */}
+        {/* Each door carries its own reason as its figure: bare labels left
+            "Focus", "Test" and "Keep studying" reading as three names for
+            the same thing. */}
         {spotlight && (
-          <button
-            type="button"
+          <IndexRow
+            label={`Focus on ${spotlight.subregion}`}
+            figure={`${spotlight.remaining} waiting`}
             onClick={() => onSetSpotlight(spotlight.subregion)}
-            className={stackedSecondaryClass}
-          >
-            <span>Focus on {spotlight.subregion}</span>
-            <span className={secondarySubClass}>
-              {spotlight.remaining} waiting there — just that region
-              for now
-            </span>
-          </button>
+          />
         )}
         <section
           aria-labelledby="study-summary-test"
           className="flex flex-col gap-2"
         >
-          <h3
-            id="study-summary-test"
-            className="text-xs text-ink-mid text-center italic"
-          >
-            Or test yourself
+          <h3 id="study-summary-test" className="text-sm text-ink-mid italic">
+            Or test yourself, scored on first tries.
           </h3>
-          <button
-            type="button"
+          <IndexRow
+            label={door.label}
+            figure={door.figure}
             onClick={onStartTest}
-            className={stackedSecondaryClass}
-          >
-            <span>
-              {testDoorLabel(
-                selectedContinents,
-                includeTerritories,
-                fact,
-                totalInScope,
-              )}
-            </span>
-            <span className={secondarySubClass}>Scored on first tries</span>
-          </button>
-          <ExpeditionDoor
-            status={expedition}
-            onClick={onExpedition}
-            className={secondaryClass}
-            subClassName="text-ink-faded"
           />
+          <ExpeditionDoor status={expedition} onClick={onExpedition} />
         </section>
           </div>
         </details>
@@ -543,8 +531,8 @@ function Tile({
     };
   }, [open, onToggle]);
 
-  const labelClass =
-    "font-display text-xs uppercase tracking-wide text-ink-mid leading-tight";
+  // A metric label is read to decide, so it is 14 px regular, not an eyebrow.
+  const labelClass = "text-sm text-ink-mid leading-tight";
   // The figure is drawn above its label (flex-col-reverse) so a label that
   // wraps ("Not yet seen", four across) never pushes its figure out of line
   // with the others; the DOM keeps label then figure, the reading order.
@@ -600,7 +588,7 @@ function Tile({
         role="tooltip"
         className={`${open ? "" : "hidden "}absolute left-0 right-0 top-full z-10 pt-2`}
       >
-        <span className="relative block rounded border border-ink-faded/60 bg-parchment-base px-3 py-2 text-xs text-ink-mid text-left shadow-md">
+        <span className="relative block rounded border border-ink-faded/60 bg-parchment-base px-3 py-2 text-sm text-ink-mid text-left shadow-md">
           <span
             aria-hidden="true"
             className="absolute -top-[5px] w-2 h-2 -ml-1 rotate-45 border-l border-t border-ink-faded/60 bg-parchment-base"

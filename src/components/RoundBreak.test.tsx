@@ -104,7 +104,7 @@ describe("RoundBreak", () => {
     });
     fireEvent.click(
       screen.getByRole("button", {
-        name: /Try capitals.*6 countries you already know/,
+        name: /Try capitals.*6 you can place/,
       }),
     );
     expect(onTryCapitals).toHaveBeenCalledTimes(1);

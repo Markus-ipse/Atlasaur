@@ -4,7 +4,7 @@ type Props = {
 
 export function StudyIntro({ onDismiss }: Props) {
   return (
-    <div className="relative rounded border border-ochre/40 bg-ochre/15 p-3 pr-8 text-xs leading-snug text-ink-deep">
+    <div className="relative rounded border border-ochre/40 bg-ochre/15 p-3 pr-8 text-sm leading-snug text-ink-deep">
       {/* Shown on the first Study miss in any question mode, so it says
           "known", the stat word, and nothing about places or the map. The
           welcome no longer explains the scheduler; this is where the learner
