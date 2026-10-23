@@ -184,6 +184,51 @@ describe("ControlZone", () => {
     expect(screen.queryByRole("button", { name: "Don't know" })).toBeNull();
   });
 
+  it("says where a click mode's answer goes", () => {
+    const game = makeGame({ mode: "name-to-click" });
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
+    expect(screen.getByText("Find on the map")).toBeTruthy();
+  });
+
+  // #61: what is asked, the way to answer and the one way on read as one
+  // unit, and the result lands in the prompt's place.
+  it("keeps the prompt, the input and the action together", () => {
+    const wrong: Feedback = {
+      kind: "wrong",
+      answerIso3: "DEU",
+      correctIso3: "FRA",
+      at: 0,
+    };
+    const props = { showCaughtUp: false, onAckCaughtUp: () => {}, themePref: "system" as const, onSetThemePref: () => {} };
+    const { rerender } = render(
+      <ControlZone game={makeGame({ mode: "shape-to-name" })} {...props} />,
+    );
+    const group = () => document.querySelector("[data-answer-group]")!;
+    expect(group().contains(screen.getByText("What country is highlighted?"))).toBe(true);
+    expect(group().contains(screen.getByRole("textbox"))).toBe(true);
+    expect(group().contains(screen.getByRole("button", { name: "Don't know" }))).toBe(true);
+    rerender(
+      <ControlZone game={makeGame({ mode: "shape-to-name", feedback: wrong })} {...props} />,
+    );
+    expect(group().contains(screen.getByRole("status"))).toBe(true);
+    expect(group().contains(screen.getByRole("button", { name: "Continue" }))).toBe(true);
+  });
+
+  it("leaves focus in the input on a typed reveal, where Enter continues", () => {
+    const wrong: Feedback = {
+      kind: "wrong",
+      answerIso3: "DEU",
+      correctIso3: "FRA",
+      at: 0,
+    };
+    const game = makeGame({ mode: "shape-to-name", feedback: wrong });
+    render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
+    const input = screen.getByRole("textbox");
+    expect(document.activeElement).toBe(input);
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(game.dismiss).toHaveBeenCalledTimes(1);
+  });
+
   it("Don't know click invokes game.skip", () => {
     const game = makeGame({});
     render(<ControlZone game={game} showCaughtUp={false} onAckCaughtUp={() => {}} themePref="system" onSetThemePref={() => {}} />);
@@ -620,7 +665,7 @@ describe("ControlZone — capital modes", () => {
     it("Capital → Click asks for the country, showing the capital", () => {
       show("capital-to-click");
       expect(
-        screen.getByText("Find the country whose capital is"),
+        screen.getByText("On the map, find the country whose capital is"),
       ).toBeDefined();
       expect(screen.getByText("Lima")).toBeDefined();
       // It is a click mode: no typing.

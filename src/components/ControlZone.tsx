@@ -11,6 +11,7 @@ import { focusHidesProgress, hidesIntroduced } from "../game/srs";
 import { cardIsReturning, type GameApi } from "../game/useGame";
 import type { ThemePref } from "../theme";
 import { PRIMARY, SECONDARY } from "./buttonStyles";
+import { KEEP_FOCUS } from "./keepFocus";
 
 type Props = {
   game: GameApi;
@@ -44,13 +45,18 @@ export function ControlZone({
   const showContinue =
     state.feedback !== null && state.feedback.kind !== "correct";
 
+  const typed = isTypedMode(state.mode);
+
   useEffect(() => {
     // preventScroll keeps a tall feedback panel from scrolling Continue
     // into view and pushing the hero off the top. Focus whenever the
     // Continue button is shown — including Study-skip, so Enter
-    // commits the queued Again like users expect.
-    if (showContinue) continueRef.current?.focus({ preventScroll: true });
-  }, [showContinue]);
+    // commits the queued Again like users expect. Not in a typed mode: the
+    // input keeps focus through the reveal and Enter there continues, so a
+    // phone keyboard stays up from card to card (#61).
+    if (showContinue && !typed)
+      continueRef.current?.focus({ preventScroll: true });
+  }, [showContinue, typed]);
 
   // Intro shows whenever the user is paused on a Study miss reveal (wrong
   // or skip). The correct flash is too brief to read.
@@ -79,87 +85,99 @@ export function ControlZone({
         onSetThemePref={onSetThemePref}
       />
 
-      <div className="landscape:flex-1 landscape:flex landscape:items-center">
-        {showCaughtUp ? (
-          <CaughtUp
-            onKeepGoing={onAckCaughtUp}
-            capitalOffer={
-              // Not in a focus: the offer counts the whole scope's countries.
-              state.spotlightSubregion === null ? game.capitalOffer : null
-            }
-            onTryCapitals={() => game.setMode("country-to-capital")}
-            nextBack={game.nextBack}
-            newLeft={game.newAvailableCount > 0}
-            spotlightSubregion={state.spotlightSubregion}
-            onLeaveFocus={game.clearSpotlight}
-          />
-        ) : heroFeedback ? (
-          <RevealHero
-            current={state.current}
-            feedback={heroFeedback}
+      {/* The task is one unit (#61): what is asked, the way to answer and
+          the one way on, together at the top of the panel. A reveal or a
+          correct flash takes the prompt's place, so the result lands where
+          the learner was already reading. */}
+      <div
+        data-answer-group
+        className="flex flex-col gap-3 landscape:gap-4 landscape:rounded landscape:border landscape:border-ink-faded/40 landscape:p-3"
+      >
+        <div>
+          {showCaughtUp ? (
+            <CaughtUp
+              onKeepGoing={onAckCaughtUp}
+              capitalOffer={
+                // Not in a focus: the offer counts the whole scope's countries.
+                state.spotlightSubregion === null ? game.capitalOffer : null
+              }
+              onTryCapitals={() => game.setMode("country-to-capital")}
+              nextBack={game.nextBack}
+              newLeft={game.newAvailableCount > 0}
+              spotlightSubregion={state.spotlightSubregion}
+              onLeaveFocus={game.clearSpotlight}
+            />
+          ) : heroFeedback ? (
+            <RevealHero
+              current={state.current}
+              feedback={heroFeedback}
+              mode={state.mode}
+              nameFromIso3={game.nameFromIso3}
+              returning={pillWithAnswer}
+            />
+          ) : correctFeedback ? (
+            <CorrectHero
+              current={state.current}
+              mode={state.mode}
+              streak={state.streak}
+              milestone={state.milestone}
+              onMap={
+                !focusHidesProgress(state.mode, state.spotlightSubregion)
+              }
+              returning={pillWithAnswer}
+            />
+          ) : (
+            <Prompt
+              mode={state.mode}
+              current={state.current}
+              returning={pillOnPrompt}
+            />
+          )}
+        </div>
+
+        {typed && !showCaughtUp && (
+          <AnswerInput
             mode={state.mode}
-            nameFromIso3={game.nameFromIso3}
-            returning={pillWithAnswer}
-          />
-        ) : correctFeedback ? (
-          <CorrectHero
             current={state.current}
-            mode={state.mode}
-            streak={state.streak}
-            milestone={state.milestone}
-            onMap={
-              !focusHidesProgress(state.mode, state.spotlightSubregion)
-            }
-            returning={pillWithAnswer}
-          />
-        ) : (
-          <Prompt
-            mode={state.mode}
-            current={state.current}
-            returning={pillOnPrompt}
+            feedback={state.feedback}
+            paused={paused}
+            readTyped={game.readTyped}
+            onAnswer={game.answer}
+            onContinue={game.dismiss}
           />
         )}
+
+        {showStudyIntro && (
+          <StudyIntro onDismiss={game.markSrsIntroSeen} />
+        )}
+
+        {!showCaughtUp && !paused && (
+          <div className="flex gap-2">
+            {showContinue ? (
+              <button
+                ref={continueRef}
+                type="button"
+                {...(typed ? KEEP_FOCUS : {})}
+                onClick={game.dismiss}
+                className={`flex-1 ${PRIMARY}`}
+              >
+                Continue
+              </button>
+            ) : state.feedback === null ? (
+              <button
+                type="button"
+                {...(typed ? KEEP_FOCUS : {})}
+                onClick={game.skip}
+                className={`flex-1 ${SECONDARY}`}
+              >
+                {/* The same words in every mode (#61): a test's skip is graded
+                    as a miss, exactly as Study's is. */}
+                {"Don't know"}
+              </button>
+            ) : null}
+          </div>
+        )}
       </div>
-
-      {isTypedMode(state.mode) && !showCaughtUp && (
-        <AnswerInput
-          mode={state.mode}
-          current={state.current}
-          feedback={state.feedback}
-          paused={paused}
-          readTyped={game.readTyped}
-          onAnswer={game.answer}
-        />
-      )}
-
-      {showStudyIntro && (
-        <StudyIntro onDismiss={game.markSrsIntroSeen} />
-      )}
-
-      {!showCaughtUp && !paused && (
-        <div className="flex gap-2">
-          {showContinue ? (
-            <button
-              ref={continueRef}
-              type="button"
-              onClick={game.dismiss}
-              className={`flex-1 ${PRIMARY}`}
-            >
-              Continue
-            </button>
-          ) : state.feedback === null ? (
-            <button
-              type="button"
-              onClick={game.skip}
-              className={`flex-1 ${SECONDARY}`}
-            >
-              {/* The same words in every mode (#61): a test's skip is graded
-                  as a miss, exactly as Study's is. */}
-              {"Don't know"}
-            </button>
-          ) : null}
-        </div>
-      )}
     </aside>
   );
 }

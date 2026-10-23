@@ -17,11 +17,13 @@ function promptOf(
   current: Country,
 ): { eyebrow: string; subject: string } | null {
   switch (mode) {
+    // The click modes say where the answer goes (#61): "Find Peru" alone
+    // leaves a first-time learner looking for somewhere to type.
     case "name-to-click":
-      return { eyebrow: "Find", subject: current.name };
+      return { eyebrow: "Find on the map", subject: current.name };
     case "capital-to-click":
       return {
-        eyebrow: "Find the country whose capital is",
+        eyebrow: "On the map, find the country whose capital is",
         subject: current.capital ?? "",
       };
     case "country-to-capital":

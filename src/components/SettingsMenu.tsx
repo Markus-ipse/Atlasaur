@@ -97,7 +97,6 @@ export function SettingsMenu({
   const [confirmReset, setConfirmReset] = useState(false);
   // Which Data row's explanation is open, if any: one at a time.
   const [explained, setExplained] = useState<"known" | "due" | null>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -113,22 +112,19 @@ export function SettingsMenu({
 
   useEffect(() => {
     if (!open) return;
-    const onPointer = (e: PointerEvent) => {
-      const target = e.target as Node;
-      if (rootRef.current?.contains(target)) return;
-      if (popupRef.current?.contains(target)) return;
-      setOpen(false);
-    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
     };
-    document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onPointer);
-      document.removeEventListener("keydown", onKey);
-    };
+    return () => document.removeEventListener("keydown", onKey);
   }, [open]);
+
+  // Focus lands on the dialog itself, not its first control: a held Enter on
+  // the gear would otherwise repeat onto Close and shut it as it opened.
+  const placed = coords !== null;
+  useLayoutEffect(() => {
+    if (open && placed) popupRef.current?.focus({ preventScroll: true });
+  }, [open, placed]);
 
   useLayoutEffect(() => {
     if (!open) {
@@ -213,7 +209,7 @@ export function SettingsMenu({
   };
 
   return (
-    <div ref={rootRef}>
+    <div>
       <button
         ref={triggerRef}
         type="button"
@@ -227,249 +223,278 @@ export function SettingsMenu({
       </button>
       {open && coords &&
         createPortal(
-          <div
-            ref={popupRef}
-            role="dialog"
-            aria-label="Settings"
-            style={{
-              position: "fixed",
-              top: coords.top,
-              right: coords.right,
-              width: coords.width,
-              maxHeight: coords.maxHeight,
-            }}
-            className="z-50 rounded-lg border border-ink-faded/40 bg-parchment-base shadow-lg p-3 flex flex-col gap-3 overflow-y-auto"
-          >
-            <div>
-              <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Question</p>
-              {/* One radiogroup, two labelled rows: four options do not fit
-                  across a 288px popup, and the split says what each pair
-                  teaches. */}
-              <div
-                role="radiogroup"
-                aria-label="Question mode"
-                className={
-                  "flex flex-col gap-1" + (modeLocked ? " opacity-60" : "")
-                }
-              >
-                <ModeRow label="Countries" pair={["name-to-click", "shape-to-name"]} mode={mode}>
-                  <ModeButton
-                    active={mode === "name-to-click"}
-                    disabled={modeLocked}
-                    onClick={() => handleSetMode("name-to-click")}
-                    exampleOf="name-to-click"
-                    ariaLabel="Countries, on the map"
-                  >
-                    On the map
-                  </ModeButton>
-                  <ModeButton
-                    active={mode === "shape-to-name"}
-                    disabled={modeLocked}
-                    onClick={() => handleSetMode("shape-to-name")}
-                    exampleOf="shape-to-name"
-                    ariaLabel="Countries, by typing"
-                  >
-                    By typing
-                  </ModeButton>
-                </ModeRow>
-                <ModeRow label="Capitals" pair={["capital-to-click", "country-to-capital"]} mode={mode}>
-                  <ModeButton
-                    active={mode === "capital-to-click"}
-                    describedBy={pickerNoteId}
-                    disabled={modeLocked || !capitalsAskable}
-                    onClick={() => handleSetMode("capital-to-click")}
-                    exampleOf="capital-to-click"
-                    ariaLabel="Capitals, on the map"
-                  >
-                    On the map
-                  </ModeButton>
-                  <ModeButton
-                    active={mode === "country-to-capital"}
-                    describedBy={pickerNoteId}
-                    disabled={modeLocked || !capitalsAskable}
-                    onClick={() => handleSetMode("country-to-capital")}
-                    exampleOf="country-to-capital"
-                    ariaLabel="Capitals, by typing"
-                  >
-                    By typing
-                  </ModeButton>
-                </ModeRow>
-              </div>
-              {/* The reason an option is unavailable, tied to the options it
-                  explains so a screen reader reaches it too. */}
-              {modeLocked ? (
-                <p id={pickerNoteId} className="text-sm text-ink-mid mt-1">
-                  An expedition always asks you to find countries on the map, anywhere in the world.
-                </p>
-              ) : (
-                !capitalsAskable && (
-                  <p id={pickerNoteId} className="text-sm text-ink-mid mt-1">
-                    Nothing in this scope has a capital.
-                  </p>
-                )
-              )}
-            </div>
-            <div>
-              <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Continents</p>
-              <div role="group" aria-label="Continents" className="flex flex-wrap gap-1">
-                {ALL_CONTINENTS.filter(askable).map((continent) => {
-                  const active = selectedSet.has(continent);
-                  const lockedLast = active && visibleSelectedCount === 1;
-                  return (
-                    <ContinentChip
-                      key={continent}
-                      active={active}
-                      disabled={lockedLast}
-                      title={
-                        lockedLast ? "At least one continent must be selected" : undefined
-                      }
-                      onClick={() => handleToggleContinent(continent)}
-                    >
-                      {continent}
-                    </ContinentChip>
-                  );
-                })}
-              </div>
-              <p className="text-sm text-ink-mid mt-1">
-                {scopeLine(selectedContinents, includeTerritories, fact, totalInScope)}
-              </p>
-              <label className="mt-2 flex items-center gap-2 text-sm text-ink-deep cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={includeTerritories}
-                  onChange={(e) => onSetIncludeTerritories(e.target.checked)}
-                  className="h-4 w-4 rounded border-ink-faded text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep"
-                />
-                <span>
-                  Include territories
-                  <span className="block text-sm text-ink-mid">
-                    Greenland, Puerto Rico, Antarctica and the like
-                  </span>
-                </span>
-              </label>
-            </div>
-            <div>
-              <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Theme</p>
-              <div
-                role="radiogroup"
-                aria-label="Theme"
-                className="flex gap-1 p-1 rounded-full border border-ink-faded/40 bg-parchment-shadow"
-              >
-                <ModeButton
-                  active={themePref === "system"}
-                  onClick={() => onSetThemePref("system")}
-                >
-                  System
-                </ModeButton>
-                <ModeButton
-                  active={themePref === "light"}
-                  onClick={() => onSetThemePref("light")}
-                >
-                  Light
-                </ModeButton>
-                <ModeButton
-                  active={themePref === "dark"}
-                  onClick={() => onSetThemePref("dark")}
-                >
-                  Dark
-                </ModeButton>
-              </div>
-            </div>
-            <div className="pt-2 mt-1 border-t border-ink-faded/30">
-              <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Data</p>
-              {/* One record per country AND fact, so these four are counted
-                  over the fact the learner is working on and say which. The
-                  two below are lifetime totals across every fact and every
-                  country, headed "All time" as the Study summary heads them. */}
-              <p className="text-sm text-ink-mid mb-1 italic">
-                {fact === "capital" ? "Capitals" : "Places"}
-              </p>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm text-ink-mid tabular-nums mb-2">
-                {/* The same order as the Study summary's tiles: unseen
-                    first, known after. The counts overlap, so they don't sum. */}
-                <span>Not yet seen</span>
-                <span className="text-ink-deep font-medium text-right">
-                  {newAvailableCount}
-                </span>
-                <span>Seen</span>
-                <span className="text-ink-deep font-medium text-right">
-                  {seenCount}
-                </span>
-                {/* The same explanations as the rest card's tiles. Tapped
-                    open under the row rather than hovered, as the question
-                    examples above are printed: a hover is out of reach on a
-                    touch screen. */}
-                <ExplainedRow
-                  label="Known"
-                  value={learnedCount}
-                  tipId="settings-tip-known"
-                  text={KNOWN_TIP}
-                  open={explained === "known"}
-                  onToggle={() =>
-                    setExplained(explained === "known" ? null : "known")
-                  }
-                />
-                <ExplainedRow
-                  label="Coming back"
-                  value={dueCount}
-                  tipId="settings-tip-due"
-                  text={COMING_BACK_TIP}
-                  open={explained === "due"}
-                  onToggle={() =>
-                    setExplained(explained === "due" ? null : "due")
-                  }
-                />
-              </div>
-              <p className="text-sm text-ink-mid mb-1 italic">All time</p>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm text-ink-mid tabular-nums mb-3">
-                <span>Answers</span>
-                <span className="text-ink-deep font-medium text-right">
-                  {totalReviews}
-                </span>
-                <span>Right</span>
-                <span className="text-ink-deep font-medium text-right">
-                  {lifetimeAccuracy === null
-                    ? "—"
-                    : `${Math.round(lifetimeAccuracy * 100)}%`}
-                </span>
-              </div>
-              <MeasuredRows counters={counters} returns={returns} />
-              {confirmReset ? (
-                <div className="flex flex-col gap-2">
-                  <p className="text-sm text-ink-mid">
-                    This erases every country's record. There is no undo.
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onResetSrs();
-                        setConfirmReset(false);
-                      }}
-                      className="flex-1 min-h-11 px-3 rounded bg-vermillion text-parchment-base text-sm font-medium hover:bg-wax-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion focus-visible:ring-offset-1"
-                    >
-                      Erase
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmReset(false)}
-                      className="flex-1 min-h-11 px-3 rounded border border-ink-faded text-ink-mid text-sm hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
+          <>
+            {/* A tap outside only closes the settings (#61). Without the scrim
+                the tap that closed them went on to the map and, in a click
+                mode, answered the card. It closes on click rather than
+                pointerdown, so the whole press stays on the scrim. */}
+            <div
+              aria-hidden="true"
+              data-settings-scrim
+              onClick={() => setOpen(false)}
+              className="fixed inset-0 z-40 bg-scrim/25"
+            />
+            <div
+              ref={popupRef}
+              role="dialog"
+              aria-labelledby="settings-title"
+              tabIndex={-1}
+              style={{
+                position: "fixed",
+                top: coords.top,
+                right: coords.right,
+                width: coords.width,
+                maxHeight: coords.maxHeight,
+              }}
+              className="z-50 rounded-lg border border-ink-faded/40 bg-parchment-base shadow-lg flex flex-col focus:outline-none"
+            >
+              {/* The title and Close stay put while the rest scrolls. */}
+              <div className="shrink-0 flex items-center justify-between gap-2 pl-3 pr-1 py-1 border-b border-ink-faded/30">
+                <h2 id="settings-title" className="text-lg text-ink-deep">
+                  Settings
+                </h2>
                 <button
                   type="button"
-                  onClick={() => setConfirmReset(true)}
-                  className="w-full min-h-11 px-3 rounded border border-vermillion/40 text-vermillion text-sm hover:bg-vermillion/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion focus-visible:ring-offset-1"
+                  aria-label="Close settings"
+                  onClick={close}
+                  className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full text-ink-mid hover:bg-parchment-shadow hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep"
                 >
-                  Erase all progress…
+                  <CloseIcon />
                 </button>
-              )}
+              </div>
+              <div className="min-h-0 overflow-y-auto p-3 flex flex-col gap-3">
+                <div>
+                  <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Question</p>
+                  {/* One radiogroup, two labelled rows: four options do not fit
+                      across a 288px popup, and the split says what each pair
+                      teaches. */}
+                  <div
+                    role="radiogroup"
+                    aria-label="Question mode"
+                    className={
+                      "flex flex-col gap-1" + (modeLocked ? " opacity-60" : "")
+                    }
+                  >
+                    <ModeRow label="Countries" pair={["name-to-click", "shape-to-name"]} mode={mode}>
+                      <ModeButton
+                        active={mode === "name-to-click"}
+                        disabled={modeLocked}
+                        onClick={() => handleSetMode("name-to-click")}
+                        exampleOf="name-to-click"
+                        ariaLabel="Countries, on the map"
+                      >
+                        On the map
+                      </ModeButton>
+                      <ModeButton
+                        active={mode === "shape-to-name"}
+                        disabled={modeLocked}
+                        onClick={() => handleSetMode("shape-to-name")}
+                        exampleOf="shape-to-name"
+                        ariaLabel="Countries, by typing"
+                      >
+                        By typing
+                      </ModeButton>
+                    </ModeRow>
+                    <ModeRow label="Capitals" pair={["capital-to-click", "country-to-capital"]} mode={mode}>
+                      <ModeButton
+                        active={mode === "capital-to-click"}
+                        describedBy={pickerNoteId}
+                        disabled={modeLocked || !capitalsAskable}
+                        onClick={() => handleSetMode("capital-to-click")}
+                        exampleOf="capital-to-click"
+                        ariaLabel="Capitals, on the map"
+                      >
+                        On the map
+                      </ModeButton>
+                      <ModeButton
+                        active={mode === "country-to-capital"}
+                        describedBy={pickerNoteId}
+                        disabled={modeLocked || !capitalsAskable}
+                        onClick={() => handleSetMode("country-to-capital")}
+                        exampleOf="country-to-capital"
+                        ariaLabel="Capitals, by typing"
+                      >
+                        By typing
+                      </ModeButton>
+                    </ModeRow>
+                  </div>
+                  {/* The reason an option is unavailable, tied to the options it
+                      explains so a screen reader reaches it too. */}
+                  {modeLocked ? (
+                    <p id={pickerNoteId} className="text-sm text-ink-mid mt-1">
+                      An expedition always asks you to find countries on the map, anywhere in the world.
+                    </p>
+                  ) : (
+                    !capitalsAskable && (
+                      <p id={pickerNoteId} className="text-sm text-ink-mid mt-1">
+                        Nothing in this scope has a capital.
+                      </p>
+                    )
+                  )}
+                </div>
+                <div>
+                  <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Continents</p>
+                  <div role="group" aria-label="Continents" className="flex flex-wrap gap-1">
+                    {ALL_CONTINENTS.filter(askable).map((continent) => {
+                      const active = selectedSet.has(continent);
+                      const lockedLast = active && visibleSelectedCount === 1;
+                      return (
+                        <ContinentChip
+                          key={continent}
+                          active={active}
+                          disabled={lockedLast}
+                          title={
+                            lockedLast ? "At least one continent must be selected" : undefined
+                          }
+                          onClick={() => handleToggleContinent(continent)}
+                        >
+                          {continent}
+                        </ContinentChip>
+                      );
+                    })}
+                  </div>
+                  <p className="text-sm text-ink-mid mt-1">
+                    {scopeLine(selectedContinents, includeTerritories, fact, totalInScope)}
+                  </p>
+                  <label className="mt-2 flex items-center gap-2 text-sm text-ink-deep cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeTerritories}
+                      onChange={(e) => onSetIncludeTerritories(e.target.checked)}
+                      className="h-4 w-4 rounded border-ink-faded text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep"
+                    />
+                    <span>
+                      Include territories
+                      <span className="block text-sm text-ink-mid">
+                        Greenland, Puerto Rico, Antarctica and the like
+                      </span>
+                    </span>
+                  </label>
+                </div>
+                <div>
+                  <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Theme</p>
+                  <div
+                    role="radiogroup"
+                    aria-label="Theme"
+                    className="flex gap-1 p-1 rounded-full border border-ink-faded/40 bg-parchment-shadow"
+                  >
+                    <ModeButton
+                      active={themePref === "system"}
+                      onClick={() => onSetThemePref("system")}
+                    >
+                      System
+                    </ModeButton>
+                    <ModeButton
+                      active={themePref === "light"}
+                      onClick={() => onSetThemePref("light")}
+                    >
+                      Light
+                    </ModeButton>
+                    <ModeButton
+                      active={themePref === "dark"}
+                      onClick={() => onSetThemePref("dark")}
+                    >
+                      Dark
+                    </ModeButton>
+                  </div>
+                </div>
+                <div className="pt-2 mt-1 border-t border-ink-faded/30">
+                  <p className="font-display text-xs uppercase tracking-wide text-ink-mid mb-1">Data</p>
+                  {/* One record per country AND fact, so these four are counted
+                      over the fact the learner is working on and say which. The
+                      two below are lifetime totals across every fact and every
+                      country, headed "All time" as the Study summary heads them. */}
+                  <p className="text-sm text-ink-mid mb-1 italic">
+                    {fact === "capital" ? "Capitals" : "Places"}
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm text-ink-mid tabular-nums mb-2">
+                    {/* The same order as the Study summary's tiles: unseen
+                        first, known after. The counts overlap, so they don't sum. */}
+                    <span>Not yet seen</span>
+                    <span className="text-ink-deep font-medium text-right">
+                      {newAvailableCount}
+                    </span>
+                    <span>Seen</span>
+                    <span className="text-ink-deep font-medium text-right">
+                      {seenCount}
+                    </span>
+                    {/* The same explanations as the rest card's tiles. Tapped
+                        open under the row rather than hovered, as the question
+                        examples above are printed: a hover is out of reach on a
+                        touch screen. */}
+                    <ExplainedRow
+                      label="Known"
+                      value={learnedCount}
+                      tipId="settings-tip-known"
+                      text={KNOWN_TIP}
+                      open={explained === "known"}
+                      onToggle={() =>
+                        setExplained(explained === "known" ? null : "known")
+                      }
+                    />
+                    <ExplainedRow
+                      label="Coming back"
+                      value={dueCount}
+                      tipId="settings-tip-due"
+                      text={COMING_BACK_TIP}
+                      open={explained === "due"}
+                      onToggle={() =>
+                        setExplained(explained === "due" ? null : "due")
+                      }
+                    />
+                  </div>
+                  <p className="text-sm text-ink-mid mb-1 italic">All time</p>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm text-ink-mid tabular-nums mb-3">
+                    <span>Answers</span>
+                    <span className="text-ink-deep font-medium text-right">
+                      {totalReviews}
+                    </span>
+                    <span>Right</span>
+                    <span className="text-ink-deep font-medium text-right">
+                      {lifetimeAccuracy === null
+                        ? "—"
+                        : `${Math.round(lifetimeAccuracy * 100)}%`}
+                    </span>
+                  </div>
+                  <MeasuredRows counters={counters} returns={returns} />
+                  {confirmReset ? (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-sm text-ink-mid">
+                        This erases every country's record. There is no undo.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onResetSrs();
+                            setConfirmReset(false);
+                          }}
+                          className="flex-1 min-h-11 px-3 rounded bg-vermillion text-parchment-base text-sm font-medium hover:bg-wax-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion focus-visible:ring-offset-1"
+                        >
+                          Erase
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmReset(false)}
+                          className="flex-1 min-h-11 px-3 rounded border border-ink-faded text-ink-mid text-sm hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep focus-visible:ring-offset-1"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmReset(true)}
+                      className="w-full min-h-11 px-3 rounded border border-vermillion/40 text-vermillion text-sm hover:bg-vermillion/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion focus-visible:ring-offset-1"
+                    >
+                      Erase all progress…
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>,
+          </>,
           document.body,
         )}
     </div>
@@ -562,6 +587,15 @@ function ModeButton({
     >
       {children}
     </button>
+  );
+}
+
+// Drawn, like the map's zoom icons: the face is not relied on for a ×.
+function CloseIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round">
+      <path d="M4 4l8 8M12 4l-8 8" />
+    </svg>
   );
 }
 
