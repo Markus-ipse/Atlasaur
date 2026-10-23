@@ -5,7 +5,7 @@ import { AnswerInput } from "./AnswerInput";
 import { PRIMARY, QUIET, SECONDARY } from "./buttonStyles";
 import countriesData from "../data/countries.json";
 import { readTyped } from "../game/typedMatch";
-import type { Country } from "../types";
+import type { Country, Feedback } from "../types";
 
 // #64: a typed answer that is a slip gets "Did you mean …?" and is graded
 // only once the learner picks.
@@ -23,6 +23,7 @@ function setup() {
       feedback={null}
       readTyped={(input) => readTyped(input, "location", AUS)}
       onAnswer={onAnswer}
+      onContinue={() => {}}
     />,
   );
   const input = screen.getByRole("textbox");
@@ -147,6 +148,7 @@ describe("AnswerInput spelling slips", () => {
       feedback: null,
       readTyped: (input: string) => readTyped(input, "location", AUS),
       onAnswer,
+      onContinue: () => {},
     };
     const { rerender } = render(
       <AnswerInput mode="shape-to-name" {...props} />,
@@ -168,5 +170,94 @@ describe("AnswerInput spelling slips", () => {
     // fireEvent returns false when the default action was prevented.
     expect(repeated).toBe(false);
     expect(fresh).toBe(true);
+  });
+});
+
+const MISS: Feedback = { kind: "wrong", answerIso3: "", correctIso3: "AUS", at: 0 };
+const HIT: Feedback = { kind: "correct", answerIso3: "AUS", correctIso3: "AUS", at: 0 };
+
+// #61: the input keeps focus from question to reveal to the next card, so a
+// phone keyboard stays up instead of closing on every answer.
+function setupFeedback() {
+  const onAnswer = vi.fn();
+  const onContinue = vi.fn();
+  const props = {
+    mode: "shape-to-name" as const,
+    current: AUS,
+    readTyped: (input: string) => readTyped(input, "location", AUS),
+    onAnswer,
+    onContinue,
+  };
+  const view = render(<AnswerInput {...props} feedback={null} />);
+  const input = screen.getByRole("textbox") as HTMLInputElement;
+  const showFeedback = (feedback: Feedback | null) =>
+    view.rerender(<AnswerInput {...props} feedback={feedback} />);
+  return { onAnswer, onContinue, input, showFeedback };
+}
+
+describe("AnswerInput through a reveal", () => {
+  it("keeps focus in the input, read-only, while feedback is up", () => {
+    const { input, showFeedback } = setupFeedback();
+    fireEvent.change(input, { target: { value: "Atlantis" } });
+    showFeedback(MISS);
+    expect(document.activeElement).toBe(input);
+    // Not disabled: a disabled input drops focus, and the keyboard with it.
+    expect(input.disabled).toBe(false);
+    expect(input.getAttribute("aria-readonly")).toBe("true");
+    fireEvent.change(input, { target: { value: "Australia" } });
+    expect(input.value).toBe("Atlantis");
+  });
+
+  it("continues on Enter through a miss, but not on a held one", () => {
+    const { input, onContinue, onAnswer, showFeedback } = setupFeedback();
+    showFeedback(MISS);
+    fireEvent.keyDown(input, { key: "Enter", repeat: true });
+    expect(onContinue).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onContinue).toHaveBeenCalledTimes(1);
+    expect(onAnswer).not.toHaveBeenCalled();
+  });
+
+  it("waits through the correct flash, which moves on by itself", () => {
+    const { input, onContinue, showFeedback } = setupFeedback();
+    showFeedback(HIT);
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onContinue).not.toHaveBeenCalled();
+  });
+
+  it("takes focus back from an offer's Yes once the answer is graded", () => {
+    const { input, onAnswer, showFeedback } = setupFeedback();
+    fireEvent.change(input, { target: { value: "Icland" } });
+    fireEvent.submit(input.closest("form")!);
+    screen.getByRole("button", { name: "Yes, Iceland" }).click();
+    expect(onAnswer).toHaveBeenCalledWith("ISL");
+    showFeedback(MISS);
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("leaves focus in the input for an offer on a touch screen", () => {
+    const matchMedia = vi.fn(() => ({ matches: false }) as MediaQueryList);
+    vi.stubGlobal("matchMedia", matchMedia);
+    try {
+      const { input } = setupFeedback();
+      input.focus();
+      fireEvent.change(input, { target: { value: "Icland" } });
+      fireEvent.submit(input.closest("form")!);
+      expect(screen.getByRole("button", { name: "Yes, Iceland" })).toBeTruthy();
+      expect(matchMedia).toHaveBeenCalledWith("(pointer: fine)");
+      expect(document.activeElement).toBe(input);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps a tap on its buttons from taking focus", () => {
+    const { input } = setupFeedback();
+    fireEvent.change(input, { target: { value: "Icland" } });
+    fireEvent.submit(input.closest("form")!);
+    for (const name of ["Submit", "Yes, Iceland", "No"]) {
+      // fireEvent returns false when the default (moving focus) was prevented.
+      expect(fireEvent.mouseDown(screen.getByRole("button", { name }))).toBe(false);
+    }
   });
 });

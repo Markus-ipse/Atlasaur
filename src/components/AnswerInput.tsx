@@ -4,6 +4,7 @@ import { factOf } from "../game/questionModes";
 import type { Suggestion, TypedReading } from "../game/typedMatch";
 import type { Country, Feedback, QuestionMode } from "../types";
 import { PRIMARY, QUIET, SECONDARY } from "./buttonStyles";
+import { KEEP_FOCUS } from "./keepFocus";
 
 type Props = {
   mode: QuestionMode;
@@ -19,7 +20,18 @@ type Props = {
   // picks the fact; this input never branches on it.
   readTyped: (input: string) => TypedReading;
   onAnswer: (iso3: string) => void;
+  // Enter in the input through a miss reveal: the input keeps focus from card
+  // to card (#61), so it answers for Continue.
+  onContinue: () => void;
 };
+
+// A mouse or trackpad, where the keyboard is a physical one and moving focus
+// costs nothing. Without matchMedia (jsdom) the desktop behaviour stands.
+function hasFinePointer(): boolean {
+  return typeof window.matchMedia !== "function"
+    ? true
+    : window.matchMedia("(pointer: fine)").matches;
+}
 
 export function AnswerInput({
   mode,
@@ -28,6 +40,7 @@ export function AnswerInput({
   paused = false,
   readTyped,
   onAnswer,
+  onContinue,
 }: Props) {
   const [value, setValue] = useState("");
   // The open "Did you mean …?" offer, or null. Input state from before any
@@ -53,15 +66,22 @@ export function AnswerInput({
     setDeclined(null);
   }, [current.iso3, mode]);
 
+  // The input holds focus through the answer and its reveal as well as the
+  // question (#61), so a phone keyboard stays up from card to card instead of
+  // closing on every answer; Enter here then continues. This also brings focus
+  // back after an offer's Yes took it.
   useEffect(() => {
     setOffer(null);
-    if (!feedback) inputRef.current?.focus({ preventScroll: true });
+    inputRef.current?.focus({ preventScroll: true });
   }, [feedback]);
 
   // A single suggestion takes focus, so Enter confirms it. Several leave
-  // focus in the input: none is the default, so none is favoured.
+  // focus in the input: none is the default, so none is favoured. On a touch
+  // screen focus stays in the input whatever the offer, so the keyboard does
+  // not drop for it; the learner taps their answer.
   useEffect(() => {
-    if (offer?.length === 1) yesRef.current?.focus({ preventScroll: true });
+    if (offer?.length === 1 && hasFinePointer())
+      yesRef.current?.focus({ preventScroll: true });
   }, [offer]);
 
   useEffect(() => {
@@ -93,8 +113,16 @@ export function AnswerInput({
 
   const answer = (iso3: string) => {
     setOffer(null);
-    inputRef.current?.blur();
     onAnswer(iso3);
+  };
+
+  // Through a reveal Enter in the input is Continue. A repeat is the Enter
+  // that answered still held down, which would skip the reveal unread. The
+  // correct flash moves on by itself, so Enter waits there.
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter" || !feedback) return;
+    e.preventDefault();
+    if (feedback.kind !== "correct" && !e.repeat && !paused) onContinue();
   };
 
   return (
@@ -105,10 +133,16 @@ export function AnswerInput({
           type="text"
           value={value}
           onChange={(e) => {
+            // Read-only through feedback by ignoring edits rather than by the
+            // attribute: iOS drops the keyboard for a readonly input, which
+            // is the jump keeping focus here is meant to avoid.
+            if (feedback) return;
             setValue(e.target.value);
             setOffer(null);
           }}
-          disabled={Boolean(feedback) || paused}
+          onKeyDown={handleKeyDown}
+          aria-readonly={feedback ? true : undefined}
+          disabled={paused}
           placeholder={
             factOf(mode) === "capital"
               ? "Type the capital…"
@@ -121,10 +155,11 @@ export function AnswerInput({
           spellCheck={false}
           inputMode="text"
           enterKeyHint="go"
-          className="flex-1 min-w-0 min-h-11 px-4 text-lg rounded border border-ink-faded bg-parchment-base text-ink-deep placeholder:text-ink-faded focus:outline-none focus:ring-2 focus:ring-ink-deep disabled:bg-parchment-shadow"
+          className="flex-1 min-w-0 min-h-11 px-4 text-lg rounded border border-ink-faded bg-parchment-base text-ink-deep placeholder:text-ink-faded focus:outline-none focus:ring-2 focus:ring-ink-deep disabled:bg-parchment-shadow aria-readonly:bg-parchment-shadow aria-readonly:focus:ring-ink-faded"
         />
         <button
           type="submit"
+          {...KEEP_FOCUS}
           disabled={Boolean(feedback) || paused || !value.trim()}
           // Through a reveal Continue is the one way on, and through an offer
           // its own buttons are, so Submit steps down to an outline rather
@@ -161,6 +196,7 @@ export function AnswerInput({
                   // are equals, none favoured.
                   ref={offer.length === 1 ? yesRef : undefined}
                   type="button"
+                  {...KEEP_FOCUS}
                   onClick={() => answer(s.iso3)}
                   // A held Enter repeats onto Yes the moment it takes focus;
                   // only a fresh press accepts an offer.
@@ -172,7 +208,12 @@ export function AnswerInput({
                   {offer.length === 1 ? `Yes, ${s.label}` : s.label}
                 </button>
               ))}
-              <button type="button" onClick={decline} className={QUIET}>
+              <button
+                type="button"
+                {...KEEP_FOCUS}
+                onClick={decline}
+                className={QUIET}
+              >
                 {offer.length === 1 ? "No" : "Neither"}
               </button>
             </div>

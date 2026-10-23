@@ -204,9 +204,43 @@ describe("SettingsMenu — the popup", () => {
     });
   }
 
-  it("has an accessible name", () => {
+  it("is named by its visible title", () => {
     open({});
-    expect(screen.getByRole("dialog", { name: "Settings" })).toBeDefined();
+    const dialog = screen.getByRole("dialog", { name: "Settings" });
+    const title = screen.getByRole("heading", { name: "Settings" });
+    expect(dialog.getAttribute("aria-labelledby")).toBe(title.id);
+  });
+
+  // #61: focus lands on the dialog rather than its first control, so a held
+  // Enter on the gear cannot repeat onto Close.
+  it("takes focus when it opens", () => {
+    open({});
+    expect(document.activeElement).toBe(screen.getByRole("dialog", { name: "Settings" }));
+  });
+
+  it("closes on Close and hands focus back to the gear", () => {
+    open({});
+    fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Settings" }));
+  });
+
+  // The tap that closes the settings lands on the scrim, so it can no longer
+  // go on to the map and answer the card (checked in a browser; jsdom has no
+  // hit-testing to show it).
+  it("closes on a tap on the scrim", () => {
+    open({});
+    const scrim = document.querySelector("[data-settings-scrim]")!;
+    fireEvent.pointerDown(scrim);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    fireEvent.click(scrim);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("still closes on Escape", () => {
+    open({});
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("stays inside a narrow viewport when the gear wraps to the left", () => {
