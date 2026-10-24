@@ -204,6 +204,8 @@ export default function App() {
         <TaskHeader
           game={game}
           showCount
+          capitalOnMiss
+          caughtUp={showCaughtUp}
           themePref={themePref}
           onSetThemePref={setThemePref}
           className="min-h-13 pl-3.5 pr-1.5 py-1 border-b border-ink-faded/40"

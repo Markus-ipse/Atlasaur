@@ -4,6 +4,7 @@ import { PromptLine, BackAgain } from "./Prompt";
 import { ceremonyOf } from "./ceremony";
 import { RoundChip, StatusBar } from "./StatusBar";
 import { focusHidesProgress } from "../game/srs";
+import { shownCapitals } from "../game/typedMatch";
 import { backAgainPlacement, type GameApi } from "../game/useGame";
 import type { ThemePref } from "../theme";
 
@@ -12,6 +13,14 @@ type Props = {
   // The round count beside the prompt: in portrait, where nothing else on
   // screen says it. The landscape rail has room for the full status line.
   showCount: boolean;
+  // The dock's field has room for the answer and the guess only, so through a
+  // miss the header names the capital in the question's place: the map's
+  // label by the capital dot cannot be relied on, since no dot is drawn for a
+  // marker or a capital outside its country's drawn bounds.
+  capitalOnMiss?: boolean;
+  // The caught-up banner stands in for the card: there is no question to ask
+  // until the learner chooses, so the header asks none.
+  caughtUp?: boolean;
   themePref: ThemePref;
   onSetThemePref: (pref: ThemePref) => void;
   className?: string;
@@ -20,10 +29,13 @@ type Props = {
 // The question in one line over a phone's map in a typed mode (#61), with the
 // round count and a ⋯ menu that holds what the status bar holds — the
 // figures, Done and Settings — so the map keeps the height. Through the
-// correct flash it says the ceremony line instead, if the answer earned one.
+// correct flash it says the ceremony line instead, if the answer earned one,
+// and through a miss in the dock the capital.
 export function TaskHeader({
   game,
   showCount,
+  capitalOnMiss = false,
+  caughtUp = false,
   themePref,
   onSetThemePref,
   className = "",
@@ -37,25 +49,38 @@ export function TaskHeader({
           !focusHidesProgress(state.mode, state.spotlightSubregion),
         )
       : null;
+  const miss = state.feedback !== null && state.feedback.kind !== "correct";
+  // Not where the capital is the answer: the field already shows it.
+  const capitals =
+    capitalOnMiss && miss && state.mode !== "country-to-capital"
+      ? shownCapitals(state.current)
+      : [];
   return (
     <header
       data-task-header
       className={`relative flex items-center gap-2 bg-parchment-base ${className}`}
     >
       <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">
-        {backAgainPlacement(state).onPrompt && <BackAgain />}
-        {ceremony ? (
+        {!caughtUp && backAgainPlacement(state).onPrompt && <BackAgain />}
+        {caughtUp ? null : ceremony ? (
           <p
             role="status"
             className={`milestone-in text-lg leading-tight italic ${ceremony.className}`}
           >
             {ceremony.text}
           </p>
+        ) : capitals.length > 0 ? (
+          <p className="text-lg leading-tight text-ink-deep break-words">
+            <span className="text-ink-mid">
+              {capitals.length > 1 ? "Capitals" : "Capital"}
+            </span>{" "}
+            <span className="text-xl">{capitals.join(", ")}</span>
+          </p>
         ) : (
           <PromptLine mode={state.mode} current={state.current} />
         )}
       </div>
-      {showCount && (
+      {showCount && !caughtUp && (
         <RoundChip
           practiceMode={state.practiceMode}
           phase={state.phase}

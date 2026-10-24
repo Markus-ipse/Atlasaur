@@ -111,6 +111,7 @@ export function ControlZone({
           <TaskHeader
             game={game}
             showCount={false}
+            caughtUp={showCaughtUp}
             themePref={themePref}
             onSetThemePref={onSetThemePref}
           />
