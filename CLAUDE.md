@@ -199,6 +199,25 @@ Three floors stop it going too far, and all three bind in practice:
   wide, so the pull-back would take it under. Ecuador, Uganda and Kosovo hit it
   today.
 
+**And on screen (`REVEAL_ANSWER_MIN_PX`, 48 px).** The three floors are in the
+projection, so they frame a country the same way on every screen; on a phone,
+where the map is drawn at about half a desktop's scale, that left the median
+missed country about 30 px across (Ecuador and Uganda 14 px, Argentina at the
+whole-world view). Given the map's scale on screen (`effectiveScale`, read by
+the reveal through a ref like the viewport), `widenForContext` brings the
+answer's longer axis up to 48 CSS px — the one floor that may frame closer than
+the target, but never closer than the answer framed alone, and never so close
+that a neighbour's name point that was on screen leaves it (the neighbour labels
+are the teaching; a giant the target does not frame was off screen already and
+is pinned as before). Past the target it re-centres on the answer and those
+name points. Markers are left out (a nominal extent, drawn at a constant size).
+48 is the largest floor at which the survey's phone passes drop no neighbour
+label: at 56 Georgia (on an Armenia miss) and Uzbekistan (on Tajikistan) lose
+their last visible land wide enough for a name. On desktop it touches only the
+smallest reveals, and `revealSurvey.test.ts`'s desktop list is unchanged; the
+survey passes each pass's scale (`TARGET_LABEL_PX / em`), and the portrait
+phone list gained Luxembourg's Germany.
+
 **Not the answer's UN subregion**, which reads like the better rule and is not.
 Subregions run from the Baltics to the whole of South America, so capping at
 "the subregion" turns a Guyana reveal into the world view while barely moving a

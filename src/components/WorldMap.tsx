@@ -685,6 +685,10 @@ export function WorldMap({
   // Read by the reveal effect, which must not restart when the map resizes.
   const viewportRef = useRef(viewport);
   viewportRef.current = viewport;
+  // The map's scale on screen, read by the reveal through a ref like the
+  // viewport, so a resize cannot restart a reveal mid-animation.
+  const pxPerUnitRef = useRef(effectiveScale);
+  pxPerUnitRef.current = effectiveScale;
 
   useEffect(() => {
     if (!svgRef.current) return;
@@ -790,6 +794,11 @@ export function WorldMap({
       computeRevealTarget(label, null, neighborBounds, fit),
       label,
       restingTransformRef.current.k,
+      {
+        pxPerUnit: pxPerUnitRef.current,
+        viewport: fit,
+        anchors: neighborBounds,
+      },
     );
     const finalTarget = toTransform(finalFit);
     // Stage 1 is the establishing shot: both countries in view, then settle on

@@ -49,6 +49,16 @@ const REVEAL_CONTEXT_PULLBACK = 1.8;
 // micro-states.
 const REVEAL_ANSWER_MIN_H_RATIO = 0.07;
 
+// ...and on screen, at least this many CSS pixels along its longer axis. The
+// floors above are in the projection, so they frame a country the same way on
+// every screen: on a phone, where the map is drawn at half a desktop's scale,
+// that left the median missed country about 30 px across — a sliver, Argentina
+// at the whole-world view. Read against the map's real scale on screen, and
+// only ever able to bring the answer closer, never to frame it past filling
+// REVEAL_FIT_RATIO of the view alone. A marker has only a nominal extent and
+// is drawn at a constant size, so it is left to the floors above.
+export const REVEAL_ANSWER_MIN_PX = 48;
+
 export type Bounds = { x0: number; y0: number; x1: number; y1: number };
 export type Target = { k: number; cx: number; cy: number };
 // The rendered map in viewBox units. W x H exactly when the container is 2:1;
@@ -135,16 +145,33 @@ function minLegibleK(primary: Bounds): number {
 // rather than alone. Only `k` moves; the centre is left exactly as
 // computeRevealTarget chose it (the union of the answer and whatever
 // neighbours survived the filter), so widening can only ever add to what was
-// visible. Never zooms in: the result is capped by the target it was given.
+// visible. The pull-back never zooms in: it is capped by the target it was
+// given.
 //
 // Three floors stop it going too far: `restingK`, the frame the map sits at
 // when nothing is being revealed — pulling back past that would zoom out of
 // the learner's own continent filter and straight back in; MIN_ZOOM, the whole
-// map; and minLegibleK, the answer staying findable.
+// map; and minLegibleK, the answer staying findable. A fourth, given `screen`,
+// is the answer's size on screen (REVEAL_ANSWER_MIN_PX), and it alone may
+// bring the frame closer than the target, as far as the answer framed alone.
 export function widenForContext(
   target: Target,
-  primary: Bounds,
+  primary: Bounds & { marker?: true },
   restingK: number = MIN_ZOOM,
+  // The map's scale on screen (CSS pixels per projection unit at k = 1) and
+  // the viewport frames are fitted to, for REVEAL_ANSWER_MIN_PX. Without it
+  // the frame is judged in the projection alone, as before.
+  //
+  // `anchors` are where the neighbours' names are drawn (their label points):
+  // the floor never takes off screen a name that was on it without the
+  // floor, since a neighbour named nowhere is the reveal's teaching lost. A
+  // giant the target does not frame (Russia beside Estonia) was off screen
+  // already, and its name is pinned to its visible land as before.
+  screen?: {
+    pxPerUnit: number;
+    viewport: Viewport;
+    anchors?: readonly { cx: number; cy: number }[];
+  },
 ): Target {
   const widened = Math.max(
     MIN_ZOOM,
@@ -152,7 +179,49 @@ export function widenForContext(
     target.k / REVEAL_CONTEXT_PULLBACK,
     minLegibleK(primary),
   );
-  return { ...target, k: Math.min(target.k, widened) };
+  const k = Math.min(target.k, widened);
+  if (!screen || screen.pxPerUnit <= 0 || primary.marker)
+    return { ...target, k };
+  const longest = Math.max(
+    1e-6,
+    primary.x1 - primary.x0,
+    primary.y1 - primary.y0,
+  );
+  const legible = REVEAL_ANSWER_MIN_PX / (longest * screen.pxPerUnit);
+  if (legible <= k) return { ...target, k };
+  // No closer than the answer framed alone, nor than the answer with every
+  // name point it showed inside the middle nine tenths of the view.
+  const alone = tryFitUnion([primary], screen.viewport)?.k ?? target.k;
+  const before = {
+    hw: screen.viewport.width / (2 * k),
+    hh: screen.viewport.height / (2 * k),
+  };
+  const shown = (screen.anchors ?? []).filter(
+    (a) =>
+      Math.abs(a.cx - target.cx) <= before.hw &&
+      Math.abs(a.cy - target.cy) <= before.hh,
+  );
+  const named = unionBounds([
+    primary,
+    ...shown.map((a) => ({ x0: a.cx, y0: a.cy, x1: a.cx, y1: a.cy })),
+  ]);
+  const namedK =
+    0.9 *
+    Math.min(
+      screen.viewport.width / Math.max(1e-6, named.x1 - named.x0),
+      screen.viewport.height / Math.max(1e-6, named.y1 - named.y0),
+    );
+  const k2 = Math.min(legible, Math.max(Math.min(alone, namedK), k));
+  // Within the frame of the answer and its neighbours that target fits, its
+  // centre still holds all of them.
+  if (k2 <= target.k) return { ...target, k: k2 };
+  // Past it, centre on the answer and its neighbours' name points, which then
+  // fit by construction.
+  return {
+    k: k2,
+    cx: (named.x0 + named.x1) / 2,
+    cy: (named.y0 + named.y1) / 2,
+  };
 }
 
 // Given the focus country's bounds, the wrong-clicked country (if any), and
