@@ -167,4 +167,16 @@ describe("TaskHeader", () => {
     fireEvent.keyDown(menu, { key: "Tab", shiftKey: true });
     expect(document.activeElement).toBe(last);
   });
+
+  it("closes from its own Close button and hands focus back", () => {
+    renderHeader(makeGame());
+    const more = screen.getByRole("button", { name: "Round and settings" });
+    fireEvent.click(more);
+    fireEvent.click(screen.getByRole("button", { name: "Close menu" }));
+    expect(
+      screen.queryByRole("dialog", { name: "Round and settings" }),
+    ).toBeNull();
+    expect(document.activeElement).toBe(more);
+  });
 });
+

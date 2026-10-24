@@ -9,7 +9,10 @@ import { TodayCard } from "./components/TodayCard";
 import { Welcome } from "./components/Welcome";
 import { StatusBar } from "./components/StatusBar";
 import { TaskHeader } from "./components/TaskHeader";
-import { useCompactLayout } from "./components/compactLayout";
+import {
+  useCompactLayout,
+  useVisibleViewport,
+} from "./components/compactLayout";
 import { Toast } from "./components/Toast";
 import { STUDY_NEW_CAP } from "./game/pickCountry";
 import countriesData from "./data/countries.json";
@@ -78,6 +81,7 @@ export default function App() {
   // keep the panel, since no keyboard comes up to squeeze the map.
   const phoneLayout = useCompactLayout();
   const compact = isTypedMode(state.mode) ? phoneLayout : null;
+  const visible = useVisibleViewport(compact !== null);
 
   // Countries inside the active spotlight subregion — the map sets the rest
   // of the scope back (fillFor). Empty stable set when no spotlight is active.
@@ -193,7 +197,15 @@ export default function App() {
     state.sessionDone || showRoundBreak || showTodayCard || showWelcome;
 
   return (
-    <div className={`h-dvh w-full flex overflow-hidden bg-parchment-base text-ink-deep ${compact === "dock" ? "flex-col" : compact === "rail" ? "flex-row" : "portrait:flex-col landscape:flex-row"} pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]`}>
+    <div className={`h-dvh w-full flex overflow-hidden bg-parchment-base text-ink-deep ${compact === "dock" ? "flex-col" : compact === "rail" ? "flex-row" : "portrait:flex-col landscape:flex-row"} pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]`}
+      // Fitted to what the keyboard leaves visible (see useVisibleViewport),
+      // so the dock sits on the keyboard rather than under it on iOS.
+      style={
+        visible
+          ? { position: "fixed", left: 0, top: visible.top, height: visible.height }
+          : undefined
+      }
+    >
       <h1 className="sr-only">Atlasaur</h1>
       {/* Everything behind a dialog is inert while one is up, so Tab can't
           reach the status bar or settings under the scrim and a keyboard

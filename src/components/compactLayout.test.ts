@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readCompactLayout } from "./compactLayout";
+import { act, renderHook } from "@testing-library/react";
+import { readCompactLayout, useVisibleViewport } from "./compactLayout";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -43,5 +44,37 @@ describe("readCompactLayout", () => {
     expect(readCompactLayout()).toBeNull();
     device(true, 820, 1180, "portrait-primary");
     expect(readCompactLayout()).toBeNull();
+  });
+});
+
+// iOS lays the keyboard over the page, so the compact layout fits itself to
+// what the visual viewport still shows.
+describe("useVisibleViewport", () => {
+  function fakeViewport(height: number, offsetTop: number, scale = 1) {
+    const vv = Object.assign(new EventTarget(), { height, offsetTop, scale });
+    vi.stubGlobal("visualViewport", vv);
+    return vv;
+  }
+
+  it("follows the visible area as the keyboard comes up", () => {
+    const vv = fakeViewport(844, 0);
+    const { result } = renderHook(() => useVisibleViewport(true));
+    expect(result.current).toEqual({ height: 844, top: 0 });
+    act(() => {
+      Object.assign(vv, { height: 480, offsetTop: 120 });
+      vv.dispatchEvent(new Event("resize"));
+    });
+    expect(result.current).toEqual({ height: 480, top: 120 });
+  });
+
+  it("stays out of the way when not wanted or while the page is zoomed", () => {
+    fakeViewport(844, 0);
+    expect(
+      renderHook(() => useVisibleViewport(false)).result.current,
+    ).toBeNull();
+    fakeViewport(400, 200, 2);
+    expect(
+      renderHook(() => useVisibleViewport(true)).result.current,
+    ).toBeNull();
   });
 });

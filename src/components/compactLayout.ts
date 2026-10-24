@@ -38,3 +38,38 @@ export function useCompactLayout(): CompactLayout | null {
   }, []);
   return layout;
 }
+
+// The part of the page the keyboard leaves visible, for the compact layout to
+// fit itself to. Android honours `interactive-widget=resizes-content` and
+// shrinks the page for the keyboard, so there this is the page itself; iOS
+// Safari lays the keyboard over the page instead, and without it the dock
+// would sit under the keyboard. Null when not wanted, when the browser has no
+// visualViewport, and while the page is pinch-zoomed, which is not the
+// keyboard and should not resize the layout.
+export function useVisibleViewport(
+  enabled: boolean,
+): { height: number; top: number } | null {
+  const [box, setBox] = useState<{ height: number; top: number } | null>(null);
+  useEffect(() => {
+    const vv =
+      typeof window === "undefined" ? undefined : window.visualViewport;
+    if (!enabled || !vv) {
+      setBox(null);
+      return;
+    }
+    const update = () =>
+      setBox(
+        Math.abs(vv.scale - 1) > 0.01
+          ? null
+          : { height: vv.height, top: vv.offsetTop },
+      );
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, [enabled]);
+  return box;
+}

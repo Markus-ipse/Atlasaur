@@ -591,7 +591,7 @@ function ModeButton({
 }
 
 // Drawn, like the map's zoom icons: the face is not relied on for a ×.
-function CloseIcon() {
+export function CloseIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round">
       <path d="M4 4l8 8M12 4l-8 8" />

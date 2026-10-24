@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { PromptLine, BackAgain } from "./Prompt";
 import { ceremonyOf } from "./ceremony";
 import { RoundChip, StatusBar } from "./StatusBar";
+import { CloseIcon } from "./SettingsMenu";
 import { focusHidesProgress } from "../game/srs";
 import { shownCapitals } from "../game/typedMatch";
 import { backAgainPlacement, type GameApi } from "../game/useGame";
@@ -172,7 +173,7 @@ function TaskMenu({
             <div
               ref={panelRef}
               role="dialog"
-              aria-label="Round and settings"
+              aria-labelledby="task-menu-title"
               tabIndex={-1}
               onKeyDown={keepTabInside}
               style={
@@ -180,11 +181,29 @@ function TaskMenu({
                   ? { ...at, maxHeight: `calc(100dvh - ${at.top + 8}px)` }
                   : undefined
               }
-              className="fixed z-30 w-72 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-ink-faded/40 bg-parchment-base shadow-lg p-3 focus:outline-none"
+              className="fixed z-30 w-72 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-ink-faded/40 bg-parchment-base shadow-lg pb-3 focus:outline-none"
             >
+              {/* A Close of its own, as Settings has: the scrim is no control
+                  for a screen reader or a switch, and neither is Escape. */}
+              <div className="flex items-center justify-between gap-2 pl-3 pr-1 py-1 mb-2 border-b border-ink-faded/30">
+                <h2 id="task-menu-title" className="text-lg text-ink-deep">
+                  Round and settings
+                </h2>
+                <button
+                  type="button"
+                  aria-label="Close menu"
+                  onClick={() => {
+                    setOpen(false);
+                    buttonRef.current?.focus({ preventScroll: true });
+                  }}
+                  className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full text-ink-mid hover:bg-parchment-shadow hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-deep"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
               <StatusBar
                 game={game}
-                className="flex"
+                className="flex mx-3"
                 themePref={themePref}
                 onSetThemePref={onSetThemePref}
               />
