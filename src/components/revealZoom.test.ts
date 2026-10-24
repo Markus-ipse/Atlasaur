@@ -6,6 +6,7 @@ import {
   measuredViewport,
   tryFitUnion,
   widenForContext,
+  REVEAL_ANSWER_MIN_PX,
   type Bounds,
 } from "./revealZoom";
 import { isClickMode } from "../game/questionModes";
@@ -289,6 +290,89 @@ describe("widenForContext (R2.3)", () => {
     const target = fit(medium);
     const widened = widenForContext(target, medium);
     expect(W / widened.k).toBeCloseTo((W / target.k) * PULLBACK, 8);
+  });
+});
+
+// On a phone the map is drawn at half a desktop's scale, so the projection's
+// floors left the median missed country about 30 px across. The on-screen
+// floor brings it to REVEAL_ANSWER_MIN_PX, within limits.
+describe("widenForContext on screen", () => {
+  const PHONE = 412 / W; // CSS px per projection unit
+  const DESKTOP = 960 / W;
+  const onScreen = (k: number, b: Bounds, scale: number) =>
+    Math.max(b.x1 - b.x0, b.y1 - b.y0) * k * scale;
+  // A small answer whose neighbours framed it wide, so the pull-back leaves
+  // it a sliver on a phone.
+  const primary: Bounds = { x0: 400, y0: 200, x1: 420, y1: 215 };
+  const target = { k: 3, cx: 410, cy: 207.5 };
+
+  it("brings a sliver up to the floor on a phone", () => {
+    const before = widenForContext(target, primary);
+    expect(onScreen(before.k, primary, PHONE)).toBeLessThan(
+      REVEAL_ANSWER_MIN_PX,
+    );
+    const after = widenForContext(target, primary, MIN_ZOOM, {
+      pxPerUnit: PHONE,
+      viewport: VIEWBOX,
+    });
+    expect(onScreen(after.k, primary, PHONE)).toBeCloseTo(
+      REVEAL_ANSWER_MIN_PX,
+      6,
+    );
+  });
+
+  it("changes nothing where the answer is already big enough on screen", () => {
+    const big: Bounds = { x0: 300, y0: 150, x1: 400, y1: 200 };
+    const t = { k: 2, cx: 350, cy: 175 };
+    expect(
+      widenForContext(t, big, MIN_ZOOM, {
+        pxPerUnit: DESKTOP,
+        viewport: VIEWBOX,
+      }),
+    ).toEqual(widenForContext(t, big));
+  });
+
+  it("never frames closer than the answer alone", () => {
+    const speck: Bounds = { x0: 400, y0: 200, x1: 401, y1: 200.5 };
+    const t = { k: 2, cx: 400.5, cy: 200.25 };
+    const alone = tryFitUnion([speck])!.k;
+    const after = widenForContext(t, speck, MIN_ZOOM, {
+      pxPerUnit: PHONE,
+      viewport: VIEWBOX,
+    });
+    expect(after.k).toBeCloseTo(alone, 6);
+    expect(onScreen(after.k, speck, PHONE)).toBeLessThan(REVEAL_ANSWER_MIN_PX);
+  });
+
+  it("leaves a marker to the projection's floors", () => {
+    const dot = { ...primary, marker: true as const };
+    expect(
+      widenForContext(target, dot, MIN_ZOOM, {
+        pxPerUnit: PHONE,
+        viewport: VIEWBOX,
+      }),
+    ).toEqual(widenForContext(target, dot));
+  });
+
+  it("keeps on screen every neighbour's name that was on it", () => {
+    // A neighbour's name point just inside the pulled-back frame, and one far
+    // off it (a giant the reveal does not frame).
+    const before = widenForContext(target, primary);
+    const near = { cx: target.cx + (0.9 * W) / (2 * before.k), cy: target.cy };
+    const far = { cx: 50, cy: 50 };
+    const after = widenForContext(target, primary, MIN_ZOOM, {
+      pxPerUnit: PHONE,
+      viewport: VIEWBOX,
+      anchors: [near, far],
+    });
+    expect(after.k).toBeGreaterThan(before.k);
+    // About the target's own centre, the one the cap was worked out about.
+    expect([after.cx, after.cy]).toEqual([target.cx, target.cy]);
+    const halfW = W / (2 * after.k);
+    expect(Math.abs(near.cx - after.cx)).toBeLessThanOrEqual(halfW);
+    // The answer stays wholly in view.
+    expect(primary.x0).toBeGreaterThanOrEqual(after.cx - halfW);
+    expect(primary.x1).toBeLessThanOrEqual(after.cx + halfW);
   });
 });
 

@@ -29,11 +29,25 @@ function labelOf(iso3: string): Label | undefined {
 // A continent filter or the R1.6 small-country frame floors the pull-back
 // higher and is not surveyed here; the claims below are for the world resting
 // frame.
-function finalFrame(answer: Label, neighbours: Label[], viewport: Viewport = VIEWBOX) {
+//
+// `em` is the label size the pass draws at, which WorldMap ties to the map's
+// scale on screen (em × CSS px per unit = TARGET_LABEL_PX), so it also gives
+// the scale the reveal's on-screen floor reads.
+function finalFrame(
+  answer: Label,
+  neighbours: Label[],
+  viewport: Viewport = VIEWBOX,
+  em: number = LABEL_EM,
+) {
   const t = widenForContext(
     computeRevealTarget(answer, null, neighbours, viewport),
     answer,
     MIN_ZOOM,
+    {
+      pxPerUnit: TARGET_LABEL_PX / em,
+      viewport,
+      anchors: neighbours,
+    },
   );
   return {
     k: t.k,
@@ -46,13 +60,13 @@ function finalFrame(answer: Label, neighbours: Label[], viewport: Viewport = VIE
 // pixels, about what a 390 x 844 phone leaves for the map.
 const PORTRAIT = measuredViewport({ width: 390, height: 560 })!;
 
-function offFrameAnswers(viewport: Viewport): string[] {
+function offFrameAnswers(viewport: Viewport, em: number = LABEL_EM): string[] {
   const offFrame: string[] = [];
   for (const c of COUNTRIES) {
     const answer = labelOf(c.iso3);
     if (!answer || c.neighbors.length === 0) continue;
     const neighbours = c.neighbors.map(labelOf).filter((l): l is Label => !!l);
-    const f = finalFrame(answer, neighbours, viewport);
+    const f = finalFrame(answer, neighbours, viewport, em);
     const out = neighbours.filter((n) => n.cx < f.x0 || n.cx > f.x1 || n.cy < f.y0 || n.cy > f.y1);
     if (out.length) offFrame.push(`${c.iso3}: ${out.map((n) => n.name).join(", ")}`);
   }
@@ -113,7 +127,7 @@ describe("reveal survey over the real table", () => {
     // giant it does not frame. It differs because the frame is fitted to the
     // tall view: the points beside France, Spain and Italy now have room for
     // their neighbour's anchor, and the Great Lakes pair loses the Congo's.
-    expect(offFrameAnswers(PORTRAIT)).toEqual([
+    expect(offFrameAnswers(PORTRAIT, PHONE_EM)).toEqual([
       "AZE: Russia",
       "BLR: Russia",
       "BLZ: Mexico",
@@ -151,7 +165,7 @@ describe("reveal survey over the real table", () => {
       const answer = labelOf(c.iso3);
       if (!answer || c.neighbors.length === 0) continue;
       const neighbours = c.neighbors.map(labelOf).filter((l): l is Label => !!l);
-      const f = finalFrame(answer, neighbours, viewport);
+      const f = finalFrame(answer, neighbours, viewport, em);
       const placed = pinOffFrameLabels([answer, ...neighbours], {
         frame: f,
         k: f.k,
