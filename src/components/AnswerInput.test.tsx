@@ -261,3 +261,89 @@ describe("AnswerInput through a reveal", () => {
     }
   });
 });
+
+// #61: on a phone the field sits on the keyboard with one button, and the
+// answer is written in the field rather than in a panel above it.
+function setupCompact(detailsBelow = false) {
+  const onAnswer = vi.fn();
+  const onSkip = vi.fn();
+  const onContinue = vi.fn();
+  const props = {
+    compact: true,
+    detailsBelow,
+    mode: "shape-to-name" as const,
+    current: AUS,
+    readTyped: (input: string) => readTyped(input, "location", AUS),
+    onAnswer,
+    onSkip,
+    onContinue,
+  };
+  const { rerender } = render(<AnswerInput {...props} feedback={null} />);
+  const input = screen.getByRole("textbox") as HTMLInputElement;
+  const showFeedback = (feedback: Feedback | null) =>
+    rerender(<AnswerInput {...props} feedback={feedback} />);
+  return { onAnswer, onSkip, onContinue, input, showFeedback };
+}
+
+describe("AnswerInput on a phone", () => {
+  it("has one button: Don't know, then Submit once something is typed", () => {
+    const { input, onSkip } = setupCompact();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Don't know" }));
+    expect(onSkip).toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "Aus" } });
+    expect(screen.getByRole("button", { name: "Submit" }).className).toContain(
+      PRIMARY,
+    );
+    expect(screen.queryByRole("button", { name: "Don't know" })).toBeNull();
+  });
+
+  it("empties the field as the answer goes in and writes the answer there on a miss", () => {
+    const { input, onAnswer, onContinue, showFeedback } = setupCompact();
+    fireEvent.change(input, { target: { value: "Atlantis" } });
+    fireEvent.submit(input.closest("form")!);
+    expect(onAnswer).toHaveBeenCalledWith("");
+    expect(input.value).toBe("");
+    showFeedback(MISS);
+    const result = screen.getByRole("status");
+    expect(result.textContent).toContain("Australia");
+    expect(result.querySelector("s")?.textContent).toContain("Atlantis");
+    expect(result.textContent).toContain("Capital: Canberra");
+    expect(document.activeElement).toBe(input);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(onContinue).toHaveBeenCalled();
+  });
+
+  it("ticks a correct answer in the field and waits for the flash", () => {
+    const { input, showFeedback } = setupCompact();
+    fireEvent.change(input, { target: { value: "Australia" } });
+    fireEvent.submit(input.closest("form")!);
+    showFeedback(HIT);
+    expect(screen.getByRole("status").textContent).toContain("Australia");
+    expect(
+      (screen.getByRole("button", { name: "Next" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
+  it("puts the guess and the capital under a narrow field", () => {
+    const { input, showFeedback } = setupCompact(true);
+    fireEvent.change(input, { target: { value: "Atlantis" } });
+    fireEvent.submit(input.closest("form")!);
+    showFeedback(MISS);
+    expect(screen.getByRole("status").querySelector("s")).toBeNull();
+    const below = screen.getByRole("status").parentElement!.parentElement!
+      .nextElementSibling!;
+    expect(below.textContent).toBe("You typed Atlantis · Capital: Canberra");
+  });
+
+  it("puts an offer above the field", () => {
+    const { input } = setupCompact();
+    fireEvent.change(input, { target: { value: "Icland" } });
+    fireEvent.submit(input.closest("form")!);
+    const offer = screen.getByRole("group", { name: "Did you mean Iceland?" });
+    expect(
+      offer.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+});

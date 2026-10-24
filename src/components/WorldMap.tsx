@@ -574,6 +574,9 @@ type Props = {
   // reveal; null when feedback is null, kind === "correct", or the country
   // has no capital (e.g. Antarctica). Drives the capital-marker dot.
   revealCapitalLonLat: [number, number] | null;
+  // The capital's name, written beside its dot, where no panel names it (a
+  // phone's typed modes, #61). Null or omitted: the dot alone.
+  revealCapitalName?: string | null;
   // Active continent filter — drives the resting-zoom frame so a filtered
   // pool (e.g. Europe only) lands the user near their selection instead of
   // on the full world map.
@@ -612,6 +615,7 @@ export function WorldMap({
   continentProgress,
   hatchIso3,
   revealCapitalLonLat,
+  revealCapitalName = null,
   selectedContinents,
   isoFromNumeric,
   numericFromIso3,
@@ -1815,6 +1819,22 @@ export function WorldMap({
                 r={2.5 / transform.k}
                 fill={palette.capitalDot}
               />
+              {revealCapitalName && (
+                <text
+                  data-capital-label
+                  x={capitalDotXY[0] + 6 / transform.k}
+                  y={capitalDotXY[1]}
+                  fontSize={labelFontSize * 0.9}
+                  fontStyle="italic"
+                  dominantBaseline="middle"
+                  fill={palette.label}
+                  stroke={palette.oceanTint}
+                  strokeWidth={labelFontSize * 0.22}
+                  paintOrder="stroke"
+                >
+                  {revealCapitalName}
+                </text>
+              )}
             </g>
           )}
         </g>

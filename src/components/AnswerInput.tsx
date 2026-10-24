@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { normalize } from "../data/normalize";
 import { factOf } from "../game/questionModes";
-import type { Suggestion, TypedReading } from "../game/typedMatch";
+import { shownCapitals, type Suggestion, type TypedReading } from "../game/typedMatch";
 import type { Country, Feedback, QuestionMode } from "../types";
 import { PRIMARY, QUIET, SECONDARY } from "./buttonStyles";
 import { KEEP_FOCUS } from "./keepFocus";
@@ -23,6 +23,15 @@ type Props = {
   // Enter in the input through a miss reveal: the input keeps focus from card
   // to card (#61), so it answers for Continue.
   onContinue: () => void;
+  // A phone's dock or rail (#61): one button that is Don't know, Submit or
+  // Next as the card goes, the answer shown in the field through feedback
+  // instead of a panel above it, and the offer above the field.
+  compact?: boolean;
+  // Don't know, for the compact layout's one button; the panel has its own.
+  onSkip?: () => void;
+  // The landscape rail's field is too narrow for the answer and the struck
+  // guess together, so there the guess and the capital take the line below.
+  detailsBelow?: boolean;
 };
 
 // A mouse or trackpad, where the keyboard is a physical one and moving focus
@@ -41,8 +50,15 @@ export function AnswerInput({
   readTyped,
   onAnswer,
   onContinue,
+  compact = false,
+  onSkip,
+  detailsBelow = false,
 }: Props) {
   const [value, setValue] = useState("");
+  // What was submitted, for the compact field to strike through on a miss:
+  // there the field is emptied as the answer goes in, so the next card's
+  // text never meets the last one's.
+  const [typed, setTyped] = useState("");
   // The open "Did you mean …?" offer, or null. Input state from before any
   // answer, like `value`: it never reaches the game.
   const [offer, setOffer] = useState<Suggestion[] | null>(null);
@@ -113,6 +129,10 @@ export function AnswerInput({
 
   const answer = (iso3: string) => {
     setOffer(null);
+    if (compact) {
+      setTyped(value.trim());
+      setValue("");
+    }
     onAnswer(iso3);
   };
 
@@ -125,38 +145,176 @@ export function AnswerInput({
     if (feedback.kind !== "correct" && !e.repeat && !paused) onContinue();
   };
 
+  const input = (
+    <input
+      ref={inputRef}
+      type="text"
+      value={value}
+      onChange={(e) => {
+        // Read-only through feedback by ignoring edits rather than by the
+        // attribute: iOS drops the keyboard for a readonly input, which is
+        // the jump keeping focus here is meant to avoid.
+        if (feedback) return;
+        setValue(e.target.value);
+        setOffer(null);
+      }}
+      onKeyDown={handleKeyDown}
+      aria-readonly={feedback ? true : undefined}
+      disabled={paused}
+      placeholder={
+        // The compact field shows the answer through feedback, over an
+        // empty input.
+        compact && feedback
+          ? ""
+          : factOf(mode) === "capital"
+            ? compact
+              ? "Capital"
+              : "Type the capital…"
+            : compact
+              ? "Country"
+              : "Type the country name…"
+      }
+      autoFocus
+      autoCapitalize="none"
+      autoCorrect="off"
+      autoComplete="off"
+      spellCheck={false}
+      inputMode="text"
+      enterKeyHint="go"
+      className={
+        "flex-1 min-w-0 min-h-11 px-4 text-lg rounded border border-ink-faded bg-parchment-base text-ink-deep placeholder:text-ink-faded focus:outline-none focus:ring-2 focus:ring-ink-deep disabled:bg-parchment-shadow aria-readonly:bg-parchment-shadow aria-readonly:focus:ring-ink-faded" +
+        (compact && feedback?.kind === "correct"
+          ? " border-sap-green aria-readonly:bg-sap-green/15 aria-readonly:focus:ring-sap-green"
+          : "")
+      }
+    />
+  );
+
+  // A phone's one button (#61): Don't know until something is typed, Submit
+  // once it is, Next through a miss. The correct flash moves on by itself.
+  // One width for all three, so the field does not jump as the label turns.
+  const oneButton = feedback ? (
+    <button
+      type="button"
+      {...KEEP_FOCUS}
+      onClick={onContinue}
+      disabled={feedback.kind === "correct" || paused}
+      className={`w-32 shrink-0 ${feedback.kind === "correct" ? SECONDARY : PRIMARY}`}
+    >
+      Next
+    </button>
+  ) : value.trim() ? (
+    <button
+      type="submit"
+      {...KEEP_FOCUS}
+      disabled={paused}
+      className={`w-32 shrink-0 ${offer ? SECONDARY : PRIMARY}`}
+    >
+      Submit
+    </button>
+  ) : (
+    <button
+      type="button"
+      {...KEEP_FOCUS}
+      onClick={() => {
+        setTyped("");
+        onSkip?.();
+      }}
+      disabled={paused}
+      className={`w-32 shrink-0 ${SECONDARY}`}
+    >
+      {"Don't know"}
+    </button>
+  );
+
+  const offerBlock = (
+    // Always mounted, so the offer is announced when it appears.
+    <div aria-live="polite">
+      {offer && (
+        <div
+          role="group"
+          aria-labelledby={questionId}
+          className={
+            compact
+              ? "flex flex-wrap items-center gap-x-2 gap-y-1"
+              : "flex flex-col gap-2"
+          }
+          // Escape hands the answer back, as No does: a learner who wants to
+          // fix the spelling should not have to find the input again.
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              decline();
+            }
+          }}
+        >
+          <p id={questionId} className="text-ink-deep">
+            Did you mean {offerList(offer)}?
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {offer.map((s) => (
+              <button
+                key={s.iso3}
+                // One suggestion is the default and takes focus; several are
+                // equals, none favoured.
+                ref={offer.length === 1 ? yesRef : undefined}
+                type="button"
+                {...KEEP_FOCUS}
+                onClick={() => answer(s.iso3)}
+                // A held Enter repeats onto Yes the moment it takes focus;
+                // only a fresh press accepts an offer.
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && e.repeat) e.preventDefault();
+                }}
+                className={offer.length === 1 ? PRIMARY : SECONDARY}
+              >
+                {offer.length === 1 ? `Yes, ${s.label}` : s.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              {...KEEP_FOCUS}
+              onClick={decline}
+              className={QUIET}
+            >
+              {offer.length === 1 ? "No" : "Neither"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (compact) {
+    return (
+      <div className="flex flex-col gap-2">
+        {offerBlock}
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          <div className="relative flex-1 min-w-0 flex">
+            {input}
+            {feedback && (
+              <FieldResult
+                current={current}
+                mode={mode}
+                feedback={feedback}
+                typed={typed}
+                strike={!detailsBelow}
+              />
+            )}
+          </div>
+          {oneButton}
+        </form>
+        {detailsBelow && feedback && feedback.kind !== "correct" && (
+          <MissDetails current={current} mode={mode} feedback={feedback} typed={typed} />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <form onSubmit={handleSubmit} className="flex gap-2">
-        <input
-          ref={inputRef}
-          type="text"
-          value={value}
-          onChange={(e) => {
-            // Read-only through feedback by ignoring edits rather than by the
-            // attribute: iOS drops the keyboard for a readonly input, which
-            // is the jump keeping focus here is meant to avoid.
-            if (feedback) return;
-            setValue(e.target.value);
-            setOffer(null);
-          }}
-          onKeyDown={handleKeyDown}
-          aria-readonly={feedback ? true : undefined}
-          disabled={paused}
-          placeholder={
-            factOf(mode) === "capital"
-              ? "Type the capital…"
-              : "Type the country name…"
-          }
-          autoFocus
-          autoCapitalize="none"
-          autoCorrect="off"
-          autoComplete="off"
-          spellCheck={false}
-          inputMode="text"
-          enterKeyHint="go"
-          className="flex-1 min-w-0 min-h-11 px-4 text-lg rounded border border-ink-faded bg-parchment-base text-ink-deep placeholder:text-ink-faded focus:outline-none focus:ring-2 focus:ring-ink-deep disabled:bg-parchment-shadow aria-readonly:bg-parchment-shadow aria-readonly:focus:ring-ink-faded"
-        />
+        {input}
         <button
           type="submit"
           {...KEEP_FOCUS}
@@ -169,58 +327,127 @@ export function AnswerInput({
           Submit
         </button>
       </form>
-      {/* Always mounted, so the offer is announced when it appears. */}
-      <div aria-live="polite">
-        {offer && (
-          <div
-            role="group"
-            aria-labelledby={questionId}
-            className="flex flex-col gap-2"
-            // Escape hands the answer back, as No does: a learner who wants to
-            // fix the spelling should not have to find the input again.
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                e.preventDefault();
-                decline();
-              }
-            }}
-          >
-            <p id={questionId} className="text-ink-deep">
-              Did you mean {offerList(offer)}?
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {offer.map((s) => (
-                <button
-                  key={s.iso3}
-                  // One suggestion is the default and takes focus; several
-                  // are equals, none favoured.
-                  ref={offer.length === 1 ? yesRef : undefined}
-                  type="button"
-                  {...KEEP_FOCUS}
-                  onClick={() => answer(s.iso3)}
-                  // A held Enter repeats onto Yes the moment it takes focus;
-                  // only a fresh press accepts an offer.
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && e.repeat) e.preventDefault();
-                  }}
-                  className={offer.length === 1 ? PRIMARY : SECONDARY}
-                >
-                  {offer.length === 1 ? `Yes, ${s.label}` : s.label}
-                </button>
-              ))}
-              <button
-                type="button"
-                {...KEEP_FOCUS}
-                onClick={decline}
-                className={QUIET}
-              >
-                {offer.length === 1 ? "No" : "Neither"}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      {offerBlock}
     </div>
+  );
+}
+
+// The answer, written in the compact field over the emptied input through
+// feedback (#61): a tick and the answer on a correct one; on a miss the
+// answer by a swatch of the map's answer green, and what was typed struck
+// through at the end. The rest of the panel's reveal is on the map — the
+// neighbours are labelled there and the capital is named by its dot — and is
+// read out here for a screen reader.
+function FieldResult({
+  current,
+  mode,
+  feedback,
+  typed,
+  strike,
+}: {
+  current: Country;
+  mode: QuestionMode;
+  feedback: Feedback;
+  typed: string;
+  // False in the rail, which shows the guess on the line below instead.
+  strike: boolean;
+}) {
+  const capitals = shownCapitals(current);
+  // Leads with the answer, as RevealHero does: the capital only where the
+  // capital was asked for.
+  const askedForCapital = mode === "country-to-capital";
+  const answer = askedForCapital ? capitals.join(", ") : current.name;
+  const lead =
+    feedback.kind === "correct"
+      ? "Correct:"
+      : feedback.kind === "skipped"
+        ? "Skipped. The answer:"
+        : "You missed. The answer:";
+  return (
+    <div
+      role="status"
+      data-field-result={feedback.kind}
+      className="absolute inset-0 flex items-center gap-2 px-4 text-lg text-ink-deep pointer-events-none"
+    >
+      <span className="sr-only">{lead} </span>
+      {feedback.kind === "correct" ? (
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 20 20"
+          aria-hidden="true"
+          className="shrink-0 text-sap-green"
+        >
+          <path
+            d="M3 10.5l4.5 4.5L17 5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ) : (
+        <span
+          aria-hidden="true"
+          className="shrink-0 size-3 rounded-sm border-[1.5px] border-ink-deep bg-sap-green"
+        />
+      )}
+      <span className="truncate">{answer}</span>
+      {askedForCapital && feedback.kind !== "correct" && (
+        <span className="sr-only">
+          {capitals.length > 1 ? "Capitals of " : "Capital of "}
+          {current.name}.
+        </span>
+      )}
+      {feedback.kind === "wrong" &&
+        typed &&
+        (strike ? (
+          <s className="ml-auto shrink-0 max-w-[45%] truncate text-base text-vermillion">
+            <span className="sr-only">You typed </span>
+            {typed}
+          </s>
+        ) : (
+          <span className="sr-only">You typed {typed}.</span>
+        ))}
+      {!askedForCapital && feedback.kind !== "correct" && capitals.length > 0 && (
+        <span className="sr-only">
+          {capitals.length > 1 ? "Capitals: " : "Capital: "}
+          {capitals.join(", ")}.
+        </span>
+      )}
+    </div>
+  );
+}
+
+// Under the rail's field through a miss: what was typed, struck through, and
+// the capital where the answer was the country. Read out by the field.
+function MissDetails({
+  current,
+  mode,
+  feedback,
+  typed,
+}: {
+  current: Country;
+  mode: QuestionMode;
+  feedback: Feedback;
+  typed: string;
+}) {
+  const capitals = shownCapitals(current);
+  const showCapitals = mode !== "country-to-capital" && capitals.length > 0;
+  const showTyped = feedback.kind === "wrong" && typed !== "";
+  if (!showTyped && !showCapitals) return null;
+  return (
+    <p aria-hidden="true" className="text-sm text-ink-mid">
+      {showTyped && (
+        <>
+          You typed <s className="text-vermillion">{typed}</s>
+        </>
+      )}
+      {showTyped && showCapitals && " · "}
+      {showCapitals &&
+        `${capitals.length > 1 ? "Capitals" : "Capital"}: ${capitals.join(", ")}`}
+    </p>
   );
 }
 

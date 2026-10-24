@@ -8,6 +8,8 @@ import { ExpeditionResult } from "./components/ExpeditionResult";
 import { TodayCard } from "./components/TodayCard";
 import { Welcome } from "./components/Welcome";
 import { StatusBar } from "./components/StatusBar";
+import { TaskHeader } from "./components/TaskHeader";
+import { useCompactLayout } from "./components/compactLayout";
 import { Toast } from "./components/Toast";
 import { STUDY_NEW_CAP } from "./game/pickCountry";
 import countriesData from "./data/countries.json";
@@ -71,6 +73,11 @@ export default function App() {
   const revealCapitalLonLat = isMissReveal
     ? state.current.capitalLonLat
     : null;
+
+  // A typed mode on a phone gets the compact layout (#61); the click modes
+  // keep the panel, since no keyboard comes up to squeeze the map.
+  const phoneLayout = useCompactLayout();
+  const compact = isTypedMode(state.mode) ? phoneLayout : null;
 
   // Countries inside the active spotlight subregion — the map sets the rest
   // of the scope back (fillFor). Empty stable set when no spotlight is active.
@@ -186,19 +193,29 @@ export default function App() {
     state.sessionDone || showRoundBreak || showTodayCard || showWelcome;
 
   return (
-    <div className="h-dvh w-full flex overflow-hidden bg-parchment-base text-ink-deep portrait:flex-col landscape:flex-row pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
+    <div className={`h-dvh w-full flex overflow-hidden bg-parchment-base text-ink-deep ${compact === "dock" ? "flex-col" : compact === "rail" ? "flex-row" : "portrait:flex-col landscape:flex-row"} pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]`}>
       <h1 className="sr-only">Atlasaur</h1>
       {/* Everything behind a dialog is inert while one is up, so Tab can't
           reach the status bar or settings under the scrim and a keyboard
           user can only take one of the dialog's own actions. `contents`
           keeps the flex layout of the three children intact. */}
       <div className="contents" inert={modalOpen}>
-      <StatusBar
-        game={game}
-        className="hidden portrait:flex px-3 pt-3 bg-parchment-base"
-        themePref={themePref}
-        onSetThemePref={setThemePref}
-      />
+      {compact === "dock" ? (
+        <TaskHeader
+          game={game}
+          showCount
+          themePref={themePref}
+          onSetThemePref={setThemePref}
+          className="min-h-13 pl-3.5 pr-1.5 py-1 border-b border-ink-faded/40"
+        />
+      ) : compact === null ? (
+        <StatusBar
+          game={game}
+          className="hidden portrait:flex px-3 pt-3 bg-parchment-base"
+          themePref={themePref}
+          onSetThemePref={setThemePref}
+        />
+      ) : null}
       <div className="relative flex-1 min-h-0 min-w-0">
         <WorldMap
           mode={state.mode}
@@ -210,6 +227,9 @@ export default function App() {
           continentProgress={continentProgress}
           hatchIso3={hatchIso3}
           revealCapitalLonLat={revealCapitalLonLat}
+          // The compact layout has no reveal panel to name the capital in, so
+          // the map names it by its dot.
+          revealCapitalName={compact ? state.current.capital : null}
           selectedContinents={frameContinents}
           isoFromNumeric={game.isoFromNumeric}
           numericFromIso3={game.numericFromIso3}
@@ -233,6 +253,7 @@ export default function App() {
         onAckCaughtUp={game.acceptFiller}
         themePref={themePref}
         onSetThemePref={setThemePref}
+        layout={compact ?? "panel"}
       />
       </div>
       {state.sessionDone && isExpedition && state.expedition && (

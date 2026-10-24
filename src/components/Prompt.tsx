@@ -43,6 +43,30 @@ export function BackAgain() {
   );
 }
 
+// The prompt as one line, for the strip above a phone's map in a typed mode
+// (#61), where the panel's eyebrow-over-subject would cost the map two lines.
+export function PromptLine({
+  mode,
+  current,
+}: {
+  mode: QuestionMode;
+  current: Country;
+}) {
+  const prompt = promptOf(mode, current);
+  return (
+    <p className="text-lg leading-tight text-ink-deep break-words">
+      {prompt ? (
+        <>
+          <span className="text-ink-mid">{prompt.eyebrow}</span>{" "}
+          <span className="text-xl">{prompt.subject}</span>
+        </>
+      ) : (
+        "What country is highlighted?"
+      )}
+    </p>
+  );
+}
+
 export function Prompt({ mode, current, returning }: Props) {
   const prompt = promptOf(mode, current);
   return (
