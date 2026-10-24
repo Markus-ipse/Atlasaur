@@ -310,7 +310,13 @@ export function AnswerInput({
           {oneButton}
         </form>
         {detailsBelow && feedback && feedback.kind !== "correct" && (
-          <MissDetails current={current} mode={mode} feedback={feedback} typed={typed} />
+          <MissDetails
+            current={current}
+            mode={mode}
+            feedback={feedback}
+            typed={typed}
+            nameFromIso3={nameFromIso3}
+          />
         )}
       </div>
     );
@@ -364,6 +370,7 @@ function FieldResult({
   // capital was asked for.
   const askedForCapital = mode === "country-to-capital";
   const answer = askedForCapital ? capitals.join(", ") : current.name;
+  const elsewhere = capitalOfAnother(mode, feedback, nameFromIso3);
   const lead =
     feedback.kind === "correct"
       ? "Correct:"
@@ -417,6 +424,9 @@ function FieldResult({
         ) : (
           <span className="sr-only">You typed {typed}.</span>
         ))}
+      {elsewhere && (
+        <span className="sr-only"> That's the capital of {elsewhere}.</span>
+      )}
       {!askedForCapital && feedback.kind !== "correct" && capitals.length > 0 && (
         <span className="sr-only">
           {capitals.length > 1 ? "Capitals: " : "Capital: "}
@@ -439,6 +449,22 @@ function FieldResult({
   );
 }
 
+// A typed capital that belongs to another country resolves to it (#64), so a
+// Country → Capital miss can say where the answer would have been right, as
+// the panel's reveal does.
+function capitalOfAnother(
+  mode: QuestionMode,
+  feedback: Feedback,
+  nameFromIso3?: (iso3: string) => string,
+): string | null {
+  return mode === "country-to-capital" &&
+    feedback.kind === "wrong" &&
+    feedback.answerIso3 !== "" &&
+    nameFromIso3
+    ? nameFromIso3(feedback.answerIso3)
+    : null;
+}
+
 // Under the rail's field through a miss: what was typed, struck through, and
 // the capital where the answer was the country. Read out by the field.
 function MissDetails({
@@ -446,21 +472,25 @@ function MissDetails({
   mode,
   feedback,
   typed,
+  nameFromIso3,
 }: {
   current: Country;
   mode: QuestionMode;
   feedback: Feedback;
   typed: string;
+  nameFromIso3?: (iso3: string) => string;
 }) {
   const capitals = shownCapitals(current);
   const showCapitals = mode !== "country-to-capital" && capitals.length > 0;
   const showTyped = feedback.kind === "wrong" && typed !== "";
+  const elsewhere = capitalOfAnother(mode, feedback, nameFromIso3);
   if (!showTyped && !showCapitals) return null;
   return (
     <p aria-hidden="true" className="text-sm text-ink-mid">
       {showTyped && (
         <>
           You typed <s className="text-vermillion">{typed}</s>
+          {elsewhere && `, the capital of ${elsewhere}`}
         </>
       )}
       {showTyped && showCapitals && " · "}

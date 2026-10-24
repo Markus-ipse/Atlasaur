@@ -346,4 +346,36 @@ describe("AnswerInput on a phone", () => {
       offer.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
+
+  it("says whose capital a wrong typed capital is", () => {
+    const props = {
+      compact: true,
+      detailsBelow: true,
+      mode: "country-to-capital" as const,
+      current: AUS,
+      readTyped: (input: string) => readTyped(input, "capital", AUS),
+      nameFromIso3: (iso3: string) =>
+        iso3 === "NZL" ? "New Zealand" : iso3,
+      onAnswer: vi.fn(),
+      onContinue: vi.fn(),
+    };
+    const { rerender } = render(<AnswerInput {...props} feedback={null} />);
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "Wellington" } });
+    fireEvent.submit(input.closest("form")!);
+    expect(props.onAnswer).toHaveBeenCalledWith("NZL");
+    rerender(
+      <AnswerInput
+        {...props}
+        feedback={{ kind: "wrong", answerIso3: "NZL", correctIso3: "AUS", at: 0 }}
+      />,
+    );
+    const status = screen.getByRole("status");
+    expect(status.textContent).toContain("Canberra");
+    expect(status.textContent).toContain("That's the capital of New Zealand.");
+    expect(
+      status.parentElement!.parentElement!.nextElementSibling!.textContent,
+    ).toBe("You typed Wellington, the capital of New Zealand");
+  });
 });
+
