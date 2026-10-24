@@ -9,6 +9,7 @@ import {
 } from "./expedition";
 import { loadStreak } from "./streak";
 import { loadCounters } from "./counters";
+import { resetInviteForTests } from "./inviteLink";
 
 // The hook owns the day logic and the credits the reducer does not: which
 // store `startExpedition` hands in, and the streak day and finished-round
@@ -234,6 +235,43 @@ describe("useGame — the Daily Expedition", () => {
       "shape-to-name": 0,
       "capital-to-click": 0,
       "country-to-capital": 0,
+    });
+  });
+
+  describe("a shared link (#57)", () => {
+    afterEach(() => {
+      resetInviteForTests();
+      window.history.replaceState(null, "", "/");
+    });
+
+    it("opens on the invitation without starting anything", () => {
+      resetInviteForTests();
+      window.history.replaceState(null, "", "/?expedition=2026-09-05");
+      const { result } = renderHook(() => useGame());
+      expect(result.current.inviteDay).toBe("2026-09-05");
+      expect(window.location.search).toBe("");
+      // Opening the link alone uses no attempt and counts no start.
+      expect(result.current.state.expedition).toBeNull();
+      expect(result.current.expeditionToday).toEqual({ kind: "fresh" });
+      expect(result.current.counters.roundsByPractice.expedition).toBe(0);
+      act(() => result.current.dismissInvite());
+      expect(result.current.inviteDay).toBeNull();
+    });
+
+    it("is gone once a summary has been reached", () => {
+      resetInviteForTests();
+      window.history.replaceState(null, "", "/?expedition=2026-09-06");
+      const { result } = renderHook(() => useGame());
+      // Done in Study, reached under the invitation's scrim by keyboard.
+      act(() => result.current.endSession());
+      expect(result.current.state.sessionDone).toBe(true);
+      expect(result.current.inviteDay).toBeNull();
+    });
+
+    it("is not opened on an ordinary load", () => {
+      resetInviteForTests();
+      const { result } = renderHook(() => useGame());
+      expect(result.current.inviteDay).toBeNull();
     });
   });
 });

@@ -815,10 +815,67 @@ lands there too, without the flag.
 A scope change leaves its queue alone (today's ten ignore scope), and leaving
 the expedition clears `retryQueue`.
 The text is plain: `Atlasaur · 6 September 2026` over `■■□■■■□■■■ 8/10`,
-formatted by `formatDay` in fixed English so two phones read the same.
+formatted by `formatDay` in fixed English so two phones read the same, then
+"Find today's ten on the map:" and the link on a line of its own (see Shared
+links below). The result card's selectable box is the same text.
 `ExpeditionDoor` is the shared button on the Today card and the Study summary;
 its label says what waits (fresh, resume with the count so far, or the
 result). There is no second go — that is tomorrow.
+
+### Shared links (#57)
+
+A shared result carries a link a recipient can play from:
+`https://markus-ipse.github.io/Atlasaur/expedition/?day=YYYY-MM-DD`
+(`expeditionLink` in `expedition.ts`, built from the page it was shared from,
+so the subpath holds anywhere). It points at **`expedition/index.html`**, a
+second static entry in the Vite build (`build.rollupOptions.input`) that
+exists for its link preview: GitHub Pages can only serve one preview per
+file, and the app's own `index.html` keeps the generic one. That page
+forwards at once (`location.replace`, so Back does not bounce) to
+`../?expedition=YYYY-MM-DD`. Query parameters rather than a hash, because
+preview crawlers drop the hash. The service worker precaches the expedition
+page too; `ignoreURLParametersMatching` lists `day` so the precache still
+matches it, without which the navigation fallback would serve the app's
+`index.html` at `/expedition/` and every relative asset would miss.
+
+`takeInviteDay` (`src/game/inviteLink.ts`) reads `?expedition=` once per page
+load and takes it out of the address bar with `replaceState`, so a reload, a
+bookmark or the installed app opens on the app; it caches its answer because
+a StrictMode initialiser runs twice and the second run sees the cleaned
+address. A day that cannot be read opens on today's. `useGame` keeps it as
+hook state, `inviteDay` / `dismissInvite`, like the welcome and the Today
+card, and a reached summary clears it the same way.
+
+**The invitation (`ExpeditionInvite`)** stands in for the welcome and the
+Today card on that load. **Opening a link uses nothing**: no store is built,
+no start is counted and none of the ten is shown until the learner presses
+the one dark button, which is `startExpedition` and so follows today's
+status — Begin today's ten, Resume today's expedition (with "You're N of 10
+into today's."), or See your result. Begin also closes the Today card and
+marks the welcome seen (StudyIntro still explains the scheduler on the first
+Study miss). The quiet route — "Just learn the map" for a learner with no
+SRS record, "Not now" otherwise — and Escape close only the invitation, so
+the welcome or the Today card follows as an ordinary load would have
+opened; the backdrop does nothing. A newcomer also gets the cartouche and
+one line on what Atlasaur is.
+
+**Today only.** A link always opens the reader's own today: the store keeps
+one day, and playing an old day would need a second store and a rule for
+whether it counts. A link for another day says so first, in an italic note
+above the heading: an earlier day ("That link was for 23 October 2026 …"),
+or a later one, sent from a time zone already in tomorrow ("… which hasn't
+begun where you are"), each adding that the scores won't compare.
+
+**Link previews.** Both pages carry Open Graph and `twitter:card` tags with
+absolute URLs to the deployed site (they must be absolute), and
+1200 × 630 images in `public/`: `og.png` (the cartouche and "A world map you
+learn by heart.") and `og-expedition.png` ("Daily Expedition", "Ten countries
+to find on the map.", ten empty squares — spoiler-free). Both are the
+engraved map in the light palette, rendered with Playwright from
+`mapGeometry`'s paths; regenerate both together if the mark or the palette
+changes. They are left out of the precache (`globIgnores`): they are for
+crawlers, not the app. If the site moves, update the absolute URLs in both
+HTML files.
 
 ### Markers: the countries the topology cannot draw (R3.4)
 
@@ -898,7 +955,7 @@ an answer.
 ## Stack notes
 
 - Tailwind v4 via `@tailwindcss/vite` — no `postcss.config` / `tailwind.config`. Styles are imported via `@import "tailwindcss"` in `src/index.css`.
-- **Installable / offline (R1.5).** `vite-plugin-pwa` in `vite.config.ts` generates `manifest.webmanifest` and a Workbox service worker (`generateSW`, `registerType: "prompt"`) that precaches every built asset (hashed JS/CSS, `public/fonts` including `OFL.txt`, `public/icons`, `index.html`) with `navigateFallback: "index.html"`. `src/main.tsx` calls `registerSW({ immediate: true, onRegisterError })` and passes **no** `onNeedRefresh`: a new service worker waits and takes over on the next visit (all tabs closed) rather than reloading a learner mid-card — do not switch to `autoUpdate`, which force-reloads open tabs when a deploy lands. The plugin's dev SW is off, so nothing registers under `npm run dev`; test with `npm run build` and a static server (the GitHub Pages subpath works because `start_url`/`scope` are `./`, like `base`). There is deliberately no runtime caching, no push, no update prompt. The manifest's `background_color`/`theme_color` literals mirror `--color-parchment-base`/`--color-ink-deep` — the same contract as the pre-paint script in `index.html`. Icons live in `public/icons/` (192, 512, 512 maskable, 180 apple-touch, 64 favicon), rendered from the cartouche "A" in IM Fell English SC; regenerate all five together if the mark changes.
+- **Installable / offline (R1.5).** `vite-plugin-pwa` in `vite.config.ts` generates `manifest.webmanifest` and a Workbox service worker (`generateSW`, `registerType: "prompt"`) that precaches every built asset (hashed JS/CSS, `public/fonts` including `OFL.txt`, `public/icons`, `index.html`, `expedition/index.html`; not the link-preview `og*.png`) with `navigateFallback: "index.html"`. `src/main.tsx` calls `registerSW({ immediate: true, onRegisterError })` and passes **no** `onNeedRefresh`: a new service worker waits and takes over on the next visit (all tabs closed) rather than reloading a learner mid-card — do not switch to `autoUpdate`, which force-reloads open tabs when a deploy lands. The plugin's dev SW is off, so nothing registers under `npm run dev`; test with `npm run build` and a static server (the GitHub Pages subpath works because `start_url`/`scope` are `./`, like `base`). There is deliberately no runtime caching, no push, no update prompt. The manifest's `background_color`/`theme_color` literals mirror `--color-parchment-base`/`--color-ink-deep` — the same contract as the pre-paint script in `index.html`. Icons live in `public/icons/` (192, 512, 512 maskable, 180 apple-touch, 64 favicon), rendered from the cartouche "A" in IM Fell English SC; regenerate all five together if the mark changes.
 - Vite `base: "./"` so the build works under any subpath; required for the GitHub Pages deploy at `/Atlasaur/` (workflow: `.github/workflows/deploy.yml`, triggers on push to `main`). `.github/workflows/ci.yml` runs lint, typecheck, tests and a build on every pull request and on pushes to `main`.
 - React 19, TypeScript ~5.7, ESLint 9 flat config. Tests run in jsdom via Vitest 4.
 

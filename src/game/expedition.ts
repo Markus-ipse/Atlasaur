@@ -251,16 +251,20 @@ export function formatDay(day: string): string {
   return `${d} ${MONTHS[m - 1] ?? ""} ${y}`;
 }
 
-// The query parameter a shared link carries: the day the result was for.
+// A shared link points at the expedition page (`expedition/index.html`),
+// which carries its own link preview and forwards to the app with the day
+// under EXPEDITION_LINK_PARAM. Both are query parameters rather than a hash,
+// because link-preview crawlers drop the hash.
+export const EXPEDITION_PAGE = "expedition/";
+export const EXPEDITION_PAGE_PARAM = "day";
 export const EXPEDITION_LINK_PARAM = "expedition";
 
-// The link that leaves the app with a result (#57): the app's own address
-// (`base`, the page the result was shared from, which keeps the GitHub Pages
-// subpath) with the day as a query parameter. A query rather than a hash,
-// because link-preview crawlers drop the hash.
+// The link that leaves the app with a result (#57). `base` is the page the
+// result was shared from — always the app's own page — which keeps the
+// GitHub Pages subpath; anything it already carries is dropped.
 export function expeditionLink(day: string, base: string): string {
-  const url = new URL("./", base);
-  url.search = `?${EXPEDITION_LINK_PARAM}=${day}`;
+  const url = new URL(EXPEDITION_PAGE, new URL("./", base));
+  url.search = `?${EXPEDITION_PAGE_PARAM}=${day}`;
   return url.toString();
 }
 

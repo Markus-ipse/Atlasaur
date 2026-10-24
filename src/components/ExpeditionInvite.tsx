@@ -18,6 +18,9 @@ type Props = {
   // so it says what Atlasaur is, and the quiet route leads to the welcome.
   newcomer: boolean;
   onBegin: () => void;
+  // The quiet route, and Escape: on to the welcome or the Today card, as an
+  // ordinary load would have opened. The backdrop does nothing, so a stray
+  // tap cannot throw the invitation away.
   onElsewhere: () => void;
 };
 
@@ -35,6 +38,14 @@ export function ExpeditionInvite({
   useEffect(() => {
     primaryRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onElsewhere();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onElsewhere]);
 
   // A dated link that is not today's says so first: the ten behind Begin
   // are not the ten the sender's score was for.
@@ -72,7 +83,7 @@ export function ExpeditionInvite({
         role="dialog"
         aria-modal="true"
         aria-labelledby="invite-title"
-        aria-describedby="invite-line"
+        aria-describedby={notice ? "invite-notice invite-line" : "invite-line"}
         className="w-full max-w-sm max-h-[90dvh] overflow-y-auto bg-parchment-base rounded-lg shadow-lg p-6 flex flex-col gap-4"
       >
         {newcomer && (
@@ -90,7 +101,10 @@ export function ExpeditionInvite({
           Daily Expedition · {formatDay(today)}
         </p>
         {notice && (
-          <p className="-mt-1 rounded border border-ink-faded/40 px-3 py-2 text-sm text-ink-mid italic">
+          <p
+            id="invite-notice"
+            className="-mt-1 rounded border border-ink-faded/40 px-3 py-2 text-sm text-ink-mid italic"
+          >
             {notice}
           </p>
         )}
@@ -115,7 +129,7 @@ export function ExpeditionInvite({
             {begin}
           </button>
           <button type="button" onClick={onElsewhere} className={QUIET}>
-            {newcomer ? "Learn the map at my own pace instead" : "Not now"}
+            {newcomer ? "Just learn the map" : "Not now"}
           </button>
         </div>
       </div>

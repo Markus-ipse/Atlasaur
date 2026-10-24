@@ -173,7 +173,7 @@ describe("shareText", () => {
       s = recordOutcome(s, o);
     }
     expect(shareText(s, "https://markus-ipse.github.io/Atlasaur/")).toBe(
-      "Atlasaur · 6 September 2026\n■■□■■■□■■■ 8/10\nFind today's ten on the map:\nhttps://markus-ipse.github.io/Atlasaur/?expedition=2026-09-06",
+      "Atlasaur · 6 September 2026\n■■□■■■□■■■ 8/10\nFind today's ten on the map:\nhttps://markus-ipse.github.io/Atlasaur/expedition/?day=2026-09-06",
     );
   });
 
@@ -185,9 +185,9 @@ describe("shareText", () => {
         "2026-09-06",
         "https://markus-ipse.github.io/Atlasaur/?expedition=2026-09-01#x",
       ),
-    ).toBe("https://markus-ipse.github.io/Atlasaur/?expedition=2026-09-06");
+    ).toBe("https://markus-ipse.github.io/Atlasaur/expedition/?day=2026-09-06");
     expect(expeditionLink("2026-09-06", "http://localhost:5173/")).toBe(
-      "http://localhost:5173/?expedition=2026-09-06",
+      "http://localhost:5173/expedition/?day=2026-09-06",
     );
   });
 

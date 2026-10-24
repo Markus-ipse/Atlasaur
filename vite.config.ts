@@ -5,6 +5,16 @@ import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   base: "./",
+  build: {
+    rollupOptions: {
+      // The expedition page is a second, static entry: a shared result links
+      // to it for its link preview, and it forwards to the app (#57).
+      input: {
+        main: "index.html",
+        expedition: "expedition/index.html",
+      },
+    },
+  },
   test: {
     // See the file: from Node 22 on, an experimental `localStorage` global
     // shadows jsdom's working one, and every test touching a persisted store
@@ -54,6 +64,12 @@ export default defineConfig({
         // txt covers fonts/OFL.txt so the licence URL stays reachable offline
         // instead of falling through to index.html.
         globPatterns: ["**/*.{js,css,html,woff2,png,svg,ico,txt}"],
+        // The link-preview images are for crawlers, not the app.
+        globIgnores: ["**/og*.png"],
+        // A shared link opens expedition/?day=…; without this the day would
+        // keep it from matching the precached page, and the navigation
+        // fallback would serve the app's index.html at the wrong path.
+        ignoreURLParametersMatching: [/^utm_/, /^fbclid$/, /^day$/],
         // Serve index.html for any in-scope navigation while offline.
         navigateFallback: "index.html",
         cleanupOutdatedCaches: true,

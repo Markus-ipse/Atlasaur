@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Atlasaur · Daily Expedition</title>
+    <!--
+      The page a shared expedition result links to (#57). It exists for its
+      link preview: GitHub Pages serves static files, so the app's own page
+      can carry only one preview, and this one says what the link is for.
+      Crawlers read the tags below; a person is forwarded straight to the
+      app, which opens the invitation for the day in the link.
+
+      og:url and og:image must be absolute, so they name the deployed site.
+    -->
+    <meta
+      name="description"
+      content="Ten countries to find on the map. The same ten for everyone today, and one go each."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Atlasaur" />
+    <meta property="og:title" content="Atlasaur · Daily Expedition" />
+    <meta
+      property="og:description"
+      content="Ten countries to find on the map. The same ten for everyone today, and one go each."
+    />
+    <meta
+      property="og:url"
+      content="https://markus-ipse.github.io/Atlasaur/expedition/"
+    />
+    <meta
+      property="og:image"
+      content="https://markus-ipse.github.io/Atlasaur/og-expedition.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Atlasaur, Daily Expedition: ten countries to find on the map, over an engraved world map."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <style>
+      /* Mirrors --color-parchment-base in src/index.css, light and dark, so
+         the moment before the forward is not a white flash. */
+      html {
+        background: #f0e2c4;
+        color: #2b1f12;
+      }
+      @media (prefers-color-scheme: dark) {
+        html {
+          background: #1c1812;
+          color: #ede2c4;
+        }
+      }
+      body {
+        margin: 0;
+        padding: 16px;
+        font:
+          16px Garamond,
+          serif;
+      }
+      a {
+        color: inherit;
+      }
+    </style>
+    <script>
+      // Forward to the app with the day under ?expedition=, which the app
+      // reads once and takes out of the address bar (src/game/inviteLink.ts).
+      // replace(), so Back does not land here and forward again.
+      (function () {
+        var day = new URLSearchParams(location.search).get("day") || "";
+        location.replace(
+          new URL("../?expedition=" + encodeURIComponent(day), location.href),
+        );
+      })();
+    </script>
+  </head>
+  <body>
+    <p><a href="../">Open Atlasaur</a></p>
+  </body>
+</html>

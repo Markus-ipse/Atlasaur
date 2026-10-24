@@ -65,6 +65,7 @@ import {
   streakInfo,
   type StreakInfo,
 } from "./streak";
+import { takeInviteDay } from "./inviteLink";
 import {
   ALL_CONTINENTS,
   QUESTION_MODES,
@@ -1978,6 +1979,10 @@ export type GameApi = {
   // no SRS records. Existing learners upgrading past it never see it.
   showWelcome: boolean;
   dismissWelcome: () => void;
+  // The day a shared expedition link named, while its invitation is up, or
+  // null (#57). It stands in for the welcome and the Today card on that load.
+  inviteDay: string | null;
+  dismissInvite: () => void;
   isoFromNumeric: (numeric: string) => string | undefined;
   numericFromIso3: (iso3: string) => string | undefined;
   nameFromIso3: (iso3: string) => string;
@@ -2074,6 +2079,12 @@ export function useGame(): GameApi {
   );
   const [welcomeOpen, setWelcomeOpen] = useState(
     () => !loadSeenWelcome() && !hasAnyRecord(state.srsStore),
+  );
+  // The day a shared expedition link named, when the page was opened from
+  // one (#57). Hook state like the two cards above: it is how this load
+  // began, not game state.
+  const [inviteDay, setInviteDay] = useState(() =>
+    takeInviteDay(dayKey(new Date())),
   );
   // Tick on visibility change + hourly to recompute due counts when the
   // day rolls over for users who leave the tab open.
@@ -2260,6 +2271,7 @@ export function useGame(): GameApi {
   useEffect(() => {
     if (!state.sessionDone) return;
     setTodayCardOpen(false);
+    setInviteDay(null);
     setWelcomeOpen((open) => {
       if (open) saveSeenWelcome(true);
       return false;
@@ -2431,6 +2443,8 @@ export function useGame(): GameApi {
     },
     showTodayCard: todayCardOpen,
     dismissTodayCard: () => setTodayCardOpen(false),
+    inviteDay,
+    dismissInvite: () => setInviteDay(null),
     showWelcome: welcomeOpen,
     dismissWelcome: () => {
       setWelcomeOpen(false);

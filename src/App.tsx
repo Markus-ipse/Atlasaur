@@ -7,6 +7,8 @@ import { RoundBreak } from "./components/RoundBreak";
 import { ExpeditionResult } from "./components/ExpeditionResult";
 import { TodayCard } from "./components/TodayCard";
 import { Welcome } from "./components/Welcome";
+import { ExpeditionInvite } from "./components/ExpeditionInvite";
+import { dayKey } from "./game/streak";
 import { StatusBar } from "./components/StatusBar";
 import { TaskHeader } from "./components/TaskHeader";
 import {
@@ -21,6 +23,7 @@ import { useTheme } from "./theme";
 import { readPaletteFromCss } from "./components/fillFor";
 import {
   focusHidesProgress,
+  hasAnyRecord,
   masteryByContinent,
   paintsProgress,
   paintTiers,
@@ -190,11 +193,18 @@ export default function App() {
     !state.roundDone &&
     !state.sessionDone;
   const showRoundBreak = state.roundDone && !state.sessionDone;
+  // A shared expedition link opens on its invitation (#57), which stands in
+  // for the welcome and the Today card until the learner picks a way on.
+  const showInvite = game.inviteDay !== null && !state.sessionDone;
   const showTodayCard =
-    game.showTodayCard && !state.sessionDone && !showRoundBreak;
-  const showWelcome = game.showWelcome && !state.sessionDone;
+    game.showTodayCard && !state.sessionDone && !showRoundBreak && !showInvite;
+  const showWelcome = game.showWelcome && !state.sessionDone && !showInvite;
   const modalOpen =
-    state.sessionDone || showRoundBreak || showTodayCard || showWelcome;
+    state.sessionDone ||
+    showRoundBreak ||
+    showTodayCard ||
+    showWelcome ||
+    showInvite;
 
   return (
     <div className={`h-dvh w-full flex overflow-hidden bg-parchment-base text-ink-deep ${compact === "dock" ? "flex-col" : compact === "rail" ? "flex-row" : "portrait:flex-col landscape:flex-row"} pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]`}
@@ -313,6 +323,24 @@ export default function App() {
           onSetSpotlight={game.setSpotlight}
           expedition={game.expeditionToday}
           onExpedition={game.startExpedition}
+        />
+      )}
+      {showInvite && (
+        <ExpeditionInvite
+          linkDay={game.inviteDay!}
+          today={dayKey(new Date())}
+          status={game.expeditionToday}
+          newcomer={!hasAnyRecord(state.srsStore)}
+          onBegin={() => {
+            // The expedition is this load's way in, so neither greeting
+            // follows it. The welcome counts as seen: StudyIntro still
+            // explains the scheduler on the first Study miss.
+            game.dismissInvite();
+            game.dismissTodayCard();
+            if (game.showWelcome) game.dismissWelcome();
+            game.startExpedition();
+          }}
+          onElsewhere={game.dismissInvite}
         />
       )}
       {showWelcome && (

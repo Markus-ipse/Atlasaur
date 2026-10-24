@@ -131,7 +131,7 @@ describe("ExpeditionResult", () => {
     const line = document.getElementById("expedition-result-line")!;
     expect(line.textContent).toBe(shareText(STORE, window.location.href));
     expect(line.textContent).toBe(
-      `Atlasaur · 6 September 2026\n■■□■■■□■■■ 8/10\nFind today's ten on the map:\n${window.location.origin}/?expedition=2026-09-06`,
+      `Atlasaur · 6 September 2026\n■■□■■■□■■■ 8/10\nFind today's ten on the map:\n${window.location.origin}/expedition/?day=2026-09-06`,
     );
   });
 

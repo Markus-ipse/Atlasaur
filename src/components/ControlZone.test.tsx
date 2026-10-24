@@ -119,6 +119,8 @@ function makeGame(overrides: {
     dismissTodayCard: vi.fn(),
     showWelcome: false,
     dismissWelcome: vi.fn(),
+    inviteDay: null,
+    dismissInvite: vi.fn(),
     scopeSet: new Set<string>(),
     setIncludeTerritories: vi.fn(),
     isoFromNumeric: () => undefined,
