@@ -209,14 +209,15 @@ answer's longer axis up to 48 CSS px — the one floor that may frame closer tha
 the target, but never closer than the answer framed alone, and never so close
 that a neighbour's name point that was on screen leaves it (the neighbour labels
 are the teaching; a giant the target does not frame was off screen already and
-is pinned as before). Past the target it re-centres on the answer and those
-name points. Markers are left out (a nominal extent, drawn at a constant size).
+is pinned as before). It keeps the target's centre and works that limit out
+about the same centre, for the answer and every name point that was on screen
+(a cap worked out about another centre let Germany slip off a Luxembourg
+reveal). Markers are left out (a nominal extent, drawn at a constant size).
 48 is the largest floor at which the survey's phone passes drop no neighbour
 label: at 56 Georgia (on an Armenia miss) and Uzbekistan (on Tajikistan) lose
 their last visible land wide enough for a name. On desktop it touches only the
-smallest reveals, and `revealSurvey.test.ts`'s desktop list is unchanged; the
-survey passes each pass's scale (`TARGET_LABEL_PX / em`), and the portrait
-phone list gained Luxembourg's Germany.
+smallest reveals; the survey passes each pass's scale (`TARGET_LABEL_PX / em`),
+and both pinned lists are unchanged.
 
 **Not the answer's UN subregion**, which reads like the better rule and is not.
 Subregions run from the Baltics to the whole of South America, so capping at

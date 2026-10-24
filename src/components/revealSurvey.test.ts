@@ -127,9 +127,6 @@ describe("reveal survey over the real table", () => {
     // giant it does not frame. It differs because the frame is fitted to the
     // tall view: the points beside France, Spain and Italy now have room for
     // their neighbour's anchor, and the Great Lakes pair loses the Congo's.
-    // The on-screen floor (REVEAL_ANSWER_MIN_PX) brings Luxembourg close
-    // enough on a phone that Germany's anchor is off it too; its name is
-    // pinned to its visible land like the rest.
     expect(offFrameAnswers(PORTRAIT, PHONE_EM)).toEqual([
       "AZE: Russia",
       "BLR: Russia",
@@ -144,7 +141,6 @@ describe("reveal survey over the real table", () => {
       "KGZ: China",
       "LVA: Russia",
       "LTU: Russia",
-      "LUX: Germany",
       "NPL: China",
       "PRK: China, Russia",
       "NOR: Russia",

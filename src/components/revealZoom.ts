@@ -189,38 +189,32 @@ export function widenForContext(
   );
   const legible = REVEAL_ANSWER_MIN_PX / (longest * screen.pxPerUnit);
   if (legible <= k) return { ...target, k };
-  // No closer than the answer framed alone, nor than the answer with every
-  // name point it showed inside the middle nine tenths of the view.
+  // No closer than the answer framed alone, and only as close as keeps the
+  // answer and every name point it showed inside the middle nine tenths of
+  // the view, about the centre the target already has. Keeping that centre is what makes the
+  // promise hold: a cap worked out about any other centre can still push a
+  // name off at this one.
   const alone = tryFitUnion([primary], screen.viewport)?.k ?? target.k;
-  const before = {
-    hw: screen.viewport.width / (2 * k),
-    hh: screen.viewport.height / (2 * k),
-  };
   const shown = (screen.anchors ?? []).filter(
     (a) =>
-      Math.abs(a.cx - target.cx) <= before.hw &&
-      Math.abs(a.cy - target.cy) <= before.hh,
+      Math.abs(a.cx - target.cx) <= screen.viewport.width / (2 * k) &&
+      Math.abs(a.cy - target.cy) <= screen.viewport.height / (2 * k),
   );
-  const named = unionBounds([
-    primary,
-    ...shown.map((a) => ({ x0: a.cx, y0: a.cy, x1: a.cx, y1: a.cy })),
-  ]);
-  const namedK =
-    0.9 *
-    Math.min(
-      screen.viewport.width / Math.max(1e-6, named.x1 - named.x0),
-      screen.viewport.height / Math.max(1e-6, named.y1 - named.y0),
-    );
-  const k2 = Math.min(legible, Math.max(Math.min(alone, namedK), k));
-  // Within the frame of the answer and its neighbours that target fits, its
-  // centre still holds all of them.
-  if (k2 <= target.k) return { ...target, k: k2 };
-  // Past it, centre on the answer and its neighbours' name points, which then
-  // fit by construction.
+  const halfW = (0.9 * screen.viewport.width) / 2;
+  const halfH = (0.9 * screen.viewport.height) / 2;
+  let held = Infinity;
+  const hold = (x: number, y: number) => {
+    const dx = Math.abs(x - target.cx);
+    const dy = Math.abs(y - target.cy);
+    if (dx > 0) held = Math.min(held, halfW / dx);
+    if (dy > 0) held = Math.min(held, halfH / dy);
+  };
+  hold(primary.x0, primary.y0);
+  hold(primary.x1, primary.y1);
+  for (const a of shown) hold(a.cx, a.cy);
   return {
-    k: k2,
-    cx: (named.x0 + named.x1) / 2,
-    cy: (named.y0 + named.y1) / 2,
+    ...target,
+    k: Math.min(legible, Math.max(Math.min(alone, held), k)),
   };
 }
 

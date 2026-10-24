@@ -366,6 +366,8 @@ describe("widenForContext on screen", () => {
       anchors: [near, far],
     });
     expect(after.k).toBeGreaterThan(before.k);
+    // About the target's own centre, the one the cap was worked out about.
+    expect([after.cx, after.cy]).toEqual([target.cx, target.cy]);
     const halfW = W / (2 * after.k);
     expect(Math.abs(near.cx - after.cx)).toBeLessThanOrEqual(halfW);
     // The answer stays wholly in view.
