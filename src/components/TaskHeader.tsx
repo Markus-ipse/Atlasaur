@@ -124,6 +124,9 @@ function TaskMenu({
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      // Settings opened from this menu takes its own Escape: one press
+      // closes the dialog on top, not the menu under it as well.
+      if (document.getElementById("settings-title")) return;
       setOpen(false);
       buttonRef.current?.focus({ preventScroll: true });
     };

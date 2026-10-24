@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { TaskHeader } from "./TaskHeader";
 import type { GameApi } from "../game/useGame";
 import type { Feedback } from "../types";
+import { emptyCounters } from "../game/counters";
 
 afterEach(cleanup);
 
@@ -42,7 +43,7 @@ function makeGame(
     newAvailableCount: 0,
     scopeSet: new Set<string>(),
     totalInScope: 0,
-    counters: {},
+    counters: emptyCounters(),
     returns: { daysPlayed: 0, longestGap: null, capped: false },
     endSession: vi.fn(),
     setMode: vi.fn(),
@@ -131,5 +132,21 @@ describe("TaskHeader", () => {
     expect(
       screen.getByRole("button", { name: "Round and settings" }),
     ).toBeTruthy();
+  });
+
+  it("lets Settings opened from the menu take its own Escape", () => {
+    renderHeader(makeGame());
+    fireEvent.click(screen.getByRole("button", { name: "Round and settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.getByRole("dialog", { name: "Settings" })).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Settings" })).toBeNull();
+    expect(
+      screen.getByRole("dialog", { name: "Round and settings" }),
+    ).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(
+      screen.queryByRole("dialog", { name: "Round and settings" }),
+    ).toBeNull();
   });
 });

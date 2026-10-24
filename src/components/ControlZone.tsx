@@ -137,6 +137,7 @@ export function ControlZone({
               onContinue={game.dismiss}
               onSkip={game.skip}
               detailsBelow={rail}
+              nameFromIso3={game.nameFromIso3}
             />
             {showStudyIntro && rail && (
               <StudyIntro onDismiss={game.markSrsIntroSeen} />

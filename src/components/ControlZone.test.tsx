@@ -987,8 +987,16 @@ describe("ControlZone on a phone", () => {
     });
     renderZone(game, "dock");
     expect(screen.queryByText("You missed")).toBeNull();
-    expect(screen.queryByText(/Bordered by/)).toBeNull();
-    expect(screen.getByRole("status").textContent).toContain("France");
+    // No visible "Bordered by" line: only the field's read-out carries it.
+    for (const el of screen.queryAllByText(/Bordered by/))
+      expect(el.closest(".sr-only")).not.toBeNull();
+    const status = screen.getByRole("status").textContent;
+    expect(status).toContain("France");
+    // Read out as the panel's "Bordered by" line is; on the map they are only
+    // labels.
+    expect(status).toContain(
+      "Bordered by: Belgium, Germany, Italy, Luxembourg, Spain, Switzerland.",
+    );
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(game.dismiss).toHaveBeenCalled();
   });

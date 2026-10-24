@@ -19,6 +19,9 @@ type Props = {
   // it is a slip away from, offered as "Did you mean …?" (#64). The hook
   // picks the fact; this input never branches on it.
   readTyped: (input: string) => TypedReading;
+  // Names the neighbours the compact field reads out on a miss, as the
+  // panel's "Bordered by" line does.
+  nameFromIso3?: (iso3: string) => string;
   onAnswer: (iso3: string) => void;
   // Enter in the input through a miss reveal: the input keeps focus from card
   // to card (#61), so it answers for Continue.
@@ -53,6 +56,7 @@ export function AnswerInput({
   compact = false,
   onSkip,
   detailsBelow = false,
+  nameFromIso3,
 }: Props) {
   const [value, setValue] = useState("");
   // What was submitted, for the compact field to strike through on a miss:
@@ -299,6 +303,7 @@ export function AnswerInput({
                 feedback={feedback}
                 typed={typed}
                 strike={!detailsBelow}
+                nameFromIso3={nameFromIso3}
               />
             )}
           </div>
@@ -344,6 +349,7 @@ function FieldResult({
   feedback,
   typed,
   strike,
+  nameFromIso3,
 }: {
   current: Country;
   mode: QuestionMode;
@@ -351,6 +357,7 @@ function FieldResult({
   typed: string;
   // False in the rail, which shows the guess on the line below instead.
   strike: boolean;
+  nameFromIso3?: (iso3: string) => string;
 }) {
   const capitals = shownCapitals(current);
   // Leads with the answer, as RevealHero does: the capital only where the
@@ -416,6 +423,18 @@ function FieldResult({
           {capitals.join(", ")}.
         </span>
       )}
+      {feedback.kind !== "correct" &&
+        nameFromIso3 &&
+        current.neighbors.length > 0 && (
+          <span className="sr-only">
+            {" "}Bordered by:{" "}
+            {current.neighbors
+              .map(nameFromIso3)
+              .sort((a, b) => a.localeCompare(b))
+              .join(", ")}
+            .
+          </span>
+        )}
     </div>
   );
 }
