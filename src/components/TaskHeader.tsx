@@ -174,6 +174,7 @@ function TaskMenu({
               role="dialog"
               aria-label="Round and settings"
               tabIndex={-1}
+              onKeyDown={keepTabInside}
               style={
                 at
                   ? { ...at, maxHeight: `calc(100dvh - ${at.top + 8}px)` }
@@ -193,6 +194,30 @@ function TaskMenu({
         )}
     </div>
   );
+}
+
+// Tab and Shift+Tab wrap within the menu, so focus cannot reach the field
+// behind the scrim and answer a card with the menu still open. Settings,
+// opened from here, is portalled outside the menu and leaves its own keys
+// alone: the check is on the DOM, not the React tree its events bubble up.
+function keepTabInside(e: React.KeyboardEvent<HTMLDivElement>) {
+  if (e.key !== "Tab") return;
+  const panel = e.currentTarget;
+  if (!(e.target instanceof Node) || !panel.contains(e.target)) return;
+  const items = panel.querySelectorAll<HTMLElement>(
+    'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  );
+  if (items.length === 0) return;
+  const first = items[0];
+  const last = items[items.length - 1];
+  const active = document.activeElement;
+  if (e.shiftKey && (active === first || active === panel)) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && active === last) {
+    e.preventDefault();
+    first.focus();
+  }
 }
 
 function MoreIcon() {

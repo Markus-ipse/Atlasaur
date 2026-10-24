@@ -149,4 +149,22 @@ describe("TaskHeader", () => {
       screen.queryByRole("dialog", { name: "Round and settings" }),
     ).toBeNull();
   });
+
+  it("keeps Tab inside the menu, away from the field behind it", () => {
+    renderHeader(makeGame());
+    fireEvent.click(screen.getByRole("button", { name: "Round and settings" }));
+    const menu = screen.getByRole("dialog", { name: "Round and settings" });
+    const buttons = menu.querySelectorAll("button");
+    const first = buttons[0];
+    const last = buttons[buttons.length - 1];
+    last.focus();
+    fireEvent.keyDown(last, { key: "Tab" });
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(first, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(last);
+    // From the dialog itself, where focus lands on opening.
+    menu.focus();
+    fireEvent.keyDown(menu, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(last);
+  });
 });
