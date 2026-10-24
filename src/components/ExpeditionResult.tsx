@@ -7,6 +7,7 @@ import {
   foundCount,
   glyphFor,
   glyphRow,
+  expeditionLink,
   shareText,
   type ExpeditionStore,
 } from "../game/expedition";
@@ -54,7 +55,8 @@ export function ExpeditionResult({
   const missedCount = EXPEDITION_SIZE - found;
   // The misses are the default next step until they have been looked at.
   const reviewFirst = missedCount > 0 && !lookDone;
-  const text = shareText(store);
+  const link = expeditionLink(store.day, window.location.href);
+  const text = shareText(store, window.location.href);
 
   useEffect(() => {
     primaryRef.current?.focus();
@@ -141,6 +143,10 @@ export function ExpeditionResult({
             {glyphRow(store.outcomes)}
           </span>{" "}
           {found}/{EXPEDITION_SIZE}
+          {"\n"}
+          Find today's ten on the map:
+          {"\n"}
+          <span className="[overflow-wrap:anywhere]">{link}</span>
         </p>
         {/* What the squares mean, outside the selectable box so copying it
             by hand still yields exactly what Share sends. The spoken row

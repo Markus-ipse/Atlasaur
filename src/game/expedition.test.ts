@@ -12,6 +12,7 @@ import {
   recordOutcome,
   saveExpedition,
   shareText,
+  expeditionLink,
   supersedes,
   type ExpeditionStore,
 } from "./expedition";
@@ -155,7 +156,7 @@ describe("supersedes", () => {
 });
 
 describe("shareText", () => {
-  it("is the row and a caption, in order", () => {
+  it("is the row, a caption and the invitation, in order", () => {
     let s = newExpedition("2026-09-06", POOL);
     for (const o of [
       "found",
@@ -171,7 +172,23 @@ describe("shareText", () => {
     ] as const) {
       s = recordOutcome(s, o);
     }
-    expect(shareText(s)).toBe("Atlasaur · 6 September 2026\n■■□■■■□■■■ 8/10");
+    expect(shareText(s, "https://markus-ipse.github.io/Atlasaur/")).toBe(
+      "Atlasaur · 6 September 2026\n■■□■■■□■■■ 8/10\nFind today's ten on the map:\nhttps://markus-ipse.github.io/Atlasaur/?expedition=2026-09-06",
+    );
+  });
+
+  it("links to the app's own page, whatever page the result was shared from", () => {
+    // A learner who arrived on a link shares from a URL that already
+    // carries a day (and maybe a hash); the link names only the result's.
+    expect(
+      expeditionLink(
+        "2026-09-06",
+        "https://markus-ipse.github.io/Atlasaur/?expedition=2026-09-01#x",
+      ),
+    ).toBe("https://markus-ipse.github.io/Atlasaur/?expedition=2026-09-06");
+    expect(expeditionLink("2026-09-06", "http://localhost:5173/")).toBe(
+      "http://localhost:5173/?expedition=2026-09-06",
+    );
   });
 
   it("formats the day the same everywhere", () => {

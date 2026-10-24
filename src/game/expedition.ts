@@ -251,8 +251,26 @@ export function formatDay(day: string): string {
   return `${d} ${MONTHS[m - 1] ?? ""} ${y}`;
 }
 
-// The text that leaves the app: the row and a caption, nothing else. Two
-// short lines survive every messaging app and need no share sheet.
-export function shareText(store: ExpeditionStore): string {
+// The query parameter a shared link carries: the day the result was for.
+export const EXPEDITION_LINK_PARAM = "expedition";
+
+// The link that leaves the app with a result (#57): the app's own address
+// (`base`, the page the result was shared from, which keeps the GitHub Pages
+// subpath) with the day as a query parameter. A query rather than a hash,
+// because link-preview crawlers drop the hash.
+export function expeditionLink(day: string, base: string): string {
+  const url = new URL("./", base);
+  url.search = `?${EXPEDITION_LINK_PARAM}=${day}`;
+  return url.toString();
+}
+
+// The text that leaves the app: the row, a caption, and the invitation with
+// its link. Short lines survive every messaging app, and the link on a line of
+// its own stays whole when a narrow screen wraps the text.
+export function shareText(store: ExpeditionStore, base: string): string {
+  return `${shareResultLines(store)}\nFind today's ten on the map:\n${expeditionLink(store.day, base)}`;
+}
+
+function shareResultLines(store: ExpeditionStore): string {
   return `Atlasaur · ${formatDay(store.day)}\n${glyphRow(store.outcomes)} ${foundCount(store)}/${EXPEDITION_SIZE}`;
 }

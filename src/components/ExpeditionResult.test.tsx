@@ -129,8 +129,10 @@ describe("ExpeditionResult", () => {
     // Selecting the box by hand must yield what Share sends, nothing more.
     renderCard();
     const line = document.getElementById("expedition-result-line")!;
-    expect(line.textContent).toBe(shareText(STORE));
-    expect(line.textContent).toBe("Atlasaur · 6 September 2026\n■■□■■■□■■■ 8/10");
+    expect(line.textContent).toBe(shareText(STORE, window.location.href));
+    expect(line.textContent).toBe(
+      `Atlasaur · 6 September 2026\n■■□■■■□■■■ 8/10\nFind today's ten on the map:\n${window.location.origin}/?expedition=2026-09-06`,
+    );
   });
 
   it("hands the text to the share sheet where there is one", async () => {
@@ -140,7 +142,7 @@ describe("ExpeditionResult", () => {
     fireEvent.click(screen.getByRole("button", { name: "Share" }));
     await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
     expect(share).toHaveBeenCalledWith({
-      text: "Atlasaur · 6 September 2026\n■■□■■■□■■■ 8/10",
+      text: shareText(STORE, window.location.href),
     });
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Shared" })).toBeTruthy(),
@@ -158,7 +160,7 @@ describe("ExpeditionResult", () => {
     fireEvent.click(screen.getByRole("button", { name: "Share" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
     expect(writeText).toHaveBeenCalledWith(
-      "Atlasaur · 6 September 2026\n■■□■■■□■■■ 8/10",
+      shareText(STORE, window.location.href),
     );
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Copied" })).toBeTruthy(),
