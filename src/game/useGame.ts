@@ -19,6 +19,7 @@ import {
   hasAnyRecord,
   withGrade,
   isDue,
+  hidesIntroduced,
 } from "./srs";
 import { factOf, isClickMode } from "./questionModes";
 import { nextBackLine } from "./nextBack";
@@ -564,6 +565,23 @@ export function cardIsReturning(state: State): boolean {
     state.practiceMode === "study" &&
     recordsFor(state)[state.current.iso3] !== undefined
   );
+}
+
+// Where the Back again pill goes. In Name → Click it goes with the answer,
+// not the prompt: before the answer, "met before" narrows "find X" to the
+// known gold and the few learning cards the map's collapsed wash hides, which
+// is the leak that collapse exists to prevent. A retry pass keeps it on the
+// prompt, where every card is a retry and it tells nothing.
+export function backAgainPlacement(state: State): {
+  onPrompt: boolean;
+  withAnswer: boolean;
+} {
+  const returning = cardIsReturning(state);
+  const withAnswer = returning && hidesIntroduced(state.mode);
+  return {
+    onPrompt: state.phase === "review" || (returning && !withAnswer),
+    withAnswer,
+  };
 }
 
 // Whether the Study card being asked is filler: met before, not due, and not

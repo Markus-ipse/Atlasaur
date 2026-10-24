@@ -947,3 +947,66 @@ describe("the focus chip", () => {
     expect(screen.queryByRole("button", { name: /^Focus:/ })).toBeNull();
   });
 });
+
+// #61: a typed mode on a phone. The dock holds the field and its one button
+// and nothing of the panel; the rail adds its own header and status line.
+describe("ControlZone on a phone", () => {
+  const renderZone = (game: GameApi, layout: "dock" | "rail") =>
+    render(
+      <ControlZone
+        game={game}
+        showCaughtUp={false}
+        onAckCaughtUp={() => {}}
+        themePref="system"
+        onSetThemePref={() => {}}
+        layout={layout}
+      />,
+    );
+  const wrong: Feedback = {
+    kind: "wrong",
+    answerIso3: "",
+    correctIso3: "FRA",
+    at: 0,
+  };
+
+  it("docks only the field and one button", () => {
+    renderZone(makeGame({ mode: "shape-to-name", practiceMode: "study" }), "dock");
+    expect(screen.getByRole("textbox")).toBeTruthy();
+    expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual([
+      "Don't know",
+    ]);
+    expect(screen.queryByText("What country is highlighted?")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Done" })).toBeNull();
+  });
+
+  it("writes a miss in the field and moves on with Next, not a reveal panel", () => {
+    const game = makeGame({
+      mode: "shape-to-name",
+      practiceMode: "study",
+      feedback: wrong,
+    });
+    renderZone(game, "dock");
+    expect(screen.queryByText("You missed")).toBeNull();
+    // No visible "Bordered by" line: only the field's read-out carries it.
+    for (const el of screen.queryAllByText(/Bordered by/))
+      expect(el.closest(".sr-only")).not.toBeNull();
+    const status = screen.getByRole("status").textContent;
+    expect(status).toContain("France");
+    // Read out as the panel's "Bordered by" line is; on the map they are only
+    // labels.
+    expect(status).toContain(
+      "Bordered by: Belgium, Germany, Italy, Luxembourg, Spain, Switzerland.",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(game.dismiss).toHaveBeenCalled();
+  });
+
+  it("gives the rail its own question, menu and status line", () => {
+    renderZone(makeGame({ mode: "shape-to-name", practiceMode: "study" }), "rail");
+    expect(screen.getByText("What country is highlighted?")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Round and settings" }),
+    ).toBeTruthy();
+    expect(screen.getByText(/coming back/)).toBeTruthy();
+  });
+});

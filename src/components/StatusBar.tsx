@@ -56,37 +56,7 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
     >
       {/* Grows from nothing, so at 14 px the chips wrap inside this group and
           Done and the gear keep their place rather than dropping a line. */}
-      <div className="flex flex-1 items-center gap-2 min-w-0 flex-wrap">
-        <RoundChip
-          practiceMode={state.practiceMode}
-          phase={state.phase}
-          roundCards={state.roundCards}
-          lookLeft={state.retryQueue.length}
-        />
-        {isStudy ? (
-          <StudyChips
-            due={game.dueCount}
-            newAvailable={game.newAvailableCount}
-            newIntroduced={state.newIntroducedThisStretch}
-            fact={game.fact}
-          />
-        ) : isExpedition ? null : (
-          <>
-            <ScorePanel tally={game.testTally} />
-            {game.dueCount > 0 && (
-              <button
-                type="button"
-                onClick={() => game.setPracticeMode("study")}
-                title="Back to studying"
-                className="shrink-0 text-sm text-ink-mid tabular-nums px-1.5 py-0.5 rounded hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink-deep"
-              >
-                <span className="font-semibold text-ink-deep">{game.dueCount}</span>{" "}
-                coming back
-              </button>
-            )}
-          </>
-        )}
-      </div>
+      <StatusChips game={game} className="flex-1" />
       <div className="flex items-center gap-1 shrink-0">
         <button
           type="button"
@@ -129,12 +99,60 @@ export function StatusBar({ game, className, themePref, onSetThemePref }: Props)
   );
 }
 
+// Where the learner is: the round, and what is coming back and new, or a
+// test's tally. The status bar's left side, and on its own under a phone's
+// answer in landscape (#61).
+export function StatusChips({
+  game,
+  className = "",
+}: {
+  game: GameApi;
+  className?: string;
+}) {
+  const { state } = game;
+  const isStudy = state.practiceMode === "study";
+  const isExpedition = state.practiceMode === "expedition";
+  return (
+    <div className={`flex items-center gap-2 min-w-0 flex-wrap ${className}`}>
+      <RoundChip
+        practiceMode={state.practiceMode}
+        phase={state.phase}
+        roundCards={state.roundCards}
+        lookLeft={state.retryQueue.length}
+      />
+      {isStudy ? (
+        <StudyChips
+          due={game.dueCount}
+          newAvailable={game.newAvailableCount}
+          newIntroduced={state.newIntroducedThisStretch}
+          fact={game.fact}
+        />
+      ) : isExpedition ? null : (
+        <>
+          <ScorePanel tally={game.testTally} />
+          {game.dueCount > 0 && (
+            <button
+              type="button"
+              onClick={() => game.setPracticeMode("study")}
+              title="Back to studying"
+              className="shrink-0 text-sm text-ink-mid tabular-nums px-1.5 py-0.5 rounded hover:bg-parchment-shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink-deep"
+            >
+              <span className="font-semibold text-ink-deep">{game.dueCount}</span>{" "}
+              coming back
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // Where the learner is in the current round. A test round is a run over the
 // whole scope with its own Done count, so the round chip is Study-only; a
 // review pass (Quiz phase "review") likewise has its own badge in Prompt. An
 // expedition is a round of ten and says so, and its second look at the
 // misses (#64), which has no break to say it, counts what is left.
-function RoundChip({
+export function RoundChip({
   practiceMode,
   phase,
   roundCards,

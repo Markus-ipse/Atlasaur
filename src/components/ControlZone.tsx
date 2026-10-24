@@ -3,12 +3,13 @@ import { Prompt } from "./Prompt";
 import { AnswerInput } from "./AnswerInput";
 import { RevealHero } from "./RevealHero";
 import { CorrectHero } from "./CorrectHero";
-import { StatusBar } from "./StatusBar";
+import { StatusBar, StatusChips } from "./StatusBar";
+import { TaskHeader } from "./TaskHeader";
 import { StudyIntro } from "./StudyIntro";
 import { CaughtUp } from "./CaughtUp";
 import { isTypedMode } from "../game/questionModes";
-import { focusHidesProgress, hidesIntroduced } from "../game/srs";
-import { cardIsReturning, type GameApi } from "../game/useGame";
+import { focusHidesProgress } from "../game/srs";
+import { backAgainPlacement, type GameApi } from "../game/useGame";
 import type { ThemePref } from "../theme";
 import { PRIMARY, SECONDARY } from "./buttonStyles";
 import { KEEP_FOCUS } from "./keepFocus";
@@ -21,6 +22,10 @@ type Props = {
   onAckCaughtUp: () => void;
   themePref: ThemePref;
   onSetThemePref: (pref: ThemePref) => void;
+  // A typed mode on a phone (#61): "dock" sits on the keyboard under the map,
+  // with the question in App's TaskHeader above it; "rail" is a narrow column
+  // beside the map that carries its own header. "panel" everywhere else.
+  layout?: "panel" | "dock" | "rail";
 };
 
 export function ControlZone({
@@ -29,6 +34,7 @@ export function ControlZone({
   onAckCaughtUp,
   themePref,
   onSetThemePref,
+  layout = "panel",
 }: Props) {
   const { state } = game;
   const continueRef = useRef<HTMLButtonElement>(null);
@@ -63,18 +69,87 @@ export function ControlZone({
   const showStudyIntro =
     isStudy && heroFeedback !== null && !game.seenSrsIntro;
   const roundBreak = state.roundDone && !state.sessionDone;
-  // A card that has come back says so. In Name → Click it says so with the
-  // answer, not the prompt: before the answer, "met before" narrows "find X"
-  // to the known gold and the few learning cards the map's collapsed wash
-  // hides, which is the leak that collapse exists to prevent. The retry pass
-  // keeps it on the prompt, where every card is a retry and it tells nothing.
-  const returning = cardIsReturning(state);
-  const pillWithAnswer = returning && hidesIntroduced(state.mode);
-  const pillOnPrompt =
-    state.phase === "review" || (returning && !pillWithAnswer);
+  // A card that has come back says so, on the prompt or with the answer.
+  const { onPrompt: pillOnPrompt, withAnswer: pillWithAnswer } =
+    backAgainPlacement(state);
   const paused =
     roundBreak ||
     ((game.showTodayCard || game.showWelcome) && !state.sessionDone);
+
+  const caughtUp = (
+    <CaughtUp
+      onKeepGoing={onAckCaughtUp}
+      capitalOffer={
+        // Not in a focus: the offer counts the whole scope's countries.
+        state.spotlightSubregion === null ? game.capitalOffer : null
+      }
+      onTryCapitals={() => game.setMode("country-to-capital")}
+      nextBack={game.nextBack}
+      newLeft={game.newAvailableCount > 0}
+      spotlightSubregion={state.spotlightSubregion}
+      onLeaveFocus={game.clearSpotlight}
+    />
+  );
+
+  // A typed mode on a phone (#61): the field and its one button, the answer
+  // written in the field, and nothing else that would take the map's height
+  // but the first-miss explanation, an offer and the caught-up banner, which
+  // come and go.
+  if (layout !== "panel") {
+    const rail = layout === "rail";
+    return (
+      <aside
+        data-compact={layout}
+        className={
+          "flex flex-col shrink-0 gap-2 bg-parchment-base border-ink-faded/40 " +
+          (rail
+            ? "w-80 h-full overflow-y-auto border-l p-2.5"
+            : "max-h-[60%] overflow-y-auto border-t px-2.5 py-2")
+        }
+      >
+        {rail && (
+          <TaskHeader
+            game={game}
+            showCount={false}
+            caughtUp={showCaughtUp}
+            themePref={themePref}
+            onSetThemePref={onSetThemePref}
+          />
+        )}
+        {showCaughtUp ? (
+          caughtUp
+        ) : (
+          <>
+            {/* Above the field in the dock, next to the map it explains;
+                under it in the rail, where above would push the field out of
+                a keyboard-short column. */}
+            {showStudyIntro && !rail && (
+              <StudyIntro onDismiss={game.markSrsIntroSeen} />
+            )}
+            <AnswerInput
+              compact
+              mode={state.mode}
+              current={state.current}
+              feedback={state.feedback}
+              paused={paused}
+              readTyped={game.readTyped}
+              onAnswer={game.answer}
+              onContinue={game.dismiss}
+              onSkip={game.skip}
+              detailsBelow={rail}
+              nameFromIso3={game.nameFromIso3}
+            />
+            {showStudyIntro && rail && (
+              <StudyIntro onDismiss={game.markSrsIntroSeen} />
+            )}
+          </>
+        )}
+        {rail && !(state.feedback && state.feedback.kind !== "correct") && (
+          <StatusChips game={game} />
+        )}
+      </aside>
+    );
+  }
 
   return (
     <aside className="flex flex-col shrink-0 bg-parchment-base border-ink-faded/40 portrait:border-t portrait:p-3 portrait:gap-3 portrait:overflow-y-auto landscape:border-l landscape:p-4 landscape:gap-4 landscape:w-72 lg:landscape:w-80 landscape:h-full landscape:overflow-y-auto">
@@ -95,18 +170,7 @@ export function ControlZone({
       >
         <div>
           {showCaughtUp ? (
-            <CaughtUp
-              onKeepGoing={onAckCaughtUp}
-              capitalOffer={
-                // Not in a focus: the offer counts the whole scope's countries.
-                state.spotlightSubregion === null ? game.capitalOffer : null
-              }
-              onTryCapitals={() => game.setMode("country-to-capital")}
-              nextBack={game.nextBack}
-              newLeft={game.newAvailableCount > 0}
-              spotlightSubregion={state.spotlightSubregion}
-              onLeaveFocus={game.clearSpotlight}
-            />
+            caughtUp
           ) : heroFeedback ? (
             <RevealHero
               current={state.current}

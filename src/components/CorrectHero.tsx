@@ -1,7 +1,7 @@
 import type { Country, QuestionMode } from "../types";
 import { shownCapitals } from "../game/typedMatch";
 import type { Milestone } from "../game/milestones";
-import { streakNote } from "../game/milestones";
+import { ceremonyOf } from "./ceremony";
 import { BackAgain } from "./Prompt";
 
 // Shown for a correct answer, in the same hero slot RevealHero uses for
@@ -40,7 +40,7 @@ export function CorrectHero({
   onMap = true,
   returning = false,
 }: Props) {
-  const note = streakNote(streak);
+  const ceremony = ceremonyOf(milestone, streak, onMap);
   const sealed = milestone?.continentComplete ?? null;
   // Lead with the ANSWER, as the miss reveal does. Only country-to-capital
   // asks for a capital; capital-to-click names one in the prompt and asks for
@@ -72,16 +72,14 @@ export function CorrectHero({
           {current.name}
         </p>
       )}
-      {milestone && !sealed && (
-        <p className="milestone-in text-sm italic text-ochre">
-          {onMap
-            ? `${milestone.name}, now on your map.`
-            : `${milestone.name} is known now.`}
-        </p>
-      )}
-      {sealed && <WaxSeal continent={sealed} />}
-      {note && !milestone && (
-        <p className="milestone-in text-sm italic text-ink-mid">{note}</p>
+      {sealed ? (
+        <WaxSeal continent={sealed} />
+      ) : (
+        ceremony && (
+          <p className={`milestone-in text-sm italic ${ceremony.className}`}>
+            {ceremony.text}
+          </p>
+        )
       )}
     </div>
   );
